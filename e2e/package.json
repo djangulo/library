@@ -1,0 +1,16 @@
+{
+  "name": "e2e",
+  "version": "1.0.0",
+  "description": "e2e para la biblioteca virtual",
+  "main": "index.js",
+  "author": "denis angulo",
+  "license": "MIT",
+  "private": false,
+  "devDependencies": {
+    "cypress": "^3.4.0"
+  },
+  "scripts": {
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run"
+  }
+}
