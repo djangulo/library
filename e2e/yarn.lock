@@ -909,6 +909,11 @@ pify@^2.2.0:
   resolved "https://registry.yarnpkg.com/pify/-/pify-2.3.0.tgz#ed141a6ac043a849ea588498e7dca8b15330e90c"
   integrity sha1-7RQaasBDqEnqWISY59yosVMw6Qw=
 
+print-env@^0.1.2:
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/print-env/-/print-env-0.1.2.tgz#0974cc45990b3115037825bac8bd0e75a5394b27"
+  integrity sha512-EYxH9D78sdOIMnmvS0HlIMUQRP/fDmAuY1MjQzxUCDG8rnv9AMwL+/rgbLTUf9Pe38oAflBbwL8zk9iTAlyz0A==
+
 process-nextick-args@~2.0.0:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/process-nextick-args/-/process-nextick-args-2.0.1.tgz#7820d9b16120cc55ca9ae7792680ae7dba6d7fe2"

@@ -4,6 +4,8 @@
 
 # production
 **/build
+**/builds
+
 # testing
 /coverage
 
