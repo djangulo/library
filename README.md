@@ -19,7 +19,7 @@ El `README.md` original de este repositorio fue movido al archivo llamado [instr
 
 ## Version en vivo<a name="live-version"></a>
 
-Las version en vivo de la aplicación se encuentra en
+Las version en vivo de la aplicación se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library-staging.djangulo.com">https://library-staging.djangulo.com</a>
 
 ## Proceso de diseño<a name="design-process"></a>
 
