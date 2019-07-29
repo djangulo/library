@@ -26,4 +26,8 @@
 **/cypress/integration/examples
 
 
+# .json files created by automation scripts
+compose/staging/*.json
+
+
 

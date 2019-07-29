@@ -1,0 +1,27 @@
+version: '3.7'
+
+# networks:
+#   biblioteca_staging:
+
+volumes:
+  # staging_postgres_data: {}
+  # staging_postgres_data_backups: {}
+  staging_caddy: {}
+
+services:
+  caddy:
+    build:
+      context: .
+      dockerfile: ./compose/staging/caddy/Dockerfile
+    image: library_caddy
+    volumes:
+      - staging_caddy:/root/.caddy
+    env_file:
+      - ./.envs/.staging/.caddy
+    command: -port 8000 -host 0.0.0.0 -conf /etc/Caddyfile
+    # environment:
+    #   - DOMAIN_NAME=localhost:80
+
+    ports:
+      - '80:80'
+      - '443:8000'
