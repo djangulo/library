@@ -50,7 +50,7 @@ test_e2e:
   stage: test
   script:
     - cd e2e
-    - yarn run cypress:run
+    - yarn run test
   artifacts:
     when: always
     paths:
