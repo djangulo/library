@@ -28,6 +28,8 @@
 **/cypress/videos
 **/cypress/integration/examples
 
+cache
+
 
 # .json files created by automation scripts
 compose/staging/*.json

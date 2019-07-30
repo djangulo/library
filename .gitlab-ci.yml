@@ -9,11 +9,12 @@ variables:
 # cache using branch name
 # https://gitlab.com/help/ci/caching/index.md
 cache:
-  key: ${CI_COMMIT_REF_SLUG}
+  key: dev
   paths:
     - .npm
     - client/node_modules
     - e2e/node_modules
+    - cache/Cypress
 
 # this job installs NPM dependencies and Cypress
 install_cy:
@@ -23,25 +24,34 @@ install_cy:
   script:
     - cd e2e
     - yarn install
+    - ls -la
     - yarn run cypress:verify
 
-test_app:
-  image: 'node:12.6'
-  stage: test
+build_client:
+  stage: build
+  image: 'node:12.6-alpine'
   script:
     - cd client
     - yarn install
+
+test_app:
+  only:
+    - dev
+  image: 'node:12.6-alpine'
+  stage: test
+  script:
+    - cd client
     - yarn run test
 
 # all jobs that actually run tests can use the same definition
 test_e2e:
   image: cypress/base:10
   only:
-    - /dev
+    - dev
   stage: test
   script:
     - cd e2e
-    - yarn run test
+    - yarn run cypress:run
   artifacts:
     when: always
     paths:
