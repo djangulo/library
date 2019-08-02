@@ -30,6 +30,7 @@ Las decisiones tomadas y las razones detrás de las mismas están delineadas en 
 - Cliente
 
   - <a target="_blank" rel="noopener noreferrer" href="https://reactjs.org/">React</a>. Librería de JavaScript para construir interfaces de usuario. Inicializado a traves de <a target="_blank" rel="noopener noreferrer" href="https://github.com/facebook/create-react-app">CRA</a>.
+  - <a target="_blank" rel="noopener noreferrer" href="https://redux.js.org/">Redux</a>. Para manejar el estado de la aplicación de manera centralizada,
 
 - Lanzamiento
 
