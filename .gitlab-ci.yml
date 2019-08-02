@@ -57,6 +57,12 @@ test_e2e:
       - cypress/videos/**/*.mp4
       - cypress/screenshots/**/*.png
     expire_in: 1 day
+
+after_script:
+  - rm -rf .npm
+  - rm -rf client/node_modules
+  - rm -rf e2e/node_modules
+  - rm -rf cache/Cypress
 # # actual job definitions
 # # all steps are the same, they come from the template above
 # electrons-1:

@@ -94,6 +94,7 @@ if [[ $machine_out -eq 1 ]]; then
 else
     message_success "EC2 instance created successfully."
 fi
+docker-machine ssh $instance_name 'sudo usermod -aG docker ubuntu'
 machine_ip=$(docker-machine ip "${instance_name}")
 
 if [ "$domain" = false ]; then
@@ -112,8 +113,28 @@ else
     hosted_zone_id=$(aws route53 list-hosted-zones-by-name --dns-name "${domain}" | jq -r '.HostedZones[0].Id')
     hosted_zone_id=${hosted_zone_id##*/}
 
+    cat > $working_dir/${full_domain}.json << EOF
+    {
+    "Comment": "COMMENT",
+    "Changes": [
+        {
+        "Action": "CREATE",
+        "ResourceRecordSet": {
+            "Name": "DNS subdomain",
+            "Type": "RECORDTYPE",
+            "TTL": 300,
+            "ResourceRecords": [
+            {
+                "Value": "DOMAIN"
+            }
+            ]
+        }
+        }
+    ]
+    }
+EOF
 
-    sed "s/RECORDTYPE/${record_type}/g" $working_dir/record_set.json > $working_dir/"${full_domain}.json"
+    sed -i "s/RECORDTYPE/${record_type}/g" $working_dir/"${full_domain}.json"
     sed -i "s/DOMAIN/${full_domain}/g" $working_dir/"${full_domain}.json"
     sed -i "s/IPADDRESS/${machine_ip}/g" $working_dir/"${full_domain}.json"
     sed -i "s/COMMENT/Creating ${record_type} record for ${full_domain}/g" $working_dir/"${full_domain}.json"
