@@ -11,10 +11,10 @@ variables:
 cache:
   key: dev
   paths:
-    - .npm
-    - client/node_modules
-    - e2e/node_modules
-    - cache/Cypress
+    - .yarn
+    - client/node_modules/
+    - e2e/node_modules/
+    - cache/Cypress/
 
 # this job installs NPM dependencies and Cypress
 install_cy:
@@ -28,7 +28,7 @@ install_cy:
 
 build_client:
   stage: build
-  image: 'node:12.6-alpine'
+  image: 'node:12.6'
   script:
     - cd client
     - yarn install
@@ -36,7 +36,7 @@ build_client:
 test_app:
   only:
     - dev
-  image: 'node:12.6-alpine'
+  image: 'node:12.6'
   stage: test
   script:
     - cd client
@@ -51,12 +51,6 @@ test_e2e:
   script:
     - cd e2e
     - yarn run test
-
-after_script:
-  - rm -rf .npm
-  - rm -rf client/node_modules
-  - rm -rf e2e/node_modules
-  - rm -rf cache/Cypress
 # # actual job definitions
 # # all steps are the same, they come from the template above
 # electrons-1:
