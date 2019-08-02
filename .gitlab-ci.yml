@@ -51,12 +51,6 @@ test_e2e:
   script:
     - cd e2e
     - yarn run test
-  artifacts:
-    when: always
-    paths:
-      - cypress/videos/**/*.mp4
-      - cypress/screenshots/**/*.png
-    expire_in: 1 day
 
 after_script:
   - rm -rf .npm
