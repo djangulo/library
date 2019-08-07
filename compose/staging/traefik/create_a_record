@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+
+# set -o errexit
+set -o pipefail
+# set -o nounset
+
+working_dir="$(dirname ${0})"
+source "${working_dir}/_sourced/no_color_messages.sh"
+source "${working_dir}/_sourced/constants.sh"
+
+show_help(){
+cat << EOF
+Usage: deploy_staging [OPTIONS] <instance-name>
+
+Deploys to staging server through a docker-machine instance.
+Will attempt to assign the domain passed to the EC2 instance.
+
+    -h, --help          show this help message and exit
+    -d, --domain        domain root to assign to the EC2 instance. This
+                        will be used to search for the hosted zone.
+    -s, --subdomain     subdomain to assign to the instance
+    -r, --region        Region to create the instance at. If missing, will
+                        fall back to us-east-1 (N. Virginia)
+
+Examples:
+
+deploy_staging -d=example.com -s=subdomain my-instance-name
+
+    Will deploy the staging server to an EC2 instance, named
+    my-instance-name, and will attempt to assign the domain
+    subdomain.example.com.
+
+deploy_staging --subdomain=abcdefg myInstance
+
+    Will deploy the staging server to an EC2 instance, named
+    myInstance, and will NOT attempt to assign a domain (as -d
+    was not passed).
+
+EOF
+}
+
+if ! docker_loc="$(type -p "docker")" || [[ -z $docker_loc ]]; then
+    message_error ${DOCKER_REQUIRED}
+    exit 1
+fi
+
+if ! compose_loc="$(type -p "docker-compose")" || [[ -z $compose_loc ]]; then
+    message_error "${DOCKER_REQUIRED//docker/docker-compose}"
+fi
+
+if ! machine_loc="$(type -p "docker-machine")" || [[ -z $machine_loc ]]; then
+    message_error "${DOCKER_REQUIRED//docker/docker-machine}"
+fi
+
+args=()
+# flag defaults
+domain=false
+
+for arg in  "$@"; do
+    case $arg in
+        -d=*| --domain=*) domain="${arg#*=}";;
+        -s=*| --subdomain=*) subdomain="${arg#*=}";;
+        -r=*| --region=*) region="${arg#*=}";;
+        -h |--help )      show_help; exit;;
+        * )                      args+=($arg)
+    esac
+done
+
+set -- "${args[@]}"
+
+instance_name="${args[0]}"
+
+if [[ -z "${instance_name}" ]]; then
+    message_error "Missing positional argument: instance name"
+    show_help
+    exit 1;
+fi
+
+if [ -z ${region+us-east-1} ]; then
+    message_info "Missing region, defaulting to us-east-1"
+fi
+
+machine_ip=$(docker-machine ip "${instance_name}")
+
+if [ "$domain" = false ]; then
+    message_warning "No domain provided. Skipping domain assignment"
+else
+    record_type=A
+
+    if [[ -z "${subdomain}" ]]; then
+        subdomain=""
+    else
+        subdomain="${subdomain}."
+    fi
+
+    full_domain="${subdomain}${domain}"
+    message_info "Attempting to assign domain ${full_domain}"
+    hosted_zone_id=$(aws route53 list-hosted-zones-by-name --dns-name "${domain}" | jq -r '.HostedZones[0].Id')
+    hosted_zone_id=${hosted_zone_id##*/}
+
+    cat > $working_dir/${full_domain}.json << EOF
+{
+  "Comment": "Creating A record for DOMAIN",
+  "Changes": [
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "DOMAIN",
+        "Type": "A",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "IPADDRESS"
+          }
+        ]
+      }
+    }
+  ]
+}
+EOF
+
+    sed -i 's/\r//g' $working_dir/"${full_domain}.json"
+    sed -i "s/RECORDTYPE/${record_type}/g" $working_dir/"${full_domain}.json"
+    sed -i "s/DOMAIN/${full_domain}/g" $working_dir/"${full_domain}.json"
+    sed -i "s/IPADDRESS/${machine_ip}/g" $working_dir/"${full_domain}.json"
+    sed -i "s/COMMENT/Creating ${record_type} record for ${full_domain}/g" $working_dir/"${full_domain}.json"
+
+    aws route53 change-resource-record-sets \
+        --hosted-zone-id $hosted_zone_id \
+        --change-batch file://"${working_dir}/${full_domain}.json"
+
+fi
+
+exit 0;

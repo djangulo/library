@@ -36,3 +36,6 @@ compose/staging/*.json
 
 
 
+
+**/nltk_data
+**/seed_data

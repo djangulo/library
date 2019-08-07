@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+
+
+# set -o errexit
+set -o pipefail
+# set -o nounset
+
+working_dir="$(dirname ${0})"
+source "${working_dir}/_sourced/messages.sh"
+source "${working_dir}/_sourced/constants.sh"
+
+show_help(){
+cat << EOF
+Usage: aws_ec2_load_balancer [OPTIONS] 
+     
+Creates an AWS EC2 instance and sets up traefik with the ./traefikinit script.
+
+    
+    -h, --help              show this help message and exit
+    -i, --instance-name      name for the AWS EC2 instance, required
+    -p, --open-ports        comma separated list of ports to open, 
+                            default 80,443
+    -r, --region            Region to create the instance at. If missing, will
+                            fall back to us-east-1 (N. Virginia)
+    -d, --domain     domain to assign to the docker provider on traefik.toml
+    -s, --subdomains     comma separated list of additional subdomains to register
+    -a, --admin             email address to register the acme challenges against
+    -n, --networks          comma separated list of networks to insert in traefik
+                            compose file, these networks need to be added manually
+                            to your own docker compose
+    --dry-run           run without making any changes
+
+EOF
+}
+
+if ! docker_loc="$(type -p "docker")" || [[ -z $docker_loc ]]; then
+    message_error ${DOCKER_REQUIRED}
+    exit 1
+fi
+
+if ! compose_loc="$(type -p "docker-machine")" || [[ -z $compose_loc ]]; then
+    message_error "${DOCKER_MACHINE_REQUIRED}"
+    exit 1
+fi
+
+if ! aws_loc="$(type -p "aws")" || [[ -z $aws_loc ]]; then
+    message_error "${AWS_REQUIRED}"
+    exit 1
+fi
+
+
+args=()
+
+while [ "$1" != "" ]; do
+    case $1 in
+        -i|--instance-name)  instance_name="$2"; shift;; # Remove trailing slash
+        -p|--open-ports) ports="$2"; shift;;
+        -r|--region)         region="$2"; shift;;
+        -d|--domain) host="$2"; shift;;
+        -s|--subdomains) subdomains="$2"; shift;;
+        -a|--admin)         admin="$2"; shift;;
+        -n|--networks)   networks="$2"; shift;;
+        --dry-run)       dryrun="$2"; shift;;
+        -h|-\?|--help)      show_help; exit;;
+        -*|--*=)            message_error "Unsuported arg $2"; show_help; exit 1;;
+        *)               # Default case: No more options, so break out of the loop.
+    esac
+    shift
+done
+
+
+if [ -z "${dryrun+false}" ]; then
+    dryrun=false
+else
+    message_info "Performing dry run"
+    dryrun=true
+fi
+
+if [ -z ${region+us-east-1} ]; then
+    message_info "Missing region, defaulting to us-east-1"
+else
+    message_info "region: ${region}"
+fi
+
+if [[ -z "${ports+80,443}" ]]; then
+    message_info "no ports passed in, defaulting to: ${ports}"
+else
+    message_info "ports: ${ports}"
+fi
+split_ports=$(echo $ports | tr "," "\n")
+
+if [[ -z "${subdomains}" ]]; then
+    message_info "no subdomains passed in, ignoring"
+else
+    message_info "subdomains: ${subdomains}"
+fi
+split_subdomains=$(echo $subdomains | tr "," "\n")
+
+if [[ -z "${instance_name}" ]]; then
+    message_error "--instance-name not provided, aborting"
+    exit 1
+fi
+if [[ -z "${networks}" ]]; then
+    networks="${instance_name//[-.]/_}_web"
+    message_info "no --networks passed in, defaulting to: ${networks}"
+else
+    message_info "networks: ${networks}"
+fi
+
+if [[ -z "${host}" ]]; then
+    message_warning "--docker-domain not set, you will need to make manual changes to ${troot}/traefik.toml"
+else
+    message_info "docker domain: ${host}"
+fi
+
+if [[ -z "${admin}" ]]; then
+    message_warning "--admin not set, you will need to make manual changes to ${troot}/traefik.toml"
+else
+    message_info "admin email: ${admin}"
+fi
+
+
+create_command="docker-machine create"
+create_command+=" --driver amazonec2"
+create_command+=" --amazonec2-region ${region}"
+for p in $split_ports
+do
+    create_command+=" --amazonec2-open-port $p"
+done
+create_command+=" $instance_name"
+
+usermod_command+="docker-machine ssh $instance_name sudo usermod -a -G docker \$USER"
+
+create_dir_command="docker-machine ssh $instance_name sudo mkdir -p /opt/traefik"
+chown_command="docker-machine ssh $instance_name sudo chown -R \$USER:\$USER /opt/traefik"
+# create_dir_command=" &&"
+# create_dir_command=" docker-machine ssh $instance_name \"sudo chown -r \$USER /opt/traefik\""
+
+scp_command="docker-machine scp"
+scp_command+=" -r  -d $working_dir/ $instance_name:/opt/traefik"
+
+chmod_command="docker-machine ssh $instance_name"
+chmod_command+="  chmod +x /opt/traefik/traefikinit"
+chmod_command+=" /opt/traefik/insert_network"
+chmod_command+=" /opt/traefik/_sourced/constants.sh"
+chmod_command+=" /opt/traefik/_sourced/messages.sh"
+chmod_command+=" /opt/traefik/_sourced/no_color_messages.sh"
+
+init_command="docker-machine ssh $instance_name "
+init_command+=" /opt/traefik/traefikinit "
+init_command+=" -t /opt/traefik"
+init_command+=" -p $instance_name"
+init_command+=" -a $admin"
+init_command+=" -d $host"
+init_command+=" -n $networks"
+
+install_compose_command="docker-machine ssh $instance_name"
+install_compose_command+=" sudo curl -L \"https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)\" -o /usr/local/bin/docker-compose"
+install_compose_command+=" && sudo chmod +x /usr/local/bin/docker-compose"
+
+create_a_record_cmd="$working_dir/create_a_record -d=$host  $instance_name"
+for sd in $split_subdomains
+do
+    create_a_record_cmd+=" && $working_dir/create_a_record -s=$sd -d=$host  $instance_name"
+done
+
+compose_init_command="docker-machine ssh $instance_name"
+compose_init_command+=" docker-compose -f /opt/traefik/docker-compose.yml up --detach"
+
+
+if [ "$dryrun" = false ]; then
+    # create_err=$($create_command) 2>&1 | tr -d '\r';
+    # create_out=$?
+    echo $create_command
+    eval $($create_command)
+    echo ''
+    echo $usermod_command
+    eval $($usermod_command)
+    echo ''
+    echo $create_dir_command
+    eval $($create_dir_command)
+    echo ''
+    echo $chown_command
+    eval $($chown_command)
+    echo ''
+    echo $scp_command
+    eval $($scp_command)
+    echo ''
+    echo $chmod_command
+    eval $($chmod_command)
+    echo ''
+    echo $init_command
+    eval $($init_command)
+    echo ''
+    for sd in $split_subdomains
+    do
+        $working_dir/create_a_record -s=$sd -d=$host  $instance_name
+    done
+    echo $install_compose_command
+    eval $($install_compose_command)
+    echo ''
+    echo $compose_init_command
+    eval $($compose_init_command)
+    echo ''
+else
+    echo $create_command
+    echo $create_dir_command
+    echo $scp_command
+    echo $init_command
+fi
+eval $(docker-machine env -u)
+exit 0

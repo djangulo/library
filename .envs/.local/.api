@@ -1,0 +1,16 @@
+# Env vars for the express API.
+# Most of these vars are read in api/src/config.js, and set with default values there.
+#   PORT:           port to serve the app at
+#   PAGINATE:       whether or not to paginate the results of the 'list' endpoints
+#   PAGINATE_BY:    default number of items by page
+
+SERVE_PORT=9000
+PAGINATE=1
+PAGINATE_BY=10
+PARAGRAPHS_PER_PAGE=50
+MIGRATIONS_DIR=./src/db/migrations
+SEED_DATA_DIR=./src/db/seed_data
+NLTK_DATA=./src/db/nltk_data
+CORPORA_DIR=./src/db/nltk_data/corpora/gutenberg
+CLIENT_ADDR=http://localhost:3000
+ROOTURL=http://localhost

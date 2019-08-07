@@ -1,27 +1,79 @@
 version: '3.7'
 
-# networks:
-#   biblioteca_staging:
+networks:
+  library_staging:
+    external: true
 
 volumes:
-  # staging_postgres_data: {}
-  # staging_postgres_data_backups: {}
-  staging_caddy: {}
+  staging_client: {}
+  staging_postgres_data: {}
+  staging_postgres_backups: {}
 
 services:
-  caddy:
+  client:
     build:
       context: .
-      dockerfile: ./compose/staging/caddy/Dockerfile
-    image: library_caddy
+      dockerfile: ./compose/staging/client/Dockerfile
+    image: client_staging
+    restart: always
     volumes:
-      - staging_caddy:/root/.caddy
+      - staging_client:/root/.client
     env_file:
-      - ./.envs/.staging/.caddy
-    command: -port 8000 -host 0.0.0.0 -conf /etc/Caddyfile
-    # environment:
-    #   - DOMAIN_NAME=localhost:80
+      - ./.envs/.staging/.client
+    command: npx serve /build
+    networks:
+      - library_staging
+      - default
+    expose:
+      - '5000'
+    labels:
+      - 'traefik.docker.network=library_staging'
+      - 'traefik.enable=true'
+      - 'traefik.basic.frontend.rule=Host:library-staging.djangulo.com'
+      - 'traefik.basic.port=5000'
+      - 'traefik.basic.protocol=http'
 
-    ports:
-      - '80:80'
-      - '443:8000'
+  api:
+    build:
+      context: .
+      dockerfile: ./compose/staging/api/Dockerfile
+    image: api_staging
+    command: ['./wait-for', 'postgres:5432', '--', 'yarn', 'run', 'start']
+    # command: ['yarn', 'run', 'start']
+    networks:
+      - library_staging
+      - default
+    expose:
+      - '9000'
+    depends_on:
+      - postgres
+    env_file:
+      - ./.envs/.staging/.postgres
+      - ./.envs/.staging/.api
+      - ./.envs/.staging/.client
+    labels:
+      - 'traefik.docker.network=library_staging'
+      - 'traefik.enable=true'
+      - 'traefik.basic.frontend.rule=Host:library-api-staging.djangulo.com'
+      - 'traefik.basic.port=9000'
+      - 'traefik.basic.protocol=http'
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./compose/staging/postgres/Dockerfile
+    healthcheck:
+      test: ['CMD', 'sh', '-c', '/usr/local/bin/healthcheck']
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    image: library_staging_postgres
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+      - staging_postgres_backups:/backups
+    env_file:
+      - ./.envs/.staging/.postgres
+    networks:
+      - library_staging

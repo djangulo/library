@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+pg_isready \
+    -h $POSTGRES_HOST \
+    -d $POSTGRES_DB \
+    -p $POSTGRES_PORT \
+    -U $POSTGRES_USER

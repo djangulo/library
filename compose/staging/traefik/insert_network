@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+
+
+# set -o errexit
+set -o pipefail
+# set -o nounset
+
+working_dir="$(dirname ${0})"
+source "${working_dir}/_sourced/no_color_messages.sh"
+source "${working_dir}/_sourced/constants.sh"
+
+show_help(){
+cat << EOF
+Usage: insert_network [OPTIONS] <network-name> <target-file>
+
+Inserts a network into a docker-compose.yml file
+Intended use is to insert or  remove (see options) networks
+from the main traefic-compose file (see ./traefik-compose.yml)
+
+    -h, --help      show this help message and exit
+    -r, --remove    if found, remove the network
+    -s, --spaces    number of spaces that conform a "tab character"
+                    in your .yml, default 2
+    -i, --inplace   edit file in place
+
+EOF
+}
+
+if ! sed_loc="$(type -p "sed")" || [[ -z $sed_loc ]]; then
+    message_error ${SED_REQUIRED}
+    exit 1;
+fi
+
+args=()
+# flag defaults
+remove=false
+inplace=false
+spaces=2
+
+for arg in  "$@"; do
+    case $arg in
+        -r|--remove)  remove=true;;
+        -s=*| --spaces=*) spaces="${arg#*=}";;
+        -i | --inplace )  inplace=true;;
+        -h |--help )      show_help; exit;;
+        * )                      args+=($arg)
+    esac
+done
+
+set -- "${args[@]}"
+# echo "${args}"
+# echo $inplace
+
+network_name="${args[0]}"
+target_file="${args[1]}"
+
+intre='^[0-9]+$'
+if ! [[ $spaces =~ $intre ]] ; then
+   message_error "--spaces passed in is not a number"
+   exit 1;
+fi
+tab_char=$(printf %${spaces}s)
+
+if [[ -z "${network_name}" && -z "${target_file}" ]]; then
+    message_error "Missing positional arguments"
+    show_help
+    exit 1;
+fi
+
+snake_network=${network_name//[- .]/_}
+message_info $snake_network
+message_info $target_file
+if grep -q "\- ${snake_network}$" $target_file
+then
+    if [ "$remove" = true ]; then
+        if [ "$inplace" = true ]; then
+            sed -i "/${snake_network}:$/,+1d" $target_file
+            grep -v "\- ${snake_network}$" $target_file > tmpfile; mv tmpfile $target_file
+            grep -v "\traefik.docker.network=${snake_network}'$" $target_file > tmpfile; mv tmpfile $target_file
+            message_success "Network \e[33m${snake_network}\e[0m removed from ${target_file}"
+        else
+        message_info "No -i option"
+        sed "/${snake_network}:$/,+1d" $target_file | grep -v "\- ${snake_network}$" | grep -v "\- 'traefik.docker.network'=${snake_network}'$"
+        fi
+    else
+        message_error "Network \e[33m${snake_network}\e[0m is already in ${target_file}"
+        exit 0
+    fi
+else
+    if [ "$remove" = true ]; then
+        message_error "Network \e[33m${snake_network}\e[0m not found in ${target_file}"
+        exit 1
+    else
+        if [ "$inplace" = true ]; then
+            sed -i -e '/^networks:/a\' -e "${tab_char}${snake_network}:\n${tab_char}${tab_char}external: true" $target_file
+            sed -i  -e "/^${tab_char}${tab_char}networks:/a\\" -e "${tab_char}${tab_char}${tab_char}- ${snake_network}" $target_file
+            sed -i  -e "/^${tab_char}${tab_char}labels:/a\\" -e "${tab_char}${tab_char}${tab_char}- 'traefik.docker.network=${snake_network}'" $target_file
+            message_success "Network \e[33m${snake_network}\e[0m added to ${target_file}"
+        else
+        message_info "No -i option"
+        sed -e '/^networks:/a\' -e "${tab_char}${snake_network}:\n${tab_char}${tab_char}external: true" $target_file  | 
+            sed -e "/^${tab_char}${tab_char}networks:/a\\" -e "${tab_char}${tab_char}${tab_char}- ${snake_network}" | 
+            sed -e "/^${tab_char}${tab_char}labels:/a\\" -e "${tab_char}${tab_char}${tab_char}- 'traefik.docker.network=${snake_network}'"
+        fi
+    fi
+fi
+
+
+if [ "$remove" = true ]; then
+    net_remove_error=$(docker network remove "${snake_network}" 2>&1 | tr -d '\r')
+    net_remove_out=$?
+    if [ $net_remove_out -eq 1 ]; then
+        message_error "$net_remove_error"
+    else
+        message_success "Network \e[33m${snake_network}\e[0m removed succesfully"
+    fi
+else
+    net_create_error=$(docker network create "${snake_network}" 2>&1 | tr -d '\r')
+    net_create_out=$?
+    if [ $net_create_out -eq 1 ]; then
+        message_error "$net_create_error"
+    else
+        message_success "Network \e[33m${snake_network}\e[0m created succesfully"
+    fi
+fi
+
+
+message_suggestion "Traefik's compose file (${target_file}) has been updated, rebuild your containers"

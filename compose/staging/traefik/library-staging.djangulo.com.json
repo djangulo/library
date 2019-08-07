@@ -1,0 +1,18 @@
+{
+  "Comment": "Creating A record for library-staging.djangulo.com",
+  "Changes": [
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "library-staging.djangulo.com",
+        "Type": "A",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "3.82.207.168"
+          }
+        ]
+      }
+    }
+  ]
+}
