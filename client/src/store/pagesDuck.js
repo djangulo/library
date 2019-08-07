@@ -1,15 +1,15 @@
 // QUACK! This is a duck. https://github.com/erikras/ducks-modular-redux
-import uniqBy from 'lodash/uniqBy';
-import pageService from '../services/fakePageService';
+import uniqBy from "lodash/uniqBy";
+import pageService from "../services/pageService";
 
 // sync actions
-const SELECT_PAGE = 'SELECT_PAGE';
-const SET_ERROR = 'SET_ERROR';
+const SELECT_PAGE = "SELECT_PAGE";
+const SET_ERROR = "SET_ERROR";
 
 // async actions
-const REQUEST_PAGE = 'REQUEST_PAGE';
-const REQUEST_PAGE_SUCCESS = 'REQUEST_PAGE_SUCCESS';
-const REQUEST_PAGE_FAILURE = 'REQUEST_PAGE_FAILURE';
+const REQUEST_PAGE = "REQUEST_PAGE";
+const REQUEST_PAGE_SUCCESS = "REQUEST_PAGE_SUCCESS";
+const REQUEST_PAGE_FAILURE = "REQUEST_PAGE_FAILURE";
 
 const initialState = {
   items: [],
@@ -41,7 +41,7 @@ export const requestPageSuccess = json => ({
 export const setPage = (bookId, pageNumber) => (dispatch, getState) => {
   const currentPage = { ...getState().pages.selected };
   const page = getState().pages.items.find(
-    p => p.book === bookId && p.number === pageNumber
+    p => p.book_id === bookId && p.page_number === pageNumber
   );
   if (page) {
     dispatch(selectPage(page));
@@ -51,15 +51,17 @@ export const setPage = (bookId, pageNumber) => (dispatch, getState) => {
   return pageService
     .retrieve(bookId, pageNumber)
     .then(
-      response => response,
+      response => response.json(),
       error => {
+        console.log(error);
         dispatch(requestPageFailure(error));
-        dispatch(selectPage(currentPage));
+        console.log(currentPage);
+        if (currentPage) dispatch(selectPage(currentPage));
       }
     )
     .then(json => {
       dispatch(requestPageSuccess(json));
-      dispatch(selectPage(json));
+      dispatch(selectPage(json[0]));
     });
 };
 
@@ -69,10 +71,10 @@ const reducer = (state = initialState, action = {}) => {
     case SELECT_PAGE:
       return {
         ...state,
-        selected: action.page,
+        selected: { ...action.page },
         lastPageByBook: {
           ...state.lastPageByBook,
-          [action.page.book]: action.page.number
+          [action.page.book_id]: action.page.page_number
         }
       };
     case SET_ERROR:
@@ -90,7 +92,7 @@ const reducer = (state = initialState, action = {}) => {
       return {
         ...state,
         isLoading: false,
-        items: uniqBy([...state.items, action.json], 'id') // single page with 'retrieve'
+        items: uniqBy([...state.items, ...action.json], "id") // single page with 'retrieve'
       };
     case REQUEST_PAGE_FAILURE:
       return {
@@ -106,7 +108,7 @@ export default reducer;
 // selectors
 export const getPages = ({ pages: { items } }) => items || [];
 export const selectedPage = ({ pages: { selected } }) => selected || {};
-export const pagesError = ({ pages: { error } }) => error || '';
+export const pagesError = ({ pages: { error } }) => error || "";
 export const pagesIsLoading = ({ pages: { isLoading } }) => isLoading || null;
 export const lastPageByBook = ({ pages: { lastPageByBook } }) =>
   lastPageByBook || {};

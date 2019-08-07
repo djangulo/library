@@ -27,14 +27,23 @@ Las decisiones tomadas y las razones detrás de las mismas están delineadas en 
 
 ## Tecnologías utiizadas<a name="technologies"></a>
 
+  Las tecnologías centrales al desarrollo del cliente están listadas debajo. Nótese que esta no es una lista extensiva de todas las librerías usadas.
+
 - Cliente
 
   - <a target="_blank" rel="noopener noreferrer" href="https://reactjs.org/">React</a>. Librería de JavaScript para construir interfaces de usuario. Inicializado a traves de <a target="_blank" rel="noopener noreferrer" href="https://github.com/facebook/create-react-app">CRA</a>.
-  - <a target="_blank" rel="noopener noreferrer" href="https://redux.js.org/">Redux</a>. Para manejar el estado de la aplicación de manera centralizada,
+  - <a target="_blank" rel="noopener noreferrer" href="https://redux.js.org/">Redux</a>. Para manejar el estado de la aplicación de manera centralizada.
+
+- API
+
+  - <a target="_blank" rel="noopener noreferrer" href="https://expressjs.com/">Express</a>. Una librería para construir aplicaciones de nodejs
+  - La base de datos es <a target="_blank" rel="noopener noreferrer" href="https://www.postgresql.org/">PostgreSQL</a>.
 
 - Lanzamiento
 
   - <a target="_blank" rel="noopener noreferrer" href="https://www.docker.com/">Docker</a>. Creación y manejo de contenedores.
+  - <a target="_blank" rel="noopener noreferrer" href="https://traefik.io">Traefik</a>. Un reverse-proxy que confiere `TLS` por defecto. En este caso funciona como un <a target="_blank" rel="noopener noreferrer" href="https://es.wikipedia.org/wiki/Balance_de_carga">balanceador de carga</a>.
+  - <a target="_blank" rel="noopener noreferrer" href="https://aws.amazon.com/">Amazon Web Services (AWS)</a>. Manejo de infraestructura.
 
 ## Filosofía de pruebas<a name="testing-philosophy"></a>
 
@@ -67,7 +76,7 @@ Lo primero es construir el contenedor:
 Luego inicializarlo
 
 ```bash
-docker-compose -f local.yml up
+~$ docker-compose -f local.yml up
 ```
 
 Tras esto el proyecto puede visualizarse en `localhost:3000`
@@ -76,4 +85,34 @@ Tras esto el proyecto puede visualizarse en `localhost:3000`
 
 El servidor de ensayo (que será tambien utilizado como plataforma de prueba) se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library-staging.djangulo.com">https://library-staging.djangulo.com</a>.
 
-<!-- TODO como se lanza el servidor de ensayo -->
+Si desea lanzar su propio servidor, utilice el script  `compose/staging/traefik/aws_ec2_load_balancer`. Este script asume que tiene un dominio registrado con `AWS Route53`. Visite <a target="_blank" rel="noopener noreferrer" href="https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-register.html">esta página</a> para ver instrucciones de como hacerlo.
+
+Para que el script funcione, necesita contar con:
+
+- <a target="_blank" rel="noopener noreferrer" href="https://aws.amazon.com/cli/">aws-cli</a>. <a target="_blank" rel="noopener noreferrer" href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html">Instalado</a> y <a target="_blank" rel="noopener noreferrer" href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html">configurado</a>.
+- `docker`
+- `docker-compose`
+- `docker-machine`
+
+El script configura una instancia `EC2`, utilizando `traefik` como un balanceador de carga, asumiendo que usted tiene el dominio `example.com` registrado en `AWS Route53`, lo utiliza de la siguiente manera:
+
+```bash
+~$ ./aws_ec2_load_balancer \
+~$  --instance-name mi-instancia-ec2 \ # el nombre que EC2 le asigna a su instancia, es también el nombre por el cual docker-machine se refiere a la misma
+~$  --open-ports 80,442 \ # puertos para abrir en la instancia
+~$  --region us-east-1 \ # region de AWS en la cual crear la instancia
+~$  --domain example.com \ #su dominio
+~$  --subdomains api,library \ #registra api.example.com y library.example.com
+~$  --networks library_api \ # networks para registrar las instancias de docker en el docker-compose
+```
+
+El script tomara unos minutos en terminar, una vez listo, tan solo debe de correr los comandos siguiente:
+
+```bash
+~$ eval $(docker-machine env mi-instancia-ec2) # "mi-instancia" es el nombre de su instancia EC2
+~$ docker-compose -f staging.yml build # se debe tomar unos minutos
+~$ docker-compose -f staging.yml up --detach
+```
+
+Si todo funcionó como se espera, su servidor debe de estar en línea.
+

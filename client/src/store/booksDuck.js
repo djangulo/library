@@ -1,24 +1,24 @@
 // QUACK! This is a duck. https://github.com/erikras/ducks-modular-redux
-import uniqBy from 'lodash/uniqBy';
-import orderBy from 'lodash/orderBy';
-import bookService from '../services/fakeBookService';
+import uniqBy from "lodash/uniqBy";
+import orderBy from "lodash/orderBy";
+import bookService from "../services/bookService";
 
 // sync actions
-const SELECT_BOOK = 'SELECT_BOOK';
-const SORT_BY_COLUMN = 'SORT_BY_COLUMN';
+const SELECT_BOOK = "SELECT_BOOK";
+const SORT_BY_COLUMN = "SORT_BY_COLUMN";
 
 // async actions
-const REQUEST_BOOKS = 'REQUEST_BOOKS';
-const REQUEST_BOOKS_SUCCESS = 'REQUEST_BOOKS_SUCCESS';
-const REQUEST_BOOKS_FAILURE = 'REQUEST_BOOKS_FAILURE';
+const REQUEST_BOOKS = "REQUEST_BOOKS";
+const REQUEST_BOOKS_SUCCESS = "REQUEST_BOOKS_SUCCESS";
+const REQUEST_BOOKS_FAILURE = "REQUEST_BOOKS_FAILURE";
 
 const initialState = {
   items: [],
   selected: null,
   error: null,
   isLoading: false,
-  sortColumn: 'title',
-  sortDirection: 'asc'
+  sortColumn: "title",
+  sortDirection: "asc"
 };
 
 // action creators
@@ -41,16 +41,19 @@ export const fetchBooks = () => dispatch => {
   dispatch(requestBooks());
   return bookService
     .list()
-    .then(response => response, error => dispatch(requestBooksFailure(error)))
+    .then(
+      response => response.json(),
+      error => dispatch(requestBooksFailure(error))
+    )
     .then(json => dispatch(requestBooksSuccess(json)));
 };
 
 const resolveSortOrder = (state, column) => {
   const { sortColumn, sortDirection } = state;
   if (sortColumn === column) {
-    return sortDirection === 'asc' ? 'desc' : 'asc';
+    return sortDirection === "asc" ? "desc" : "asc";
   }
-  return 'asc';
+  return "asc";
 };
 
 // Reducer
@@ -60,7 +63,7 @@ const reducer = (state = initialState, action = {}) => {
       return {
         ...state,
         selected:
-          state.selected && action.book.id === state.selected.id
+          state.selected && action.book && action.book.id === state.selected.id
             ? null
             : action.book
       };
@@ -85,7 +88,7 @@ const reducer = (state = initialState, action = {}) => {
       return {
         ...state,
         isLoading: false,
-        items: uniqBy([...state.items, ...action.json], 'id')
+        items: uniqBy([...state.items, ...action.json], "id")
       };
     case REQUEST_BOOKS_FAILURE:
       return {
@@ -101,9 +104,9 @@ export default reducer;
 // selectors
 export const getBooks = ({ books: { items } }) => items || [];
 export const selectedBook = ({ books: { selected } }) => selected || {};
-export const booksError = ({ books: { error } }) => error || '';
+export const booksError = ({ books: { error } }) => error || "";
 export const booksIsLoading = ({ books: { isLoading } }) => isLoading || null;
 export const booksSortColumn = ({ books: { sortColumn } }) =>
-  sortColumn || 'title';
+  sortColumn || "title";
 export const booksSortDirection = ({ books: { sortDirection } }) =>
-  sortDirection || 'asc';
+  sortDirection || "asc";

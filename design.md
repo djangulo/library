@@ -36,6 +36,27 @@ Iniciando con el cliente (front-end).
 
 El cliente será una aplicación web, más especificamente, una [Aplicación de Página Única](https://es.wikipedia.org/wiki/Single-page_application) (SPA, por sus siglas en inglés), creada con React.
 
+### Estructura del projecto
+
+```bash
+├── public              # archivos publicos del cliente
+├── src
+│   ├── components      # componentes de react
+│   ├── data            # data para pruebas unitarias
+│   ├── services        # interfaces con servicios externos
+│   ├── store           # configuración de Redux
+│   ├── App.css
+│   ├── App.js
+│   ├── config.js
+│   ├── configureStore.js
+│   ├── index.css
+│   ├── index.js
+│   ├── logo.svg
+│   └── serviceWorker.js
+├── package.json
+└── yarn.lock
+```
+
 ### ¿Por qué React?<a name="why-react"></a>
 
 React es una librería con un rico ecosistema que ofrece extendibilidad, la misma puede ser tan simple o tan compleja como se desee.
@@ -62,3 +83,78 @@ Hay desarrolladores que dicen que con la llegada de los <a target="_blank" rel="
 El lector habrá notado que la implementación de `redux` no es la convencional. En el proyecto se sigue la propuesta descrita en <a target="_blank" rel="noopener noreferrer" href="https://github.com/erikras/ducks-modular-redux">https://github.com/erikras/ducks-modular-redux</a>, esencialmente por las mismas razones: es más fácil y más manejable mantener todos los elementos del flujo de datos en un solo archivo.
 
 Con esta filosofía se pueden ir agregando secciones y modulos para el manejo del estado, y en caso de el archivo crecer demasiado, se puede separar en varios archivos distintos, siguiendo la separación de intereses.
+
+## API
+
+Para la estructura del API, se utilizó `expressjs`, debido a su fácil utilización, y modularidad. La base de datos fue `PostgreSQL`; entiendo que no es la primera opción cuando se trata de aplicaciones de `node`, sin embargo, cuento con bastante experiencia trabajando con `postgres`: adaptar la librería `pg-promise` para utilizarla con `express` fue relativamente simple.
+
+### Estructura del directorio
+
+```bash
+├── src
+│   ├── db              # archivos relacionados a la base de datos
+│   │   ├── migrations  # migraciones a la base de datos
+│   ├── routes          # rutas del API
+│   ├── utils           # utilidades
+│   ├── config.js       # configuración del projecto
+│   ├── index.js        # raíz del API
+├── package.json
+├── package-lock.json
+└── yarn.lock
+```
+
+### Modelado de la base de datos
+
+La base de datos fue modelada de la manera más simple posible, donde un libro cuenta con N objetos relacionados (llamados páginas).
+
+Existe la posibilidad de crear otros modelos para darle más especificidad y estructura a la tabla `books` (libros), tales como parte, capítulo, sección, etc. Esta extensión, a pesar de ofrecer más estructura, trae consigo nuevos retos, particularmente en el procesamiento automático de los libros, debido a que hay que extraer los títulos, capítulos y secciones con una librería de procesamiento de lenguaje natural, como lo es `NLTK`. Esta tarea, aunque interesante, se sale del alcance de este proyecto.
+
+En la fase inicial que nos encontramos, y en búsqueda del producto mínimo viable (MVP, por sus siglas en inglés), nos abstendrémos de extender los modelos más alla de libros y páginas.
+
+### Alimentación de la base de datos
+
+La base de datos es alimentada con un cuerpo de datos de <a target="_blank" rel="noopener noreferrer" href="https://www.nltk.org/">NLTK (Natural Language Toolkit)</a>, una librería de <a target="_blank" rel="noopener noreferrer" href="https://es.wikipedia.org/wiki/Procesamiento_de_lenguajes_naturales">procesamiento de lenguaje natural</a> de <a target="_blank" rel="noopener noreferrer" href="https://python.org">Python</a>. Este cuerpo de datos de `NLTK` es descargado por automáticamente al inicializar el projecto con `docker`. En caso de lanzar el proyecto de manera manual, el script `api/src/db/init_nltk.py`, instalará `nltk` y descargará el `gutenberg corpora` al directorio `api/src/db/nltk_data/`, con los siguientes archivos:
+
+
+```bash
+├── src
+│   ├── db
+│   │   ├── ...
+│   │   ├── nltk_data
+│   │   │   └── corpora
+│   │   │       ├── gutenberg
+│   │   │       │   ├── austen-emma.txt
+│   │   │       │   ├── austen-persuasion.txt
+│   │   │       │   ├── austen-sense.txt
+│   │   │       │   ├── bible-kjv.txt
+│   │   │       │   ├── blake-poems.txt
+│   │   │       │   ├── bryant-stories.txt
+│   │   │       │   ├── burgess-busterbrown.txt
+│   │   │       │   ├── carroll-alice.txt
+│   │   │       │   ├── chesterton-ball.txt
+│   │   │       │   ├── chesterton-brown.txt
+│   │   │       │   ├── chesterton-thursday.txt
+│   │   │       │   ├── edgeworth-parents.txt
+│   │   │       │   ├── melville-moby_dick.txt
+│   │   │       │   ├── milton-paradise.txt
+│   │   │       │   ├── README
+│   │   │       │   ├── shakespeare-caesar.txt
+│   │   │       │   ├── shakespeare-hamlet.txt
+│   │   │       │   ├── shakespeare-macbeth.txt
+│   │   │       │   └── whitman-leaves.txt
+│   │   │       └── gutenberg.zip
+│   │   ├── ...
+```
+
+Al inicializarse el servidor del API, la aplicación de `express` se conecta con la base de datos de `postgres`, y utilizando métodos asíncronos descritos en `api/src/db/seeddb.js`, se procesa cada archivo en `api/src/db/nltk_data/corpora/gutenberg/` de la siguiente manera:
+
+1. Se extraen los datos del libro
+2. Se divide cada libro en "párrafos" (efectivamente, un arreglo de párrafos)
+3. Se asigna a cada página de un libro N párrafos (N está descrito en `api/src/config.js` bajo el nombre de `paragraphsPerPage`).
+4. Se crea un arreglo para libros (`books`) y un arreglo para páginas (`pages`), que serán guardados en `api/src/db/seed_data/books.json` y `api/src/db/seed_data/pages.json`, respectivamente.
+    - Estos archivos serán reutilizados cada vez que se reinicie el servidor.
+5. La aplicación tratará de re-alimentar los datos en `api/src/db/seed_data/`, pero debido a una declaración `ON CONFLICT ...` de `postgres`, no duplicará contenidos.
+
+La idea detrás de los archivos en `api/src/db/seed_data/` es crear una especie de cache, ya que la operación de leer los archivos de texto y procesarlos puede ser costosa.
+
+Dichos archivos no pueden ser sometidos al control de versiones debido a que tienen alrededor de `13MB`.
