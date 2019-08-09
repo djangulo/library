@@ -1,6 +1,8 @@
 import React from 'react';
 import debounce from 'lodash/debounce';
 
+import { connect } from 'react-redux';
+
 import {
   Button,
   Form,
@@ -11,20 +13,31 @@ import {
   Menu
 } from 'semantic-ui-react';
 
+import {
+  booksError,
+  booksSortColumn,
+  fetchBooks,
+  booksSortDirection,
+  sortByColumn,
+  selectedPaginationItem,
+  searchQuery,
+  setSearchQuery,
+  searchBooks,
+  searchItems,
+  setSearchItems
+} from '../store';
+
 const BookHeader = ({
   error,
   sortColumn,
   sortDirection,
   sortByColumn,
-  paginationItems,
-  selectPaginationItem,
   currentPaginationItem,
   fetchBooks,
   searchQuery,
   setSearchQuery,
   searchBooks,
-  setSearchItems,
-  location
+  setSearchItems
 }) => {
   const resolveIcon = column => {
     if (sortColumn !== column) return null;
@@ -43,20 +56,6 @@ const BookHeader = ({
     { key: 'count', value: 'page_count', text: 'Pages' }
   ];
 
-  // const resolveUrl = key => {
-  //   const searchParams = new URLSearchParams(location.search);
-  //   const qParams = {};
-  //   for (let pair of searchParams.entries()) {
-  //     qParams[pair[0]] = pair[1];
-  //   }
-  //   if (qParams.sort) console.log(qParams);
-  // };
-
-  // const resolvePaginationType = key => {
-  //   if (key === 1) return 'firstItem';
-  //   if (key === parseInt(currentPaginationItem.pages, 10)) return 'lastItem';
-  //   return 'pageItem';
-  // }
   const search = debounce(searchBooks, 600);
 
   return (
@@ -110,8 +109,6 @@ const BookHeader = ({
                     compact
                     size="mini"
                     key={o.key}
-                    // as={NavLink}
-                    // to={resolveUrl(key)}
                     onClick={() => sortByColumn(o.value)}
                     icon={resolveIcon(o.value)}
                     content={o.text}
@@ -127,4 +124,20 @@ const BookHeader = ({
   );
 };
 
-export default BookHeader;
+export default connect(
+  state => ({
+    error: booksError(state),
+    sortColumn: booksSortColumn(state),
+    sortDirection: booksSortDirection(state),
+    currentPaginationItem: selectedPaginationItem(state),
+    searchQuery: searchQuery(state),
+    searchItems: searchItems(state)
+  }),
+  {
+    fetchBooks,
+    sortByColumn,
+    setSearchQuery,
+    searchBooks,
+    setSearchItems
+  }
+)(BookHeader);

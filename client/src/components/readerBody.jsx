@@ -7,7 +7,7 @@ import { Loader, Container } from 'semantic-ui-react';
 import { connect } from 'react-redux';
 import { selectedPage, pagesIsLoading } from '../store';
 
-const ReaderBody = ({ page, isLoading, format }) => {
+const ReaderBody = ({ page, isLoading }) => {
   return isLoading ? (
     <Loader active inline="centered" />
   ) : (

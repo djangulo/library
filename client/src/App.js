@@ -12,15 +12,7 @@ import { Helmet } from 'react-helmet';
 import Books from './components/books';
 
 import { Sidebar, Header, Segment } from 'semantic-ui-react';
-import {
-  selectedBook,
-  selectedPage,
-  setPage,
-  fetchBooks,
-  lastPageByBook,
-  getBooks,
-  selectBook
-} from './store';
+import { selectedBook, fetchBooks } from './store';
 import Reader from './components/reader';
 
 const StyledSegment = styled(Segment)`
@@ -35,44 +27,13 @@ const HeaderComponent = styled(Segment)`
   background: #006060;
 `;
 
-const App = ({
-  book,
-  books,
-  selectedPage,
-  match,
-  location,
-  setPage,
-  fetchBooks,
-  lastPages,
-  selectBook
-}) => {
+const App = ({ book, fetchBooks }) => {
   const [visible] = React.useState(true);
 
   React.useEffect(() => {
-    const asyncFetch = async () => {
-      fetchBooks(1);
-      // const { slug } = match.params;
-      // if (slug && books) {
-      //   const book = books.find(b => b.slug === slug);
-      //   if (book) selectBook(book);
-      // }
-    };
-    asyncFetch();
-  }, [books, fetchBooks, match.params, selectBook]);
+    fetchBooks(1);
+  }, [fetchBooks]);
 
-  // React.useEffect(() => {
-  //   const qParams = new URLSearchParams(location.search);
-  //   const page = qParams.get('page');
-
-  //   if (book && book.id && page) {
-  //     setPage(book.id, page);
-  //   } else if (book && book.id) {
-  //     setPage(
-  //       book.id,
-  //       lastPages && lastPages[book.id] ? lastPages[book.id] : 1
-  //     );
-  //   }
-  // }, [book, book.id, lastPages, location.search, match.params, setPage]);
   return (
     <div className="App">
       <Helmet>
@@ -100,9 +61,10 @@ const App = ({
         <Sidebar.Pusher
           as={StyledSegment}
           css={{
-            maxWidth: '820px',
+            maxWidth: '920px',
             paddingTop: 0,
-            margin: '0 !important'
+            margin: '0 !important',
+            overflow: 'scroll !important'
           }}
           basic
         >
@@ -121,11 +83,8 @@ const App = ({
 export default withRouter(
   connect(
     state => ({
-      book: selectedBook(state),
-      selectedPage: selectedPage(state),
-      lastPages: lastPageByBook(state),
-      books: getBooks(state)
+      book: selectedBook(state)
     }),
-    { setPage, fetchBooks, selectBook }
+    { fetchBooks }
   )(App)
 );

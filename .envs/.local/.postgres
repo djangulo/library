@@ -1,6 +1,6 @@
 # PostgreSQL
 # ------------------------------------------------------------------------------
-POSTGRES_HOST=postgres
+POSTGRES_HOST=library_postgres
 POSTGRES_PORT=5432
 POSTGRES_DB=library_staging
 POSTGRES_USER=lygu1kqy7qqg3eccwiuh

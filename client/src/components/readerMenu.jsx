@@ -102,10 +102,12 @@ const ReaderMenu = ({ book, page, setPage, setError, history }) => {
   );
 };
 
-export default connect(
-  state => ({
-    book: selectedBook(state),
-    page: selectedPage(state)
-  }),
-  { setPage, setError: setPagesError }
-)(withRouter(ReaderMenu));
+export default withRouter(
+  connect(
+    state => ({
+      book: selectedBook(state),
+      page: selectedPage(state)
+    }),
+    { setPage, setError: setPagesError }
+  )(ReaderMenu)
+);

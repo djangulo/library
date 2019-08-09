@@ -34,7 +34,7 @@ services:
       context: .
       dockerfile: ./compose/production/api/Dockerfile
     image: api_local
-    command: ['./wait-for', 'postgres:5432', '-t', '180', '--', 'yarn', 'start']
+    command: ['yarn', 'start']
     # command: ['yarn', 'run', 'start']
     networks:
       - library_local

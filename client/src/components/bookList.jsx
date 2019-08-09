@@ -1,24 +1,35 @@
 import React from 'react';
+import { connect } from 'react-redux';
 
 import { NavLink } from 'react-router-dom';
 
 import { Item, Loader } from 'semantic-ui-react';
+import {
+  selectedBook,
+  booksIsLoading,
+  selectBook,
+  setPage,
+  lastPageByBook,
+  selectedPaginationItem,
+  setSearchQuery,
+  searchItems,
+  setSearchItems,
+  searchQuery
+} from '../store';
 
 const BookList = ({
   isLoading,
-  books,
   selectBook,
   selectedBook,
   lastPages,
   setPage,
   currentPaginationItem,
-  location,
-  match,
   searchItems,
   setSearchItems,
-  setSearchQuery
+  setSearchQuery,
+  searchQuery
 }) => {
-  return searchItems && searchItems.length > 0 ? (
+  return searchQuery.length > 0 ? (
     <Item.Group id="book-list" divided relaxed>
       {searchItems.map(b => (
         <Item
@@ -35,11 +46,9 @@ const BookList = ({
                 }`
           }
           onClick={() => {
+            setSearchQuery('');
             selectBook(b);
             setSearchItems([]);
-            setSearchQuery('');
-            // const qParams = new URLSearchParams(location.search);
-            // const page = qParams.get('page');
 
             if (lastPages && lastPages[b.id]) {
               setPage(b.id, lastPages[b.id]);
@@ -81,8 +90,6 @@ const BookList = ({
             }
             onClick={() => {
               selectBook(b);
-              // const qParams = new URLSearchParams(location.search);
-              // const page = qParams.get('page');
 
               if (lastPages && lastPages[b.id]) {
                 setPage(b.id, lastPages[b.id]);
@@ -110,4 +117,14 @@ const BookList = ({
   ) : null;
 };
 
-export default BookList;
+export default connect(
+  state => ({
+    isLoading: booksIsLoading(state),
+    selectedBook: selectedBook(state),
+    lastPages: lastPageByBook(state),
+    currentPaginationItem: selectedPaginationItem(state),
+    searchItems: searchItems(state),
+    searchQuery: searchQuery(state)
+  }),
+  { selectBook, setPage, setSearchItems, setSearchQuery }
+)(BookList);

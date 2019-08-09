@@ -7,18 +7,13 @@ import bookService from '../services/bookService';
 const SELECT_BOOK = 'SELECT_BOOK';
 const SORT_BY_COLUMN = 'SORT_BY_COLUMN';
 const SELECT_PAGINATION_ITEM = 'SELECT_PAGINATION_ITEM';
-const SET_SEARCH_ITEMS = 'SET_SEARCH_ITEMS';
-const SET_SEARCH_QUERY = 'SET_SEARCH_QUERY';
 
 // async actions
 const REQUEST_BOOKS = 'REQUEST_BOOKS';
 const REQUEST_BOOKS_SUCCESS = 'REQUEST_BOOKS_SUCCESS';
 const REQUEST_BOOKS_FAILURE = 'REQUEST_BOOKS_FAILURE';
 
-const SEARCH_BOOKS = 'SEARCH_BOOKS';
-const SEARCH_BOOKS_SUCCESS = 'SEARCH_BOOKS_SUCCESS';
-const SEARCH_BOOKS_FAILURE = 'SEARCH_BOOKS_FAILURE';
-
+// Pages shape
 // pages = {
 //   1: {
 //     items: 0,
@@ -31,8 +26,6 @@ const SEARCH_BOOKS_FAILURE = 'SEARCH_BOOKS_FAILURE';
 
 const initialState = {
   items: [],
-  searchItems: [],
-  searchQuery: '',
   page: 1,
   currentPage: null,
   pages: {},
@@ -45,7 +38,6 @@ const initialState = {
 
 // action creators
 export const selectBook = book => ({ type: SELECT_BOOK, book });
-export const setSearchQuery = query => ({ type: SET_SEARCH_QUERY, query });
 export const selectPaginationItem = pageNum => ({
   type: SELECT_PAGINATION_ITEM,
   pageNum
@@ -63,59 +55,6 @@ export const requestBooksSuccess = json => ({
   type: REQUEST_BOOKS_SUCCESS,
   json
 });
-
-export const searchRequest = (query, sort = 'title', order = 'asc') => ({
-  type: SEARCH_BOOKS,
-  query,
-  sort,
-  order
-});
-export const searchRequestFailure = error => ({
-  type: SEARCH_BOOKS_FAILURE,
-  error
-});
-export const searchRequestSuccess = json => ({
-  type: SEARCH_BOOKS_SUCCESS,
-  json
-});
-
-export const setSearchItems = items => ({
-  type: SET_SEARCH_ITEMS,
-  items
-});
-export const searchBooks = (q, sort = 'title', order = 'asc') => (
-  dispatch,
-  getState
-) => {
-  dispatch(searchRequest(q, sort, order));
-  const allItems = getState().books.items;
-  const totalItems = getState().books.pages[1].items;
-  // append local items first
-  const filtered = getState().books.items.filter(
-    b =>
-      b.title.toLowerCase().includes(q.toLowerCase()) ||
-      (b.author && b.author.toLowerCase().includes(q.toLowerCase()))
-  );
-  const ordered = orderBy(filtered, [sort], [order]);
-  dispatch(setSearchItems(ordered));
-  // search the server now
-  // only if there are actually more items to search
-  if (allItems < totalItems) {
-    return bookService
-      .search(q, sort, order)
-      .then(
-        response => response.json(),
-        error => dispatch(requestBooksFailure(error))
-      )
-      .then(json => {
-        if (json && json.data) dispatch(searchRequestSuccess(json));
-      });
-  } else {
-    //don't hit the server at all
-    searchRequestSuccess({ data: [] });
-    return;
-  }
-};
 
 export const fetchBooks = (pageNum = 1) => (dispatch, getState) => {
   dispatch(requestBooks(pageNum));
@@ -188,7 +127,6 @@ const reducer = (state = initialState, action = {}) => {
           }
         }
       };
-    case SEARCH_BOOKS:
     case REQUEST_BOOKS:
       return {
         ...state,
@@ -202,27 +140,10 @@ const reducer = (state = initialState, action = {}) => {
         items: uniqBy([...state.items, ...action.json.data], 'id'),
         pages: { ...state.pages, [action.json.current]: action.json }
       };
-    case SEARCH_BOOKS_SUCCESS:
-      return {
-        ...state,
-        isLoading: false,
-        searchItems: uniqBy([...state.searchItems, ...action.json.data], 'id')
-      };
-    case SET_SEARCH_ITEMS:
-      return {
-        ...state,
-        searchItems: [...action.items]
-      };
     case REQUEST_BOOKS_FAILURE:
-    case SEARCH_BOOKS_FAILURE:
       return {
         ...state,
         error: action.error
-      };
-    case SET_SEARCH_QUERY:
-      return {
-        ...state,
-        searchQuery: action.query
       };
     default:
       return state;
@@ -242,6 +163,3 @@ export const booksSortColumn = ({ books: { sortColumn } }) =>
   sortColumn || 'title';
 export const booksSortDirection = ({ books: { sortDirection } }) =>
   sortDirection || 'asc';
-
-export const searchQuery = ({ books: { searchQuery } }) => searchQuery || '';
-export const searchItems = ({ books: { searchItems } }) => searchItems || [];

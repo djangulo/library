@@ -3,7 +3,7 @@ import React from 'react';
 import { connect } from 'react-redux';
 
 import { Header, Message } from 'semantic-ui-react';
-import { selectedBook, selectedPage, pagesError } from './../store';
+import { selectedBook, pagesError } from './../store';
 import ReaderMenu from './readerMenu';
 
 const ReaderHeader = ({ book, pagesErr }) => {
@@ -27,6 +27,5 @@ const ReaderHeader = ({ book, pagesErr }) => {
 
 export default connect(state => ({
   book: selectedBook(state),
-  page: selectedPage(state),
   pagesErr: pagesError(state)
 }))(ReaderHeader);
