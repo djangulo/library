@@ -82,6 +82,7 @@ router.get('/:id', (req, res) => {
   return bookDb
     .getById(req.params.id)
     .then(data => {
+      if (!data) return res.send({});
       return res.send(data);
     })
     .catch(err => console.log(err));

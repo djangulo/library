@@ -22,6 +22,7 @@ router.get('/:id', (req, res) => {
   return pageDb
     .get(req.params.id)
     .then(data => {
+      if (!data) return res.send({});
       return res.send(data);
     })
     .catch(err => console.log(err));
@@ -45,7 +46,10 @@ router.get('/', (req, res) => {
   }
   return pageDb
     .list(1000)
-    .then(data => res.send(data))
+    .then(data => {
+      if (!data) return res.send([]);
+      return res.send(data);
+    })
     .catch(err => console.log(err));
 });
 
