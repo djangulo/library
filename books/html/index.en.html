@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Library &mdash; API</title>
+  <link
+    rel="stylesheet"
+    href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+    crossorigin="anonymous"
+  />
+</head>
+<body>
+  <div class="container">
+    <h1>Library &mdash; API</h1>
+    <p>
+      This is the api for the Library app located at
+      <a
+        rel="noopener noreferrer"
+        target="_blank"
+        href="https://library.djangulo.com"
+        >https://library.djangulo.com</a
+      >.
+    <p><a href="/es" >(Versión en español.)</a></p>
+    </p>
+    <h2>Available routes:</h2>
+    <table class="table">
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Route</th>
+        <th scope="col">Example</th>
+        <th scope="col">Notes</th>
+      </tr>
+      <tr>
+        <td>Book list</td>
+        <td>/books</td>
+        <td><a rel="noopener noreferrer" href="/books">/books</a></td>
+        <td>&mdash;</td>
+      </tr>
+      <tr>
+        <td>Book by id</td>
+        <td>
+          /books/:id
+        </td>
+        <td>
+          <a
+            rel="noopener noreferrer"
+            target="_blank"
+            href="/books/864d0e7c-c309-4186-9737-f20f580a3d3c"
+            >/books/864d0e7c-c309-4186-9737-f20f580a3d3c</a
+          >
+        </td>
+        <td>&mdash;</td>
+      </tr>
+      <tr>
+        <td>Book search by title or author</td>
+        <td>
+          /books/search?q=&lt;query&gt;&by=&lt;order-by&gt;&order=&lt;asc|desc&gt;
+        </td>
+        <td>
+          <a
+            rel="noopener noreferrer"
+            target="_blank"
+            href="/books/search?q=lewis&by=author&order=desc"
+            >/books/search?q=lewis&by=author&order=desc</a
+          >
+        </td>
+        <td>
+          The
+          <code>q</code>
+          parameter is required.
+        </td>
+      </tr>
+      <tr>
+        <td>Page list</td>
+        <td>
+          /pages
+        </td>
+        <td>
+          <a rel="noopener noreferrer" target="_blank" href="/pages">/pages</a>
+        </td>
+        <td>
+          &mdash;
+        </td>
+      </tr>
+      <tr>
+        <td>Page by id</td>
+        <td>
+          /pages/:id
+        </td>
+        <td>
+          <a
+            rel="noopener noreferrer"
+            target="_blank"
+            href="/pages/9a606356-0678-4478-ac4d-ff8bf84634e8"
+            >/pages/9a606356-0678-4478-ac4d-ff8bf84634e8</a
+          >
+        </td>
+        <td>
+          &mdash;
+        </td>
+      </tr>
+      <tr>
+        <td>Page param search</td>
+        <td>
+          /pages/by-params?book-id=&lt;book-id&gt;&page-number=&lt;page-number&gt;
+        </td>
+        <td>
+          <a
+            rel="noopener noreferrer"
+            target="_blank"
+            href="/pages/by-params?book-id=864d0e7c-c309-4186-9737-f20f580a3d3c&page-number=1"
+            >/pages/by-params?book-id=864d0e7c-c309-4186-9737-f20f580a3d3c&page-number=1</a
+          >
+        </td>
+        <td>
+          Both the <code>book-id</code> and the <code>page-number</code> query
+          params are required.
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>
