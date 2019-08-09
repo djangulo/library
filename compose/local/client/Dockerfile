@@ -35,7 +35,7 @@ USER client
 # RUN apk update \
 #     && apk --no-cache add ca-certificates
 
-# COPY ./compose/staging/caddy/Caddyfile /etc/Caddyfile
+# COPY ./compose/production/caddy/Caddyfile /etc/Caddyfile
 
 # COPY --from=builder /client/build /build
 # RUN chown -R client:client /build

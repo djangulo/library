@@ -1,0 +1,6 @@
+#!/bin/sh
+
+/api/wait-for library_postgres:5432 -t 180 -- node /api/src/db/gendata.js
+/api/wait-for library_postgres:5432 -t 180 -- node /api/src/db/initdb.js
+
+exec "$@"

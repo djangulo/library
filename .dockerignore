@@ -32,7 +32,7 @@ cache
 
 
 # .json files created by automation scripts
-compose/staging/*.json
+compose/production/*.json
 
 
 

@@ -1,2 +1,0 @@
-NODE_ENV=production
-REACT_APP_API_ROOT=library-api-staging.djangulo.com

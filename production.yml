@@ -1,0 +1,87 @@
+version: '3.7'
+
+networks:
+  library_prod:
+    external: true
+
+volumes:
+  prod_client: {}
+  prod_api: {}
+  prod_postgres_data: {}
+  prod_postgres_backups: {}
+
+services:
+  client:
+    build:
+      context: .
+      dockerfile: ./compose/production/client/Dockerfile
+    image: client_prod
+    restart: always
+    volumes:
+      - prod_client:/client/build
+    env_file:
+      - ./.envs/.production/.client
+    command: serve /client/build
+    depends_on:
+      - library_postgres
+      - api
+    networks:
+      - library_prod
+      - default
+    expose:
+      - '5000'
+    labels:
+      - 'traefik.docker.network=library_prod'
+      - 'traefik.enable=true'
+      - 'traefik.basic.frontend.rule=Host:library.djangulo.com,www.library.djangulo.com;PathStrip:/books'
+      - 'traefik.basic.port=5000'
+      - 'traefik.basic.protocol=http'
+
+  api:
+    build:
+      context: .
+      dockerfile: ./compose/production/api/Dockerfile
+    image: api_prod
+    command: ['yarn', 'start']
+    networks:
+      - library_prod
+      - default
+    volumes:
+      - prod_api:/api
+    expose:
+      - '9000'
+    depends_on:
+      - library_postgres
+    env_file:
+      - ./.envs/.production/.postgres
+      - ./.envs/.production/.api
+      - ./.envs/.production/.client
+    labels:
+      - 'traefik.docker.network=library_prod'
+      - 'traefik.enable=true'
+      - 'traefik.basic.frontend.rule=Host:library-api.djangulo.com'
+      - 'traefik.basic.port=9000'
+      - 'traefik.basic.protocol=http'
+
+  library_postgres:
+    build:
+      context: .
+      dockerfile: ./compose/production/postgres/Dockerfile
+    healthcheck:
+      test: ['CMD', 'sh', '-c', '/usr/local/bin/healthcheck']
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    image: library_prod_postgres
+    expose:
+      - '5432'
+    volumes:
+      - prod_postgres_data:/var/lib/postgresql/data
+      - prod_postgres_backups:/backups
+    env_file:
+      - ./.envs/.production/.postgres
+    networks:
+      - library_prod
+      - default

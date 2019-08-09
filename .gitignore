@@ -32,8 +32,11 @@ cache
 
 
 # .json files created by automation scripts
-compose/staging/*.json
+compose/production/**/*.json
 
 
 **/nltk_data
 **/seed_data
+
+# production .env files
+.envs/.production

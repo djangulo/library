@@ -1,7 +1,0 @@
-# PostgreSQL
-# ------------------------------------------------------------------------------
-POSTGRES_HOST=postgres
-POSTGRES_PORT=5432
-POSTGRES_DB=library_staging
-POSTGRES_USER=wexv96rvtjnbvcvnwcza
-POSTGRES_PASSWORD=XOoJF6d8oVYpoCMjNarnyNIGjeX2DK5Ns9fRxx6ftaC1HeXp0DArc10SyDwJRRp1

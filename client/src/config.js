@@ -1,8 +1,7 @@
 function getApiRoot() {
-  console.log(process.env.NODE_ENV);
   switch (process.env.NODE_ENV) {
     case 'production':
-      return 'https://library-api-staging.djangulo.com';
+      return 'https://library-api.djangulo.com';
     default:
       return 'http://localhost:9000';
   }

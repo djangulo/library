@@ -21,6 +21,9 @@ services:
     env_file:
       - ./.envs/.local/.client
     command: yarn run start
+    depends_on:
+      - library_postgres
+      - api
     networks:
       - library_local
     ports:
@@ -29,10 +32,9 @@ services:
   api:
     build:
       context: .
-      dockerfile: ./compose/staging/api/Dockerfile
+      dockerfile: ./compose/production/api/Dockerfile
     image: api_local
-    command:
-      ['./wait-for', 'postgres:5432', '-t', '240', '--', 'yarn', 'run', 'start']
+    command: ['./wait-for', 'postgres:5432', '-t', '180', '--', 'yarn', 'start']
     # command: ['yarn', 'run', 'start']
     networks:
       - library_local
@@ -41,16 +43,16 @@ services:
     volumes:
       - local_api:/api
     depends_on:
-      - postgres
+      - library_postgres
     env_file:
       - ./.envs/.local/.postgres
       - ./.envs/.local/.api
       - ./.envs/.local/.client
 
-  postgres:
+  library_postgres:
     build:
       context: .
-      dockerfile: ./compose/staging/postgres/Dockerfile
+      dockerfile: ./compose/production/postgres/Dockerfile
     healthcheck:
       test: ['CMD', 'sh', '-c', '/usr/local/bin/healthcheck']
       interval: 60s

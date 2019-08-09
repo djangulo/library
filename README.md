@@ -19,7 +19,7 @@ El `README.md` original de este repositorio fue movido al archivo llamado [instr
 
 ## Version en vivo<a name="live-version"></a>
 
-Las version en vivo de la aplicación se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library-staging.djangulo.com">https://library-staging.djangulo.com</a>
+Las version en vivo de la aplicación se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library.djangulo.com">https://library.djangulo.com</a>
 
 ## Proceso de diseño<a name="design-process"></a>
 
@@ -83,9 +83,9 @@ Tras esto el proyecto puede visualizarse en `localhost:3000`
 
 ### Servidor de ensayo (staging server)<a name="staging-server"></a>
 
-El servidor de ensayo (que será tambien utilizado como plataforma de prueba) se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library-staging.djangulo.com">https://library-staging.djangulo.com</a>.
+El servidor de ensayo (que será tambien utilizado como plataforma de prueba) se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library.djangulo.com">https://library.djangulo.com</a>.
 
-Si desea lanzar su propio servidor, utilice el script  `compose/staging/traefik/aws_ec2_load_balancer`. Este script asume que tiene un dominio registrado con `AWS Route53`. Visite <a target="_blank" rel="noopener noreferrer" href="https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-register.html">esta página</a> para ver instrucciones de como hacerlo.
+Si desea lanzar su propio servidor, utilice el script  `compose/production/traefik/aws_ec2_load_balancer`. Este script asume que tiene un dominio registrado con `AWS Route53`. Visite <a target="_blank" rel="noopener noreferrer" href="https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-register.html">esta página</a> para ver instrucciones de como hacerlo.
 
 Para que el script funcione, necesita contar con:
 
