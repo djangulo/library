@@ -158,3 +158,7 @@ Al inicializarse el servidor del API, la aplicación de `express` se conecta con
 La idea detrás de los archivos en `api/src/db/seed_data/` es crear una especie de cache, ya que la operación de leer los archivos de texto y procesarlos puede ser costosa.
 
 Dichos archivos no pueden ser sometidos al control de versiones debido a que tienen alrededor de `13MB`.
+
+Se utilizó la librería `pg-native` para hacer la alimentación de los datos, debido a que la misma tiene utilidades síncronas.
+
+Los procedimientos para la generación de los datos están en el archivo `api/src/db/gendata.js`, dentro de la función `generate`. Se puede correr como un script de `npm` o `yarn`, `npm run genData` o `yarn run genData`.
