@@ -29,7 +29,7 @@ const initialState = {
   page: 1,
   currentPage: null,
   pages: {},
-  selected: undefined,
+  selected: null,
   error: null,
   isLoading: false,
   sortColumn: 'title',
@@ -90,10 +90,7 @@ const reducer = (state = initialState, action = {}) => {
     case SELECT_BOOK:
       return {
         ...state,
-        selected:
-          state.selected && action.book && action.book.id === state.selected.id
-            ? null
-            : action.book
+        selected: action.book
       };
     case SELECT_PAGINATION_ITEM:
       return {

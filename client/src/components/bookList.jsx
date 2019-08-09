@@ -36,15 +36,11 @@ const BookList = ({
           key={b.id}
           className="book"
           as={NavLink}
-          to={
-            selectedBook.id === b.id
-              ? '/books'
-              : `/books/${b.slug}${
-                  lastPages[b.id] && lastPages[b.id] !== 1
-                    ? `?page=${lastPages[b.id]}`
-                    : ''
-                }`
-          }
+          to={`/books/${b.slug}${
+            lastPages[b.id] && lastPages[b.id] !== 1
+              ? `?page=${lastPages[b.id]}`
+              : ''
+          }`}
           onClick={() => {
             setSearchQuery('');
             selectBook(b);
@@ -89,7 +85,11 @@ const BookList = ({
                   }`
             }
             onClick={() => {
-              selectBook(b);
+              if (selectedBook && selectedBook.id === b.id) {
+                selectBook(null);
+              } else {
+                selectBook(b);
+              }
 
               if (lastPages && lastPages[b.id]) {
                 setPage(b.id, lastPages[b.id]);

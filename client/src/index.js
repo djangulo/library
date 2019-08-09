@@ -17,8 +17,7 @@ ReactDOM.render(
   <Provider store={store}>
     <BrowserRouter>
       <Switch>
-        <Redirect exact from="/" to="/books" />} />
-        <Route path="/books" component={props => <App {...props} />} />
+        <Route path={['/books', '/']} component={props => <App {...props} />} />
       </Switch>
     </BrowserRouter>
   </Provider>,

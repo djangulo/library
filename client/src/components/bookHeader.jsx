@@ -56,7 +56,7 @@ const BookHeader = ({
     { key: 'count', value: 'page_count', text: 'Pages' }
   ];
 
-  const search = debounce(searchBooks, 600);
+  const search = debounce(searchBooks, 400);
 
   return (
     <div>
