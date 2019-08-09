@@ -33,7 +33,7 @@ services:
     labels:
       - 'traefik.docker.network=library_prod'
       - 'traefik.enable=true'
-      - 'traefik.basic.frontend.rule=Host:library.djangulo.com,www.library.djangulo.com;PathStrip:/books'
+      - 'traefik.basic.frontend.rule=Host:library.djangulo.com'
       - 'traefik.basic.port=5000'
       - 'traefik.basic.protocol=http'
 
