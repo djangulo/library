@@ -35,7 +35,7 @@ router.get('/', (req, res) => {
       .then(data => {
         const paginated = paginatedResponse(
           data.length,
-          '/books',
+          '/pages',
           parseInt(page, 10),
           data
         );

@@ -14,6 +14,7 @@ cache:
     - .yarn
     - client/node_modules/
     - e2e/node_modules/
+    - api/node_modules
     - cache/Cypress/
 
 # this job installs NPM dependencies and Cypress

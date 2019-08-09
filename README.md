@@ -19,7 +19,9 @@ El `README.md` original de este repositorio fue movido al archivo llamado [instr
 
 ## Version en vivo<a name="live-version"></a>
 
-Las version en vivo de la aplicación se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library.djangulo.com">https://library.djangulo.com</a>
+Las version en vivo de la aplicación se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library.djangulo.com">https://library.djangulo.com</a>.
+
+El API se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library-api.djangulo.com">https://library-api.djangulo.com</a>. Cuenta con un índice que le indicará las rutas y ejemplos de las mismas. La versión en español está en <a target="_blank" rel="noopener noreferrer" href="https://library-api.djangulo.com/es">https://library-api.djangulo.com/es</a>
 
 ## Proceso de diseño<a name="design-process"></a>
 
@@ -110,8 +112,8 @@ El script tomara unos minutos en terminar, una vez listo, tan solo debe de corre
 
 ```bash
 ~$ eval $(docker-machine env mi-instancia-ec2) # "mi-instancia" es el nombre de su instancia EC2
-~$ docker-compose -f staging.yml build # se debe tomar unos minutos
-~$ docker-compose -f staging.yml up --detach
+~$ docker-compose -f production.yml build # se debe tomar unos minutos
+~$ docker-compose -f production.yml up --detach
 ```
 
 Si todo funcionó como se espera, su servidor debe de estar en línea.
