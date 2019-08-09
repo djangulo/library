@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8" />
+  <title>Library API</title>
+  <link
+    rel="stylesheet"
+    href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+    crossorigin="anonymous"
+  />
+</head>
+<body>
+  <div class="container">
+    <h1>Library API</h1>
+    <p>
+      This is the api for the Library app located at
+      <a
+        rel="noopener noreferrer"
+        target="_blank"
+        href="https://library.djangulo.com"
+        >https://library.djangulo.com</a
+      >.
+    </p>
+    <h2>Available routes:</h2>
+    <table class="table">
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Route</th>
+        <th scope="col">Example</th>
+        <th scope="col">Notes</th>
+      </tr>
+      <tr>
+        <td>Book list</td>
+        <td><a rel="noopener noreferrer" href="/books">/books</a></td>
+        <td>-</td>
+        <td>-</td>
+      </tr>
+      <tr>
+        <td>Book by id</td>
+        <td>
+          <a
+            rel="noopener noreferrer"
+            href="/books/0ec43a58-6b8d-4646-b681-011f3c67cc38"
+            >/books/:id</a
+          >
+        </td>
+        <td>
+          <a
+            rel="noopener noreferrer"
+            href="/books/0ec43a58-6b8d-4646-b681-011f3c67cc38"
+            >/books/0ec43a58-6b8d-4646-b681-011f3c67cc38</a
+          >
+        </td>
+        <td>-</td>
+      </tr>
+      <tr>
+        <td>Book search by title or author</td>
+        <td>
+          <a
+            rel="noopener noreferrer"
+            href="/books/search?q=lewis&by=author&order=desc"
+            >/books/search?q=&lt;query&gt;&by=&lt;order-by&gt;&order=&lt;asc|desc&gt;</a
+          >
+        </td>
+        <td>
+          <a
+            rel="noopener noreferrer"
+            href="/books/search?q=lewis&by=author&order=desc"
+            >/books/search?q=lewis&by=author&order=desc</a
+          >
+        </td>
+        <td>-</td>
+      </tr>
+    </table>
+  </div>
+</body>
+
+>

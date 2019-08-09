@@ -4,5 +4,6 @@ CREATE TABLE IF NOT EXISTS books (
     slug VARCHAR(255),
     author VARCHAR(100),
     pub_year INTEGER,
-    page_count INTEGER
+    page_count INTEGER,
+    file VARCHAR(255)
 );

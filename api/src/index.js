@@ -1,27 +1,31 @@
-const express = require('express');
+const cors = require("cors");
 
-/**
- * @typedef AppRoutes
- * @type {Object}
- * @property {string} path path to assign to the route; e.g. /books
- * @property {express.Router} router router object
- * @param {function[]} middleware Array of middleware to apply
- * @param {AppRoutes} appRoutes routes to implement
- * @param {Object} context context object to pass to the requests
- */
-const createServer = async (middleware = [], appRoutes = [], context = {}) => {
-  const app = await express();
-  for (let m of middleware) {
-    await app.use(m());
-  }
-  for (let r of appRoutes) {
-    await app.use(r.path, r.router);
-  }
-  app.use((req, res, next) => {
-    req.context = context;
-    next();
-  });
-  return app;
-};
+const express = require("express");
+const path = require("path");
 
-module.exports = createServer;
+const config = require("./config");
+const routes = require("./routes");
+
+const { servePort, rootUrl } = config;
+
+const appRoutes = [
+  { path: "/books", router: routes.books },
+  { path: "/pages", router: routes.pages }
+];
+
+const { dbName, dbUser, dbHost, dbPass, dbPort, datadirs } = config;
+
+const app = express();
+app.use(cors());
+app.use("/books", routes.books);
+app.use("/pages", routes.pages);
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname + "/index.html"));
+});
+
+app.listen(servePort, () =>
+  console.log(
+    "Library API listening on " + (rootUrl ? rootUrl : "port :" + servePort)
+  )
+);

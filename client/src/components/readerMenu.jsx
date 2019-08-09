@@ -1,15 +1,15 @@
-import React from "react";
+import React from 'react';
 
-import { withRouter } from "react-router-dom";
+import { withRouter } from 'react-router-dom';
 
-import { Input, Button, Menu } from "semantic-ui-react";
-import { connect } from "react-redux";
-import { setPage, selectedPage, selectedBook, setPagesError } from "../store";
+import { Input, Button, Menu } from 'semantic-ui-react';
+import { connect } from 'react-redux';
+import { setPage, selectedPage, selectedBook, setPagesError } from '../store';
 
-import errors from "../data/errors";
+import errors from '../data/errors';
 
 const ReaderMenu = ({ book, page, setPage, setError, history }) => {
-  const [val, setVal] = React.useState("");
+  const [val, setVal] = React.useState('');
 
   const handlePreviousPage = () => {
     if (page.page_number > 1) {
@@ -18,7 +18,7 @@ const ReaderMenu = ({ book, page, setPage, setError, history }) => {
       setError(null);
       history.push(
         `/books/${book.slug}${
-          newPageNumber !== 1 ? `?page=${newPageNumber}` : ""
+          newPageNumber !== 1 ? `?page=${newPageNumber}` : ''
         }`
       );
     } else {
@@ -39,21 +39,21 @@ const ReaderMenu = ({ book, page, setPage, setError, history }) => {
   const handleSetPage = pageNumber => {
     if (isNaN(pageNumber)) {
       setError(errors.mustBeNumeric);
-      setVal("");
+      setVal('');
       return;
     }
     const pgNum = parseInt(pageNumber, 10);
     if (pgNum >= 1 && pgNum <= book.page_count) {
       setPage(book.id, pgNum);
-      setVal("");
+      setVal('');
       setError(null);
-      history.push(`/books/${book.slug}${pgNum !== 1 ? `?page=${pgNum}` : ""}`);
+      history.push(`/books/${book.slug}${pgNum !== 1 ? `?page=${pgNum}` : ''}`);
     } else if (pgNum < 1) {
       setError(errors.positivePageNumber);
-      setVal("");
+      setVal('');
     } else if (pgNum > book.page_count) {
       setError(errors.cannotExceedPageCount(book.page_count));
-      setVal("");
+      setVal('');
     }
   };
   return (
@@ -81,19 +81,19 @@ const ReaderMenu = ({ book, page, setPage, setError, history }) => {
           Next
         </Button>
       </Menu.Item>
-      <Menu.Item position='right'>
+      <Menu.Item position="right">
         <Input
-          name='jump-to'
+          name="jump-to"
           value={val}
           onChange={(e, d) => setVal(d.value)}
-          placeholder='Jump to'
+          placeholder="Jump to"
           onKeyDown={e => {
-            if (e.key === "Enter") {
+            if (e.key === 'Enter') {
               handleSetPage(val);
             }
           }}
           action={{
-            content: "Go",
+            content: 'Go',
             onClick: () => handleSetPage(val)
           }}
         />

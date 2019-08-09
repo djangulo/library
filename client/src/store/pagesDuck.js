@@ -1,15 +1,15 @@
 // QUACK! This is a duck. https://github.com/erikras/ducks-modular-redux
-import uniqBy from "lodash/uniqBy";
-import pageService from "../services/pageService";
+import uniqBy from 'lodash/uniqBy';
+import pageService from '../services/pageService';
 
 // sync actions
-const SELECT_PAGE = "SELECT_PAGE";
-const SET_ERROR = "SET_ERROR";
+const SELECT_PAGE = 'SELECT_PAGE';
+const SET_ERROR = 'SET_ERROR';
 
 // async actions
-const REQUEST_PAGE = "REQUEST_PAGE";
-const REQUEST_PAGE_SUCCESS = "REQUEST_PAGE_SUCCESS";
-const REQUEST_PAGE_FAILURE = "REQUEST_PAGE_FAILURE";
+const REQUEST_PAGE = 'REQUEST_PAGE';
+const REQUEST_PAGE_SUCCESS = 'REQUEST_PAGE_SUCCESS';
+const REQUEST_PAGE_FAILURE = 'REQUEST_PAGE_FAILURE';
 
 const initialState = {
   items: [],
@@ -92,7 +92,7 @@ const reducer = (state = initialState, action = {}) => {
       return {
         ...state,
         isLoading: false,
-        items: uniqBy([...state.items, ...action.json], "id") // single page with 'retrieve'
+        items: uniqBy([...state.items, ...action.json], 'id') // single page with 'retrieve'
       };
     case REQUEST_PAGE_FAILURE:
       return {
@@ -108,7 +108,7 @@ export default reducer;
 // selectors
 export const getPages = ({ pages: { items } }) => items || [];
 export const selectedPage = ({ pages: { selected } }) => selected || {};
-export const pagesError = ({ pages: { error } }) => error || "";
+export const pagesError = ({ pages: { error } }) => error || '';
 export const pagesIsLoading = ({ pages: { isLoading } }) => isLoading || null;
 export const lastPageByBook = ({ pages: { lastPageByBook } }) =>
   lastPageByBook || {};

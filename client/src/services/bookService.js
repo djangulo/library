@@ -3,9 +3,13 @@ import config from '../config';
 
 const { apiRoot } = config;
 
-export const list = () => fetch(`${apiRoot}/books`);
+export const list = (pageNum = 1) =>
+  fetch(`${apiRoot}/books${pageNum === 1 ? '' : `?page=${pageNum}`}`);
 
 export const retrieve = id => fetch(`${apiRoot}/books/${id}`);
+
+export const search = (query, sort = 'title', order = 'asc', page = 1) =>
+  fetch(`${apiRoot}/books/search?q=${query}&sort=${sort}&order=${order}`);
 
 // export const update = book =>
 //   new Promise(resolve =>
@@ -47,7 +51,7 @@ export const retrieve = id => fetch(`${apiRoot}/books/${id}`);
 //   );
 
 export default {
-  // remove,
+  search,
   list,
   retrieve
   // update

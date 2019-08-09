@@ -1,15 +1,15 @@
-import React from "react";
-import ReactDOM from "react-dom";
-import { BrowserRouter, Route, Redirect, Switch } from "react-router-dom";
-import { Provider } from "react-redux";
+import React from 'react';
+import ReactDOM from 'react-dom';
+import { BrowserRouter, Route, Redirect, Switch } from 'react-router-dom';
+import { Provider } from 'react-redux';
 
-import "./index.css";
-import App from "./App";
-import * as serviceWorker from "./serviceWorker";
+import './index.css';
+import App from './App';
+import * as serviceWorker from './serviceWorker';
 
-import configureStore from "./configureStore";
+import configureStore from './configureStore';
 
-import "semantic-ui-css/semantic.min.css";
+import 'semantic-ui-css/semantic.min.css';
 
 const store = configureStore();
 
@@ -17,12 +17,12 @@ ReactDOM.render(
   <Provider store={store}>
     <BrowserRouter>
       <Switch>
-        <Route exact path='/' render={() => <Redirect to='/books' />} />
-        <Route path='/books' component={App} />
+        <Redirect exact from="/" to="/books" />} />
+        <Route path="/books" component={props => <App {...props} />} />
       </Switch>
     </BrowserRouter>
   </Provider>,
-  document.getElementById("root")
+  document.getElementById('root')
 );
 
 // If you want your app to work offline and load faster, you can change

@@ -1,10 +1,10 @@
-const pgp = require("pg-promise")({
+const pgp = require('pg-promise')({
   capSQL: true
 });
-const config = require("../config");
-const initdb = require("./initdb");
-const seeddb = require("./seeddb");
-const connStr = require("./db/index").connStr;
+const config = require('../config');
+const initdb = require('./initdb');
+const seeddb = require('./seeddb').seeddb;
+const connStr = require('./db/index').connStr;
 /**
  * Creates a testing database on the fly, to keep tests contained
  * @param {*} name
@@ -24,11 +24,11 @@ const createTestDb = async () => {
   );
   const mainDb = await pgp(mainCn);
   await mainDb
-    .any("CREATE DATABASE library_test;")
+    .any('CREATE DATABASE library_test;')
     .then(async () => {})
-    .catch(e => console.log("failed to create test database", e));
+    .catch(e => console.log('failed to create test database', e));
   const testCn = connStr(
-    "library_test",
+    'library_test',
     config.DbHost,
     config.DbPass,
     config.dbUser,
@@ -40,12 +40,12 @@ const createTestDb = async () => {
     await initdb(testDb, config.datadirs.migrations)
       .then(() => seeddb(testDb, config.datadirs.corpora, config.datadirs.seed))
       .catch(err => {
-        console.log("ERROR initializing db: ", err);
+        console.log('ERROR initializing db: ', err);
         throw err;
       });
   })();
   const closeTestDb = () => {
-    mainDb.any("DROP DATABASE library_test").finally(pgp.end);
+    mainDb.any('DROP DATABASE library_test').finally(pgp.end);
   };
   return { testDb, closeTestDb };
 };

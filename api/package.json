@@ -8,6 +8,7 @@
     "@babel/polyfill": "^7.4.4",
     "cors": "^2.8.5",
     "lodash": "^4.17.15",
+    "pg-native": "^3.0.0",
     "pg-promise": "^9.0.0",
     "uuid": "^3.3.2"
   },
@@ -23,8 +24,11 @@
     "supertest": "^4.0.2"
   },
   "scripts": {
-    "start": "nodemon --ignore '**/seed_data/' --exec babel-node src/server.js",
-    "test": "jest"
+    "start": "nodemon  --exec babel-node src/index.js",
+    "test": "jest",
+    "gendata": "node  src/db/gendata.js",
+    "migrate": "node src/db/migrateAndSeed.js",
+    "initdb": "yarn gendata && yarn migrate"
   },
   "author": "denis angulo",
   "license": "MIT"

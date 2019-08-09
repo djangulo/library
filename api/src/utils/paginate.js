@@ -10,4 +10,4 @@ const paginate = (items, pageNumber, pageSize) => {
   return items.slice(idx, pageNumber * pageSize);
 };
 
-module.exports = { paginate };
+module.exports = paginate;
