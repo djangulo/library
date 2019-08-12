@@ -16,16 +16,19 @@ type SQLStore struct {
 	DB *sqlx.DB
 }
 
+// Book struct
 type Book struct {
-	ID              uuid.UUID      `json:"id" db:"id"`
-	Title           string         `json:"title" db:"title"`
-	Slug            string         `json:"slug" db:"slug"`
-	Author          sql.NullString `json:"author" db:"author"`
-	PublicationYear sql.NullInt64  `json:"publication_year" db:"publication_year"`
-	PageCount       int            `json:"page_count" db:"page_count"`
-	Pages           []Page         `json:"pages" db:"pages"`
+	ID              uuid.UUID     `json:"id" db:"id"`
+	Title           string        `json:"title" db:"title"`
+	Slug            string        `json:"slug" db:"slug"`
+	Author          NullString    `json:"author" db:"author"`
+	PublicationYear sql.NullInt64 `json:"publication_year" db:"publication_year"`
+	PageCount       int           `json:"page_count" db:"page_count"`
+	Pages           []Page        `json:"pages" db:"pages"`
+	File            string        `json:"file" db:"file"`
 }
 
+// Author struct
 type Author struct {
 	ID    uuid.UUID `json:"id" db:"id"`
 	Name  string    `json:"name" db:"name"`
@@ -33,6 +36,7 @@ type Author struct {
 	Books []Book    `json:"books" db:"books"`
 }
 
+// Page struct
 type Page struct {
 	ID         uuid.UUID `json:"id" db:"id"`
 	PageNumber int       `json:"page_number" db:"page_number"`
@@ -78,7 +82,7 @@ func NewSQLStore(config config.DatabaseConfig) (*SQLStore, func()) {
 }
 
 // Books fetches a list of books
-func (s *SQLStore) Books(limit int) ([]Book, error) {
+func (s *SQLStore) Books(limit, offset int) ([]Book, error) {
 	books := make([]Book, 0)
 	var lim int
 	if limit == -1 {
@@ -86,8 +90,14 @@ func (s *SQLStore) Books(limit int) ([]Book, error) {
 	} else {
 		lim = limit
 	}
-	stmt := `SELECT * FROM books LIMIT $1;`
-	rows, err := s.DB.Queryx(stmt, lim)
+	var off int
+	if offset == -1 || offset == 0 {
+		off = 0
+	} else {
+		off = offset
+	}
+	stmt := `SELECT * FROM books ORDER BY title LIMIT $1 OFFSET $2;`
+	rows, err := s.DB.Queryx(stmt, lim, off)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "database query failed")
@@ -134,6 +144,7 @@ func (s *SQLStore) BookBySlug(slug string) (Book, error) {
 	return book, nil
 }
 
+// BooksByAuthor returns books by a given author
 func (s *SQLStore) BooksByAuthor(author string) ([]Book, error) {
 	books := make([]Book, 0)
 	stmt := `SELECT * FROM books WHERE author = $1 LIMIT 1000;`

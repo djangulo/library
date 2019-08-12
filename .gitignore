@@ -40,3 +40,8 @@ compose/production/**/*.json
 
 # production .env files
 .envs/.production
+
+
+# go compiled files
+
+*.exe

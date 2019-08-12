@@ -2,11 +2,13 @@ package books
 
 import "html/template"
 
+// IndexData index.html data
 type IndexData struct {
 	Data map[string]template.HTML
 }
 
 var (
+	// LangData holds translation data, soon to be moved to a json file
 	LangData = map[string]IndexData{
 		"en": indexEn,
 		"es": indexEs,

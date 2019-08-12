@@ -50,8 +50,7 @@ func getenv(key, defaultValue string) string {
 
 // Get returns a config object
 func Get() *Config {
-	pwd, _ := os.Executable()
-	rootDir := fp.Dir(fp.Dir(pwd))
+	rootDir := fp.Join(os.Getenv("GOPATH"), "src", "github.com", "djangulo", "library")
 	pConf := ProjectConfig{RootDir: rootDir}
 	dbConfig := DatabaseConfig{
 		Host:     getenv("POSTGRES_HOST", "localhost"),
