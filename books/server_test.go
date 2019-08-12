@@ -44,7 +44,7 @@ func TestGetRoot(t *testing.T) {
 	})
 }
 
-func TestGraphQL(t *testing.T) {
+func TestGraphQLBookQueries(t *testing.T) {
 
 	t.Run("can query all books", func(t *testing.T) {
 		store := books.NewStubStore()
@@ -126,6 +126,32 @@ func TestGraphQL(t *testing.T) {
 		got := bookArr[0].Title
 		testBooks := books.TestBookData()
 		want := testBooks[3].Title
+
+		books.AssertStatus(t, response, http.StatusOK)
+		books.AssertEqual(t, got, want)
+		books.AssertBookStoreCalls(t, store.BookCalls["list"], 1)
+	})
+
+	t.Run("can query allBook filtered by author", func(t *testing.T) {
+		store := books.NewStubStore()
+		server, _ := books.NewBookServer(store, books.DummyMiddlewares, true)
+
+		jsonStream := []byte(`{
+			"query": "{
+				allBook(author: \"Stephen King\") {
+					title,
+					pages{id}
+				}
+			}"
+		}`)
+		jsonStream = books.FlattenJSON(jsonStream)
+		request := books.NewJSONPostRequest("/graphql", jsonStream)
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, request)
+
+		bookArr := books.GetAllBookFromGraphQLResponse(t, response.Body)
+		got := len(bookArr)
+		want := 3
 
 		books.AssertStatus(t, response, http.StatusOK)
 		books.AssertEqual(t, got, want)

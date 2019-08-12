@@ -61,7 +61,6 @@ func (b *BookServer) AllBooksResolver(p graphql.ResolveParams) (interface{}, err
 			return nil, errors.Wrap(err, "BookByAuthor failed")
 		}
 		return books, nil
-
 	default:
 		books, err := b.store.Books(lim, off)
 		if err != nil {

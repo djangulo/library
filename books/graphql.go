@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi"
-	// "github.com/go-chi/chi/middleware"
-
 	"github.com/go-chi/render"
 	"github.com/graphql-go/graphql"
 	"github.com/pkg/errors"
@@ -44,13 +42,6 @@ func (b *BookServer) GraphQLRouter() http.Handler {
 	})
 	return r
 }
-
-// BookSchema Basic schema for graphql server
-// var BookSchema, _ = graphql.NewSchema(
-// 	graphql.SchemaConfig{
-// 		Query: queryType,
-// 	},
-// )
 
 var authorType = graphql.NewObject(
 	graphql.ObjectConfig{
@@ -160,7 +151,7 @@ func (b *BookServer) NewRootQuery() *RootQuery {
 								Description:  "Offset query",
 							},
 							"author": &graphql.ArgumentConfig{
-								Type:        NullableString,
+								Type:        graphql.String,
 								Description: "Filter by author",
 							},
 						},

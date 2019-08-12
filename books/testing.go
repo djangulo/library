@@ -139,16 +139,6 @@ func (s *StubStore) BooksByAuthor(author string) ([]Book, error) {
 	return books, nil
 }
 
-// func (s *StubStore) RoomNMessages(roomID, n, m int) []Message {
-// 	messages := s.messages[roomID]
-// 	return messages
-// }
-
-// func (s *StubStore) RoomLatestNMessages(roomID, n int) []Message {
-// 	messages := s.messages[roomID]
-// 	return messages[len(messages)-n:]
-// }
-
 // GraphQLResponse server response object
 type GraphQLResponse struct {
 	Data   GraphQLDataResponse      `json:"data"`
@@ -285,14 +275,9 @@ func AssertUUIDsEqual(t *testing.T, got, want uuid.UUID) {
 
 // Other helpers
 
-// NewTestSQLStore Creates and returns a test database. Intended for use with integration tests.
-func NewTestSQLStore(
-	host,
-	port,
-	user,
-	dbname,
-	pass string,
-) (*SQLStore, func()) {
+// NewTestSQLStore Creates and returns a test database. Intended for use with
+// integration tests.
+func NewTestSQLStore(host, port, user, dbname, pass string) (*SQLStore, func()) {
 	mainConnStr := fmt.Sprintf(
 		"user=%s password=%s host=%s port=%s dbname=%s sslmode=disable",
 		user,
