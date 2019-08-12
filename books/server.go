@@ -5,7 +5,6 @@ import (
 	// "encoding/json"
 	"fmt"
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
 	"github.com/gofrs/uuid"
 	"github.com/graphql-go/graphql"
 	"html/template"
@@ -14,11 +13,10 @@ import (
 	"path/filepath"
 	// "strconv"
 	"github.com/pkg/errors"
-	"log"
 )
 
-const (
-	htmlDirTemplatesPath = "html"
+var (
+	htmlDirTemplatesPath = filepath.Join("books", "html")
 )
 
 type BookServer struct {
@@ -29,12 +27,14 @@ type BookServer struct {
 }
 
 type Store interface {
-	Books() ([]Book, error)
+	Books(int) ([]Book, error)
 	BookByID(ID uuid.UUID) (Book, error)
 	BookBySlug(slug string) (Book, error)
+	BooksByAuthor(author string) ([]Book, error)
 }
 
-func NewBookServer(store Store, schema graphql.Schema) (*BookServer, error) {
+// NewBookServer returns a new server instance
+func NewBookServer(store Store, middlewares []func(http.Handler) http.Handler, developmentMode bool) (*BookServer, error) {
 	b := new(BookServer)
 
 	b.templatesDir = htmlDirTemplatesPath
@@ -42,15 +42,24 @@ func NewBookServer(store Store, schema graphql.Schema) (*BookServer, error) {
 	b.store = store
 	b.rootQuery = b.NewRootQuery()
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+
+	// middlewares
+	for _, m := range middlewares {
+		r.Use(m)
+	}
+
+	if developmentMode {
+		fmt.Println("Development mode enabled")
+		r.Get("/___graphql", func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, "books/html/graphqlPlayground.html")
+		})
+	}
 
 	r.Route("/{languageCode}", func(r chi.Router) {
 		r.Use(LanguageCtx)
 		r.Get("/", b.serveIndex)
 	})
+	r.Get("/", b.redirectRoot)
 
 	r.Mount("/graphql", b.GraphQLRouter())
 
@@ -59,36 +68,45 @@ func NewBookServer(store Store, schema graphql.Schema) (*BookServer, error) {
 	return b, nil
 }
 
-type LanguageCode string
+type LanguageCode struct {
+	languageCode string `json:"languageCode"`
+}
 
 func (l LanguageCode) String() string {
-	return fmt.Sprintf("%s", string(l))
+	return fmt.Sprintf("%v", string(l.languageCode))
 }
+
+type key int
+
+var langKey key = 112312
 
 func LanguageCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		lang := chi.URLParam(r, "languageCode")
-		ctx := context.WithValue(r.Context(), "lang", lang)
+		langCode := chi.URLParam(r, "languageCode")
+		ctx := context.WithValue(r.Context(), langKey, langCode)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
+func (b *BookServer) redirectRoot(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/en", 302)
+}
+
 func (b *BookServer) serveIndex(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	langCode, ok := ctx.Value("lang").(*LanguageCode)
-	fmt.Printf("\n\n%s\n\n", langCode)
-	if !ok {
+	langCode := ctx.Value(langKey).(string)
+	if langCode == "" {
 		http.Error(w, http.StatusText(422), 422)
 		return
 	}
 
-	templatePath := filepath.Join(b.templatesDir, "index."+langCode.String()+".html")
+	templatePath := "/home/djangulo/go/src/github.com/djangulo/library/books/html/index.html"
 	tmpl, err := template.ParseFiles(templatePath)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("problem opening %s %v", templatePath, err), 400)
 	}
 
-	tmpl.Execute(w, nil)
+	tmpl.Execute(w, LangData[langCode])
 
 }
 
@@ -114,14 +132,38 @@ func (b *BookServer) BooksResolver(p graphql.ResolveParams) (interface{}, error)
 			return nil, errors.Wrap(err, "BookBySlug failed")
 		}
 		return book, nil
+
 	default:
 		return nil, nil
 	}
 	return nil, nil
 }
 
+// AllBooksResolver returns all books
 func (b *BookServer) AllBooksResolver(p graphql.ResolveParams) (interface{}, error) {
+	limit, limitOk := p.Args["limit"].(int)
+	author, authorOk := p.Args["author"].(string)
+	var lim int
+	if limitOk {
+		lim = limit
+	} else {
+		lim = -1
+	}
+	switch {
+	case authorOk:
+		books, err := b.store.BooksByAuthor(author)
+		if err != nil {
+			return nil, errors.Wrap(err, "BookBySlug failed")
+		}
+		return books, nil
 
+	default:
+		books, err := b.store.Books(lim)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get Books from store")
+		}
+		return books, nil
+	}
 }
 
 // func (p *Book) serveGame(w http.ResponseWriter, r *http.Request) {

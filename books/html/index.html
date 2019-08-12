@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>Library &mdash; API</title>
+  <title>{{index .Data "PageTitle"}}</title>
   <link
     rel="stylesheet"
     href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
@@ -13,33 +13,33 @@
 </head>
 <body>
   <div class="container">
-    <h1>Library &mdash; API</h1>
+    <h1>{{index .Data "PageTitle"}}</h1>
     <p>
-      This is the api for the Library app located at
+      {{index .Data "SubTitle"}}
       <a
         rel="noopener noreferrer"
         target="_blank"
         href="https://library.djangulo.com"
         >https://library.djangulo.com</a
       >.
-    <p><a href="/es" >(Versión en español.)</a></p>
+    <p><a href='{{index .Data "OtherLangLink"}}' >({{index .Data "OtherLang"}})</a></p>
     </p>
-    <h2>Available routes:</h2>
+    <h2>{{index .Data "AvailableRoutes"}}:</h2>
     <table class="table">
       <tr>
-        <th scope="col">Name</th>
-        <th scope="col">Route</th>
-        <th scope="col">Example</th>
-        <th scope="col">Notes</th>
+        <th scope="col">{{index .Data "Name"}}</th>
+        <th scope="col">{{index .Data "Route"}}</th>
+        <th scope="col">{{index .Data "Example"}}</th>
+        <th scope="col">{{index .Data "Notes"}}</th>
       </tr>
       <tr>
-        <td>Book list</td>
+        <td>{{index .Data "BookList"}}</td>
         <td>/books</td>
         <td><a rel="noopener noreferrer" href="/books">/books</a></td>
         <td>&mdash;</td>
       </tr>
       <tr>
-        <td>Book by id</td>
+        <td>{{index .Data "BookByID"}}</td>
         <td>
           /books/:id
         </td>
@@ -54,7 +54,7 @@
         <td>&mdash;</td>
       </tr>
       <tr>
-        <td>Book search by title or author</td>
+        <td>{{index .Data "BookSearch"}}</td>
         <td>
           /books/search?q=&lt;query&gt;&by=&lt;order-by&gt;&order=&lt;asc|desc&gt;
         </td>
@@ -67,13 +67,11 @@
           >
         </td>
         <td>
-          The
-          <code>q</code>
-          parameter is required.
+          {{index .Data "qRequired"}}
         </td>
       </tr>
       <tr>
-        <td>Page list</td>
+        <td>{{index .Data "PageList"}}</td>
         <td>
           /pages
         </td>
@@ -85,7 +83,7 @@
         </td>
       </tr>
       <tr>
-        <td>Page by id</td>
+        <td>{{index .Data "PageByID"}}</td>
         <td>
           /pages/:id
         </td>
@@ -102,7 +100,7 @@
         </td>
       </tr>
       <tr>
-        <td>Page param search</td>
+        <td>{{index .Data "PageParam"}}</td>
         <td>
           /pages/by-params?book-id=&lt;book-id&gt;&page-number=&lt;page-number&gt;
         </td>
@@ -115,8 +113,7 @@
           >
         </td>
         <td>
-          Both the <code>book-id</code> and the <code>page-number</code> query
-          params are required.
+          {{index .Data "paramsRequired"}}
         </td>
       </tr>
     </table>

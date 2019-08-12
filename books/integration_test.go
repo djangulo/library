@@ -1,30 +1,30 @@
 package books_test
 
 import (
-	"fmt"
-	// "github.com/djangulo/library/books"
-	// "github.com/djangulo/library/config"
-	// "github.com/gofrs/uuid"
-	// "github.com/jmoiron/sqlx"
-	// "net/http"
-	// "net/http/httptest"
-	"os"
-	"testing"
+// "fmt"
+// // "github.com/djangulo/library/books"
+// // "github.com/djangulo/library/config"
+// // "github.com/gofrs/uuid"
+// // "github.com/jmoiron/sqlx"
+// // "net/http"
+// // "net/http/httptest"
+// "os"
+// "testing"
 )
 
-func TestSQLStore(t *testing.T) {
-	fmt.Println("smoke!")
-	booksFixture, err := os.Open("testdata/fakeBooks.json")
-	if err != nil {
-		panic(err)
-	}
-	pagesFixture, err := os.Open("testdata/fakePages.json")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(booksFixture)
-	fmt.Println(pagesFixture)
-}
+// func TestSQLStore(t *testing.T) {
+// 	fmt.Println("smoke!")
+// 	booksFixture, err := os.Open("testdata/fakeBooks.json")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	pagesFixture, err := os.Open("testdata/fakePages.json")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	// fmt.Println(booksFixture)
+// 	// fmt.Println(pagesFixture)
+// }
 
 // TestPostgreSQLPlayerStore integration test
 // func TestSQLStoreIntegration(t *testing.T) {

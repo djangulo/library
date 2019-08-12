@@ -4,47 +4,53 @@
     "title": "Moby Dick",
     "slug": "moby-dick",
     "author": "Herman Melville",
-    "pub_date": 1851,
-    "page_count": 20
+    "publication_year": 1851,
+    "page_count": 20,
+    "pages": []
   },
   {
     "id": "9c3e08f9-2a5b-4eed-8769-991a708fa036",
     "title": "The old man and the sea",
     "slug": "the-old-man-and-the-sea",
     "author": "Ernest Hemingway",
-    "pub_date": 1952,
-    "page_count": 20
+    "publication_year": 1952,
+    "page_count": 20,
+    "pages": []
   },
   {
     "id": "62a01525-a3b1-49cb-919c-d83f0aa10d2f",
     "title": "Carrie",
     "slug": "carrie",
     "author": "Stephen King",
-    "pub_date": 1974,
-    "page_count": 20
+    "publication_year": 1974,
+    "page_count": 20,
+    "pages": []
   },
   {
     "id": "ae31188e-b343-4987-8842-c97afb5f0c6d",
     "title": "It",
     "slug": "it",
     "author": "Stephen King",
-    "pub_date": 1986,
-    "page_count": 20
+    "publication_year": 1986,
+    "page_count": 20,
+    "pages": []
   },
   {
     "id": "6cb80e34-0394-43ac-957d-7cefddb6e493",
     "title": "Pet Sematary",
     "slug": "pet-sematary",
     "author": "Stephen King",
-    "pub_date": 1983,
-    "page_count": 20
+    "publication_year": 1983,
+    "page_count": 20,
+    "pages": []
   },
   {
     "id": "8c79ac56-39f2-4954-8a1f-cd3b058c169f",
     "title": "The call of Cthulu",
     "slug": "the-call-of-cthulu",
     "author": "H.P. Lovecraft",
-    "pub_date": 1928,
-    "page_count": 20
+    "publication_year": 1928,
+    "page_count": 20,
+    "pages": []
   }
 ]

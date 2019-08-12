@@ -1,11 +1,14 @@
 package books
 
 import (
+	// "database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
 	"github.com/graphql-go/graphql"
+	// "github.com/graphql-go/graphql/language/ast"
+	"github.com/pkg/errors"
 	"net/http"
 )
 
@@ -18,7 +21,7 @@ func (b *BookServer) GraphQLRouter() http.Handler {
 		},
 	)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error creating schema %v", err))
+		fmt.Printf("%+v\n", errors.Wrap(err, "error creating graphql schema"))
 	}
 	r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
@@ -139,6 +142,17 @@ func (b *BookServer) NewRootQuery() *RootQuery {
 						Type:        graphql.NewList(bookType),
 						Description: "Get all books.",
 						Resolve:     b.AllBooksResolver,
+						Args: graphql.FieldConfigArgument{
+							"limit": &graphql.ArgumentConfig{
+								Type:         graphql.Int,
+								DefaultValue: 1000,
+								Description:  "Limit query size",
+							},
+							"author": &graphql.ArgumentConfig{
+								Type:        graphql.String,
+								Description: "Filter by author",
+							},
+						},
 					},
 				},
 			},
@@ -146,6 +160,74 @@ func (b *BookServer) NewRootQuery() *RootQuery {
 	}
 	return &root
 }
+
+// type NullString struct {
+// 	graphql.Scalar
+// }
+
+// func (s NullString) String() string {
+// 	var str string
+// 	if s.Valid {
+// 		str = s.Str
+// 	}
+// 	return str
+// }
+
+// func NewNullString(v sql.NullString) *NullString {
+// 	return &NullString{Str: v, Valid: true}
+// }
+
+// func SerializeNullString(value interface{}) interface{} {
+// 	switch value := value.(type) {
+// 	case NullString:
+// 		return value.Str
+// 	case *NullString:
+// 		v := *value
+// 		return value.Str
+// 	case sql.NullString:
+// 		return value.String
+// 	case *sql.NullString:
+// 		v := *value
+// 		return value.String
+// 	default:
+// 		return nil
+// 	}
+
+// }
+
+// var NullableString = graphql.NewScalar(graphql.ScalarConfig{
+// 	Name:        "NullableString",
+// 	Description: "The `NullableString` type repesents a nullable SQL string.",
+// 	Serialize: func(value interface{}) interface{} {
+// 		switch value := value.(type) {
+// 		case NullString:
+// 			return value.String()
+// 		case *NullString:
+// 			v := *value
+// 			return v.String()
+// 		default:
+// 			return nil
+// 		}
+// 	},
+// 	ParseValue: func(value interface{}) interface{} {
+// 		switch vaule := value.(type) {
+// 		case string:
+// 			return NewNullString(value)
+// 		case *string:
+// 			return NewNullString(*value)
+// 		default:
+// 			return nil
+// 		}
+// 	},
+// 	ParseLiteral: func(valueAST ast.Value) interface{} {
+// 		switch valueAST := valueAST.(type) {
+// 		case *ast.StringValue:
+// 			return NewNullString(valueAST.Value)
+// 		default:
+// 			return nil
+// 		}
+// 	},
+// })
 
 // var queryType = graphql.NewObject(
 // 	graphql.ObjectConfig{

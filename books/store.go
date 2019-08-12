@@ -1,9 +1,12 @@
 package books
 
 import (
+	"database/sql"
 	"fmt"
+	"github.com/djangulo/library/config"
 	"github.com/gofrs/uuid"
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq" // unneded namespace
 	"github.com/pkg/errors"
 	"log"
 )
@@ -13,22 +16,56 @@ type SQLStore struct {
 	DB *sqlx.DB
 }
 
+type Book struct {
+	ID              uuid.UUID      `json:"id" db:"id"`
+	Title           string         `json:"title" db:"title"`
+	Slug            string         `json:"slug" db:"slug"`
+	Author          sql.NullString `json:"author" db:"author"`
+	PublicationYear sql.NullInt64  `json:"publication_year" db:"publication_year"`
+	PageCount       int            `json:"page_count" db:"page_count"`
+	Pages           []Page         `json:"pages" db:"pages"`
+}
+
+type Author struct {
+	ID    uuid.UUID `json:"id" db:"id"`
+	Name  string    `json:"name" db:"name"`
+	Slug  string    `json:"slug" db:"slug"`
+	Books []Book    `json:"books" db:"books"`
+}
+
+type Page struct {
+	ID         uuid.UUID `json:"id" db:"id"`
+	PageNumber int       `json:"page_number" db:"page_number"`
+	Body       string    `json:"body" db:"body"`
+	BookID     uuid.UUID `json:"book_id" db:"book_id"`
+}
+
 // NewSQLStore Returns a new SQL store with a postgres database connection.
-func NewSQLStore(host, port, user, dbname, pass string) (*SQLStore, func()) {
-	connStr := fmt.Sprintf(
-		"user=%s password=%s host=%s port=%s dbname=%s sslmode=disable",
-		user,
-		pass,
-		host,
-		port,
-		dbname,
-	)
-	db, err := sqlx.Open("postgres", connStr)
+func NewSQLStore(config config.DatabaseConfig) (*SQLStore, func()) {
+	db, err := sqlx.Open("postgres", config.ConnStr())
 	if err != nil {
 		log.Fatalf("failed to connect database %v", err)
 	}
 
-	_, errCreate := db.Exec(CreateTables)
+	// This is temporary until go-migrate is implemented
+	_, errCreate := db.Exec(`
+	CREATE SCHEMA IF NOT EXISTS library;
+	CREATE TABLE IF NOT EXISTS books (
+		id UUID PRIMARY KEY,
+		title VARCHAR(255) NOT NULL,
+		slug VARCHAR(255) NOT NULL,
+		author VARCHAR(100),
+		publication_year INTEGER,
+		page_count INTEGER,
+		file VARCHAR(255)
+	);
+	CREATE TABLE IF NOT EXISTS pages (
+		id UUID PRIMARY KEY,
+		page_number INT,
+		body TEXT,
+		book_id UUID REFERENCES books (id)
+	);
+	`)
 	if errCreate != nil {
 		log.Fatalf("failed to create tables %v", errCreate)
 	}
@@ -68,7 +105,7 @@ func (s *SQLStore) Books(limit int) ([]Book, error) {
 }
 
 // BookByID fetches a book by ID
-func (s *SQLStore) BookByID(ID uuid.UUID) (*Book, error) {
+func (s *SQLStore) BookByID(ID uuid.UUID) (Book, error) {
 	var book Book
 	stmt := `
 	SELECT * FROM books
@@ -77,23 +114,44 @@ func (s *SQLStore) BookByID(ID uuid.UUID) (*Book, error) {
 	`
 
 	if err := s.DB.Get(&book, stmt, ID); err != nil {
-		return nil, errors.Wrap(err, "error querying database")
+		return book, errors.Wrap(err, "error querying database")
 	}
-	return &book, nil
+	return book, nil
 }
 
 // BookBySlug fetches a book by slug
-func (s *SQLStore) BookBySlug(slug string) (*Book, error) {
+func (s *SQLStore) BookBySlug(slug string) (Book, error) {
 	var book Book
 	stmt := `
 	SELECT * FROM books
 	WHERE slug = $1
 	LIMIT 1;
 	`
-	if err := s.DB.Get(&book, stmt, slug); err != nil {
-		return nil, errors.Wrap(err, "error querying database")
+	err := s.DB.Get(&book, stmt, slug)
+	if err != nil {
+		return book, errors.Wrap(err, "error querying database")
 	}
-	return &book, nil
+	return book, nil
+}
+
+func (s *SQLStore) BooksByAuthor(author string) ([]Book, error) {
+	books := make([]Book, 0)
+	stmt := `SELECT * FROM books WHERE author = $1 LIMIT 1000;`
+	rows, err := s.DB.Queryx(stmt, author)
+
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("database query failed\n\t%s", stmt))
+	}
+
+	for rows.Next() {
+		var book Book
+		if err = rows.StructScan(&book); err != nil {
+			return nil, errors.Wrap(err, "error scanning database rows")
+		}
+		books = append(books, book)
+	}
+
+	return books, nil
 }
 
 // func (s *SQLStore) Page(bookId uuid.UUID, number int) Page {

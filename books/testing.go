@@ -1,36 +1,71 @@
 package books
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	// "github.com/djangulo/library/config"
 	"github.com/gofrs/uuid"
 	"github.com/jmoiron/sqlx"
 	"io"
 	"io/ioutil"
 	"log"
-	"path/filepath"
+	"net/http"
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
 func NewStubStore() *StubStore {
+	// cnf := config.Get()
 
-	bookspath := filepath.Join(config.RootDir, "books", "testdata", "fakeBooks.json")
-	pagesPath := filepath.Join(config.RootDir, "books", "testdata", "fakePages.json")
+	jsonBooks, _ := os.Open("/home/djangulo/go/src/github.com/djangulo/library/books/testdata/fakeBooks.json")
+	jsonPages, _ := os.Open("/home/djangulo/go/src/github.com/djangulo/library/books/testdata/fakePages.json")
 
-	datBooks, _ := ioutil.ReadFile(bookspath)
-	datPages, _ := ioutil.ReadFile(pagesPath)
-	var books []Book
-	var pages []Page
-	json.Unmarshal(datBooks, &boooks)
-	json.Unmarshal(datPages, &pages)
-	store := books.NewStubStore(boooks, pages, map[uuid.UUID]int{}, map[uuid.UUID]int{})
+	defer jsonBooks.Close()
+	defer jsonPages.Close()
+
+	// bookspath := filepath.Join(cnf.Project.RootDir, "books", "testdata", "fakeBooks.json")
+	// pagesPath := filepath.Join(cnf.Project.RootDir, "books", "testdata", "fakePages.json")
+
+	datBooks, _ := ioutil.ReadAll(jsonBooks)
+	datPages, _ := ioutil.ReadAll(jsonPages)
+	var tmpBooks []map[string]interface{}
+	var tmpPages []map[string]interface{}
+	json.Unmarshal(datBooks, &tmpBooks)
+	json.Unmarshal(datPages, &tmpPages)
+
+	books := make([]Book, 0)
+	for _, b := range tmpBooks {
+		book := Book{
+			ID:              uuid.Must(uuid.FromString(b["id"].(string))),
+			Title:           b["title"].(string),
+			Slug:            b["slug"].(string),
+			Author:          sql.NullString{Valid: true, String: b["author"].(string)},
+			PublicationYear: sql.NullInt64{Valid: true, Int64: int64(b["publication_year"].(float64))},
+			PageCount:       int(b["page_count"].(float64)),
+			Pages:           []Page{},
+		}
+		books = append(books, book)
+	}
+
+	pages := make([]Page, 0)
+	for _, p := range tmpPages {
+		page := Page{
+			ID:         uuid.Must(uuid.FromString(p["id"].(string))),
+			BookID:     uuid.Must(uuid.FromString(p["book_id"].(string))),
+			PageNumber: int(p["page_number"].(float64)),
+			Body:       p["body"].(string),
+		}
+		pages = append(pages, page)
+	}
 
 	return &StubStore{
-		books:     initialBooks,
-		pages:     initialPages,
-		BookCalls: initialBookCalls,
-		PageCalls: initialPageCalls,
+		books:     books,
+		pages:     pages,
+		BookCalls: map[uuid.UUID]int{},
+		PageCalls: map[uuid.UUID]int{},
 	}
 }
 
@@ -41,8 +76,8 @@ type StubStore struct {
 	PageCalls map[uuid.UUID]int
 }
 
-func (s *StubStore) Books() []Book {
-	return s.books
+func (s *StubStore) Books(limit int) ([]Book, error) {
+	return s.books, nil
 }
 
 func (s *StubStore) Page(bookID uuid.UUID, number int) Page {
@@ -56,22 +91,35 @@ func (s *StubStore) Page(bookID uuid.UUID, number int) Page {
 	return page
 }
 
-func (s *StubStore) BooksByID(ID uuid.UUID) (Book, error) {
+func (s *StubStore) BookByID(ID uuid.UUID) (Book, error) {
+	bid, _ := ID.Value()
+	fmt.Printf("\n\n%+v\n\n", bid)
 	for _, b := range s.books {
-		if b.ID == ID {
-			return b
+		id, _ := b.ID.Value()
+		if id == bid {
+			return b, nil
 		}
 	}
-	return nil, nil
+	return Book{}, nil
 }
 
-func (s *StubStore) BooksBySlug(slug string) (Book, error) {
+func (s *StubStore) BookBySlug(slug string) (Book, error) {
 	for _, b := range s.books {
 		if b.Slug == slug {
-			return b
+			return b, nil
 		}
 	}
-	return nil, nil
+	return Book{}, nil
+}
+
+func (s *StubStore) BooksByAuthor(author string) ([]Book, error) {
+	books := make([]Book, 0)
+	for _, b := range s.books {
+		if b.Author.Valid && strings.ToLower(b.Author.String) == strings.ToLower(author) {
+			books = append(books, b)
+		}
+	}
+	return books, nil
 }
 
 // func (s *StubStore) RoomNMessages(roomID, n, m int) []Message {
@@ -179,3 +227,5 @@ func NewTestSQLStore(
 
 	return &SQLStore{testDB}, removeDatabase
 }
+
+var DummyMiddlewares = []func(http.Handler) http.Handler{}
