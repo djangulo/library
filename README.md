@@ -1,120 +1,123 @@
-# Bibilioteca
+# Library
 
-Bienvenidos, esta es mi entrega para la aplicación a GBH.
+Online library application.
 
-El `README.md` original de este repositorio fue movido al archivo llamado [instructions.md](./instructions.md).
+The spanish version of this README its in the [README.es.md](./README.es.md) file
+.
+
+[(Versión en español.)](./README.es.md)
 
 ## Tabla de contenidos
 
-- [Version en vivo](#live-version)
-- [Proceso de diseño](#design-process)
-- [Tecnologías](#technologies)
-- [Filosofía de pruebas](#testing-philosophy)
-- [Lanzamiento](#deployment)
+- [Live version](#live-version)
+- [Design process](#design-process)
+- [Technologies](#technologies)
+- [Testing philosophy](#testing-philosophy)
+- [Deployment](#deployment)
+
   - [Docker](#docker)
-    - [Requerimientos para correr el proyecto con Docker](#requirements-docker)
-    - [Correr el proyecto local con Docker](#run-locally-docker)
-  
-  - [Servidor de ensayo (staging server)](#staging-server)
 
-## Version en vivo<a name="live-version"></a>
+    - [Docker launch requirements](#requirements-docker)
+    - [Run locally with Docker](#run-locally-docker)
 
-Las version en vivo de la aplicación se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library.djangulo.com">https://library.djangulo.com</a>.
+  - [Production build](#production-server)
 
-El API se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library-api.djangulo.com">https://library-api.djangulo.com</a>. Cuenta con un índice que le indicará las rutas y ejemplos de las mismas. La versión en español está en <a target="_blank" rel="noopener noreferrer" href="https://library-api.djangulo.com/es">https://library-api.djangulo.com/es</a>
+## Live version<a name="live-version"></a>
 
-## Proceso de diseño<a name="design-process"></a>
+Live version of the app is found at <a target="_blank" rel="noopener noreferrer" href="https://library.djangulo.com">https://library.djangulo.com</a>.
 
-Las decisiones tomadas y las razones detrás de las mismas están delineadas en el archivo [design.md](./design.md).
+The API can be found at <a target="_blank" rel="noopener noreferrer" href="https://library-api.djangulo.com">https://library-api.djangulo.com</a>. It has an index that lists available routes and examples of them. The spanish version is at <a target="_blank" rel="noopener noreferrer" href="https://library-api.djangulo.com/es">https://library-api.djangulo.com/es</a>.
 
-## Tecnologías utiizadas<a name="technologies"></a>
+## Design process<a name="design-process"></a>
 
-  Las tecnologías centrales al desarrollo del cliente están listadas debajo. Nótese que esta no es una lista extensiva de todas las librerías usadas.
+Design choices and the reasons behind them are outlined in the [DESIGN.md](./DESIGN.md) file.
 
-- Cliente
+## Technologies<a name="technologies"></a>
 
-  - <a target="_blank" rel="noopener noreferrer" href="https://reactjs.org/">React</a>. Librería de JavaScript para construir interfaces de usuario. Inicializado a traves de <a target="_blank" rel="noopener noreferrer" href="https://github.com/facebook/create-react-app">CRA</a>.
-  - <a target="_blank" rel="noopener noreferrer" href="https://redux.js.org/">Redux</a>. Para manejar el estado de la aplicación de manera centralizada.
+The central technologies to the creation of the client ar elisted below. Note thatthis is by no means an exhaustive list.
+
+- Client
+
+  - <a target="_blank" rel="noopener noreferrer" href="https://reactjs.org/">React</a>. JavaScript library to create user interfaces. Initialized through <a target="_blank" rel="noopener noreferrer" href="https://github.com/facebook/create-react-app">CRA</a>.
+  - <a target="_blank" rel="noopener noreferrer" href="https://redux.js.org/">Redux</a>. State management.
 
 - API
 
-  - <a target="_blank" rel="noopener noreferrer" href="https://expressjs.com/">Express</a>. Una librería para construir aplicaciones de nodejs
-  - La base de datos es <a target="_blank" rel="noopener noreferrer" href="https://www.postgresql.org/">PostgreSQL</a>.
+  - <a target="_blank" rel="noopener noreferrer" href="https://expressjs.com/">Express</a>. NodeJS application framework.
+  - The database is <a target="_blank" rel="noopener noreferrer" href="https://www.postgresql.org/">PostgreSQL</a>.
 
-- Lanzamiento
+- Deployment
 
-  - <a target="_blank" rel="noopener noreferrer" href="https://www.docker.com/">Docker</a>. Creación y manejo de contenedores.
-  - <a target="_blank" rel="noopener noreferrer" href="https://traefik.io">Traefik</a>. Un reverse-proxy que confiere `TLS` por defecto. En este caso funciona como un <a target="_blank" rel="noopener noreferrer" href="https://es.wikipedia.org/wiki/Balance_de_carga">balanceador de carga</a>.
-  - <a target="_blank" rel="noopener noreferrer" href="https://aws.amazon.com/">Amazon Web Services (AWS)</a>. Manejo de infraestructura.
+  - <a target="_blank" rel="noopener noreferrer" href="https://www.docker.com/">Docker</a>. Containerization.
+  - <a target="_blank" rel="noopener noreferrer" href="https://traefik.io">Traefik</a>. Reverse-proxy with automatic `TLS`. In this case is used as a <a target="_blank" rel="noopener noreferrer" href="https://en.wikipedia.org/wiki/Load_balancing_(computing)">load balancer.</a>.
+  - <a target="_blank" rel="noopener noreferrer" href="https://aws.amazon.com/">Amazon Web Services (AWS)</a>. Infrastructure as a service.
 
-## Filosofía de pruebas<a name="testing-philosophy"></a>
+## Testing philosophy<a name="testing-philosophy"></a>
 
-Es mayor enfoque de las pruebas automatizadas esta en integración y de punta a punta (E2E).
-Las pruebas unitarias se utilizan estrictamente para funciones y utilidades, (validación, parsers, etc.), debido a que encuentro poco valor en las mismas. Esto se debe a que ya las pruebas de integración y e2e prueban el interfaz de usuario y el API a cabalidad.
+The biggest focus of the tests is on integration and End to End (E2E). Unit tests are used sparsly in the client, as E2E and integration tests cover most, if not all cases.
 
-En el directorio llamado `e2e/cypress/integration` se encuentran las diferentes pruebas de punta a punta.
+The directory `e2e/cypress/integration` has the client E2E tests.
 
-Las pruebas de integración se encuentran al lado de cada archivo, bajo el formato de `*.spec.js`. Las pocas pruebas unitarias que se encuentren, también estarán bajo este formato.
+Integration tests follow the `*spec.js` convention.
 
-## Lanzamiento<a name="deployment"></a>
+## Deployment<a name="deployment"></a>
 
 ### Docker
 
-La manera más fácil y rápida de correr el proyecto de manera local, es a través de `Docker`.
+The easiest way to get the project up and running locally is by using `Docker`.
 
-#### Requerimientos para correr el proyecto con docker<a name="requirements-docker"></a>
+#### Docker requirements<a name="requirements-docker"></a>
 
-- `docker`. <a target="_blank" rel="noopener noreferrer" href="https://docs.docker.com/install/linux/docker-ce/ubuntu/">Instrucciones de instalación</a>.
-- `docker-compose`. <a target="_blank" rel="noopener noreferrer" href="(https://docs.docker.com/compose/install/">Instrucciones de instalación</a>.
+- `docker`. <a target="_blank" rel="noopener noreferrer" href="https://docs.docker.com/install/linux/docker-ce/ubuntu/">Installation instructions.</a>.
+- `docker-compose`. <a target="_blank" rel="noopener noreferrer" href="(https://docs.docker.com/compose/install/">Installation instructions.</a>.
 
-#### Correr el proyecto local con Docker<a name="run-locally-docker"></a>
+#### Run locally with `docker`<a name="run-locally-docker"></a>
 
-Lo primero es construir el contenedor:
+First thing is to build the container:
 
 ```bash
 ~$ docker-compose -f local.yml build
 ```
 
-Luego inicializarlo
+Then initialize it:
 
 ```bash
 ~$ docker-compose -f local.yml up
 ```
 
-Tras esto el proyecto puede visualizarse en `localhost:3000`
+It can be found at `localhost:3000`
 
-### Servidor de ensayo (staging server)<a name="staging-server"></a>
+### Production build<a name="production-server"></a>
 
-El servidor de ensayo (que será tambien utilizado como plataforma de prueba) se encuentra en <a target="_blank" rel="noopener noreferrer" href="https://library.djangulo.com">https://library.djangulo.com</a>.
+The production server, which will also be used as a testing platform, is found at <a target="_blank" rel="noopener noreferrer" href="https://library.djangulo.com">https://library.djangulo.com</a>.
 
-Si desea lanzar su propio servidor, utilice el script  `compose/production/traefik/aws_ec2_load_balancer`. Este script asume que tiene un dominio registrado con `AWS Route53`. Visite <a target="_blank" rel="noopener noreferrer" href="https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-register.html">esta página</a> para ver instrucciones de como hacerlo.
+If you wish to launch your own, feel free to use the `compose/production/traefik/aws_ec2_load_balancer` script. This script assumes that you have an `AWS Route53` hosted zone with a custom domain name. Visit <a target="_blank" rel="noopener noreferrer" href="https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-register.html">this page</a> to see instructions for registering one.
 
-Para que el script funcione, necesita contar con:
+For the script to work, you will need:
 
-- <a target="_blank" rel="noopener noreferrer" href="https://aws.amazon.com/cli/">aws-cli</a>. <a target="_blank" rel="noopener noreferrer" href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html">Instalado</a> y <a target="_blank" rel="noopener noreferrer" href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html">configurado</a>.
-- `docker`
-- `docker-compose`
-- `docker-machine`
+- <a target="_blank" rel="noopener noreferrer" href="https://aws.amazon.com/cli/">aws-cli</a>. <a target="_blank" rel="noopener noreferrer" href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html">Installed</a> and <a target="_blank" rel="noopener noreferrer" href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html">configured</a>.
+- [docker]("#requirements-docker")
+- [docker-compose]("#requirements-docker")
+- <a target="_blank" rel="noopener noreferrer" href="https://docs.docker.com/machine/install-machine/">docker-machine</a>
 
-El script configura una instancia `EC2`, utilizando `traefik` como un balanceador de carga, asumiendo que usted tiene el dominio `example.com` registrado en `AWS Route53`, lo utiliza de la siguiente manera:
+The script configures an `EC2` instance, using `traefik` as a load balancer. Assuming you have the `example.com` domain registered in `AWS Route53`, you can use it as follows:
 
 ```bash
 ~$ ./aws_ec2_load_balancer \
-~$  --instance-name mi-instancia-ec2 \ # el nombre que EC2 le asigna a su instancia, es también el nombre por el cual docker-machine se refiere a la misma
-~$  --open-ports 80,442 \ # puertos para abrir en la instancia
-~$  --region us-east-1 \ # region de AWS en la cual crear la instancia
-~$  --domain example.com \ #su dominio
-~$  --subdomains api,library \ #registra api.example.com y library.example.com
-~$  --networks library_api \ # networks para registrar las instancias de docker en el docker-compose
+~$  --instance-name mi-instancia-ec2 \ # name EC2 assigns to the instance, it's also the name of the docker-machine
+~$  --open-ports 80,442 \ # ports to open in the instance
+~$  --region us-east-1 \ # AWS region to create the instance in
+~$  --domain example.com \ # your domain
+~$  --subdomains api,library \ # registers A records for api.example.com y library.example.com
+~$  --networks library_api \ # networks to register the docker instances in the docker-compose
 ```
 
-El script tomara unos minutos en terminar, una vez listo, tan solo debe de correr los comandos siguiente:
+The script should take a few minutes to run. Once ready, you just need to run the following commands:
 
 ```bash
-~$ eval $(docker-machine env mi-instancia-ec2) # "mi-instancia" es el nombre de su instancia EC2
-~$ docker-compose -f production.yml build # se debe tomar unos minutos
+~$ eval $(docker-machine env my-instance) # "mf-instance" is the name you gave your EC2 instance
+~$ docker-compose -f production.yml build # should take a few minutes
 ~$ docker-compose -f production.yml up --detach
 ```
 
-Si todo funcionó como se espera, su servidor debe de estar en línea.
-
+If everything worked as expected, your server should be online.
