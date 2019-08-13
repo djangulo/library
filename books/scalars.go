@@ -58,11 +58,6 @@ func SerializeNullString(value interface{}) interface{} {
 	case *NullString:
 		v := *value
 		return v.String
-	case sql.NullString:
-		return value.String
-	case *sql.NullString:
-		v := *value
-		return v.String
 	default:
 		return nil
 	}

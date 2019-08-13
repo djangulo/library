@@ -1,18 +1,13 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/djangulo/library/books"
 	"github.com/djangulo/library/config"
 	"github.com/go-chi/chi/middleware"
-	// "github.com/gofrs/uuid"
-	// "github.com/go-chi/chi"
-	// "encoding/json"
-	"flag"
-	// "io/ioutil"
 	"log"
 	"net/http"
-	// "path/filepath"
 )
 
 var port string
@@ -41,15 +36,6 @@ func main() {
 	flag.Parse()
 	fmt.Println("Listening at port " + port)
 	fmt.Println("Books is a-running")
-	// bookspath := "/home/djangulo/go/src/github.com/djangulo/library/books/testdata/fakeBooks.json"
-	// pagesPath := "/home/djangulo/go/src/github.com/djangulo/library/books/testdata/fakePages.json"
-
-	// datBooks, _ := ioutil.ReadFile(bookspath)
-	// datPages, _ := ioutil.ReadFile(pagesPath)
-	// var boooks []books.Book
-	// var pages []books.Page
-	// json.Unmarshal(datBooks, &boooks)
-	// json.Unmarshal(datPages, &pages)
 
 	cnf := config.Get()
 
