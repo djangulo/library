@@ -9,8 +9,11 @@ import (
 	"net/http"
 )
 
-var port string
-var devMode bool
+var (
+	port    string
+	devMode bool
+	cnf     = config.Get()
+)
 
 func init() {
 	const (
@@ -22,6 +25,13 @@ func init() {
 	flag.StringVar(&port, "port", defaultPort, portUsage)
 	flag.StringVar(&port, "p", defaultPort, portUsage+" (shorthand)")
 	flag.BoolVar(&devMode, "dev", devDefault, devUsage)
+
+	var once sync.Once
+	migrationsAndSeed := func() {
+		books.MigrateDatabase(cnf)
+		books.AcquireGutenberg(cnf)
+	}
+	once.Do(migrationsAndSeed)
 }
 
 var middlewares = []func(http.Handler) http.Handler{
@@ -32,7 +42,6 @@ var middlewares = []func(http.Handler) http.Handler{
 }
 
 func main() {
-	cnf := config.Get()
 	flag.Parse()
 	log.Println("Books listening on port " + port)
 	log.Println("Books is a-running")
