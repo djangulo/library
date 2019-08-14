@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"log"
 	"net/http"
+	"sync"
 )
 
 var (
