@@ -1,7 +1,6 @@
 package books
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/djangulo/library/config"
 	"github.com/gofrs/uuid"
@@ -18,14 +17,15 @@ type SQLStore struct {
 
 // Book struct
 type Book struct {
-	ID              uuid.UUID     `json:"id" db:"id"`
-	Title           string        `json:"title" db:"title"`
-	Slug            string        `json:"slug" db:"slug"`
-	Author          NullString    `json:"author" db:"author"`
-	PublicationYear sql.NullInt64 `json:"publication_year" db:"publication_year"`
-	PageCount       int           `json:"page_count" db:"page_count"`
-	Pages           []Page        `json:"pages" db:"pages"`
-	File            string        `json:"file" db:"file"`
+	ID              uuid.UUID  `json:"id" db:"id"`
+	Title           string     `json:"title" db:"title"`
+	Slug            string     `json:"slug" db:"slug"`
+	PublicationYear NullInt64  `json:"publication_year" db:"publication_year"`
+	PageCount       int        `json:"page_count" db:"page_count"`
+	File            string     `json:"file" db:"file"`
+	Source          NullString `json:"source" db:"source"`
+	Author          NullString `json:"author" db:"author"`
+	Pages           []Page     `json:"pages"`
 }
 
 // Author struct

@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/djangulo/library/books"
 	"github.com/djangulo/library/config"
 	"github.com/go-chi/chi/middleware"
@@ -33,11 +32,10 @@ var middlewares = []func(http.Handler) http.Handler{
 }
 
 func main() {
-	flag.Parse()
-	fmt.Println("Listening at port " + port)
-	fmt.Println("Books is a-running")
-
 	cnf := config.Get()
+	flag.Parse()
+	log.Println("Books listening on port " + port)
+	log.Println("Books is a-running")
 
 	store, removeStore := books.NewSQLStore(cnf.Database)
 	defer removeStore()

@@ -1,0 +1,6 @@
+## Books graphql
+HTML_TEMPLATES_DIR=/static/html
+MIGRATIONS_DIR=/migrations
+SEED_DATA_DIR=/data/seed_data
+CORPORA_DIR=/data/corpora
+TESTDATA_DIR=/data/testdata

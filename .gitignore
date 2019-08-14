@@ -37,6 +37,8 @@ compose/production/**/*.json
 
 **/nltk_data
 **/seed_data
+data/*
+!data/testdata
 
 # production .env files
 .envs/.production

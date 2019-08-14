@@ -24,9 +24,7 @@ import (
 func TestBookData() (books []Book) {
 	cnf = config.Get()
 	path := filepath.Join(
-		cnf.Project.RootDir,
-		"books",
-		"testdata",
+		cnf.Project.Dirs.TestData,
 		"fakeBooks.json",
 	)
 	jsonb, _ := os.Open(path)
@@ -40,9 +38,7 @@ func TestBookData() (books []Book) {
 func TestPageData() (pages []Page) {
 	cnf = config.Get()
 	path := filepath.Join(
-		cnf.Project.RootDir,
-		"books",
-		"testdata",
+		cnf.Project.Dirs.TestData,
 		"fakePages.json",
 	)
 	jsonb, _ := os.Open(path)

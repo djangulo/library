@@ -39,15 +39,15 @@ func (v *NullString) UnmarshalJSON(data []byte) error {
 }
 
 // NewNullString create a new null string
-func NewNullString(value string) *NullString {
+func NewNullString(value string) NullString {
 	var null NullString
 	if value != "" {
 		null.String = value
 		null.Valid = true
-		return &null
+		return null
 	}
 	null.Valid = false
-	return &null
+	return null
 }
 
 // SerializeNullString serializes `NullString` to a string
@@ -124,11 +124,15 @@ func (v *NullInt64) UnmarshalJSON(data []byte) error {
 }
 
 // NewNullInt64 create a new null string
-func NewNullInt64(value int64) *NullInt64 {
+func NewNullInt64(value int64) NullInt64 {
 	var null NullInt64
-	null.Int64 = value
-	null.Valid = true
-	return &null
+	if value == 0 {
+		null.Valid = false
+	} else {
+		null.Valid = true
+		null.Int64 = value
+	}
+	return null
 }
 
 // SerializeNullInt64 serializes `NullInt64` to a string

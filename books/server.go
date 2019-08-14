@@ -13,7 +13,7 @@ import (
 
 var (
 	cnf                  = config.Get()
-	htmlDirTemplatesPath = filepath.Join(cnf.Project.RootDir, "books", "html")
+	htmlDirTemplatesPath = filepath.Join(cnf.Project.Dirs.Static, "books", "html")
 )
 
 // BookServer GraphQL Server for book storage
