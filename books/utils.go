@@ -3,9 +3,9 @@ package books
 import (
 	"archive/zip"
 	"github.com/djangulo/library/config"
-	"github.com/golang-migrate/migrate"
-	_ "github.com/golang-migrate/migrate/database/postgres"
-	_ "github.com/golang-migrate/migrate/source/file"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"io"
 	"log"
 	"net/http"

@@ -1,8 +1,29 @@
 FROM golang:1.12.8 as builder
 LABEL maintainer="Denis Angulo <djal@tuta.io>"
+ENV GO111MODULE=on
 WORKDIR $GOPATH/src/github.com/djangulo/library/
-COPY . .
-RUN go get -d -v ./...
+
+# copy dependency management to cache dependencies
+COPY ./go.mod .
+COPY ./go.sum .
+
+RUN go get -d -u
+
+RUN mkdir ./static
+COPY ./static/books ./static/books
+COPY ./books ./books
+COPY ./config ./config
+RUN mkdir ./cmd
+COPY ./cmd/books ./cmd/books
+
+# create compiled  test binary
+RUN CGO_ENABLED=0 \
+    GOOS=linux \
+    go test ./books \
+    -c \
+    -a \
+    -installsuffix cgo \
+    -o $GOPATH/bin/books.test
 
 # compile app binary
 RUN CGO_ENABLED=0 \
@@ -14,20 +35,13 @@ RUN CGO_ENABLED=0 \
     -o $GOPATH/bin/books \
     ./cmd/books/main.go
 
-# create compiled  test binary
-RUN CGO_ENABLED=0 \
-    GOOS=linux \
-    go test \
-    -c \
-    -a \
-    -installsuffix cgo \
-    -o $GOPATH/bin/books.test
 
 # tool to wait for postgres connection
 RUN git clone https://github.com/eficode/wait-for.git /wait-for
 
 
 
+# FROM scratch
 FROM alpine:latest
 
 RUN addgroup -S golang \
@@ -44,8 +58,9 @@ COPY --from=builder /go/bin/books.test /test
 RUN chmod +x ./test
 RUN chown golang:golang /test
 
+
 COPY --from=builder /go/src/github.com/djangulo/library/static/books /static
-RUN chown -R golang:golang /html
+RUN chown -R golang:golang /static
 
 COPY --from=builder /wait-for/wait-for /wait-for
 RUN sed -i 's/\r//g' /wait-for
