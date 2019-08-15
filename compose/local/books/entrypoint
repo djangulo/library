@@ -5,9 +5,9 @@ set -o pipefail
 set -o nounset
 
 
-/wait-for $POSTGRES_HOST:$POSTGRES_PORT -t 120 -- migrate \
-    -database postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
-    -path $MIGRATIONS_DIR \
-    up
+# /wait-for $POSTGRES_HOST:$POSTGRES_PORT -t 120 -- /usr/bin/migrate \
+#     -database postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
+#     -path $MIGRATIONS_DIR \
+#     up
 
 exec "$@"

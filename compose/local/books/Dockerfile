@@ -1,19 +1,24 @@
 FROM golang:1.12.8 as builder
 LABEL maintainer="Denis Angulo <djal@tuta.io>"
 ENV GO111MODULE=on
-WORKDIR $GOPATH/src/github.com/djangulo/library/
+
+# tool to wait for postgres connection
+RUN git clone https://github.com/eficode/wait-for.git /wait-for
 
 # install the `migrate` tool to manage migrations
 # https://github.com/golang-migrate/migrate
-RUN go get -u -d github.com/golang-migrate/migrate/cmd/migrate \
-    && cd $GOPATH/src/github.com/golang-migrate/migrate/cmd/migrate \
-    && git checkout v4.5.0 \
+RUN git clone https://github.com/golang-migrate/migrate.git /migrate
+WORKDIR /migrate
+RUN git checkout v4.5.0 \
     && go build \
     -tags 'postgres' \
+    -tags netgo \
     -ldflags="-X main.Version=$(git describe --tags)" \
     -o $GOPATH/bin/migrate \
-    github.com/golang-migrate/migrate/cmd/migrate \
-    && cd $GOPATH/src/github.com/djangulo/library/
+    /migrate/cmd/migrate
+
+
+WORKDIR $GOPATH/src/github.com/djangulo/library
 
 
 # copy go module files to cache dependencies
@@ -22,21 +27,18 @@ COPY ./go.sum .
 
 RUN go get -d -u
 
-RUN mkdir ./static
-COPY ./static/books ./static/books
-COPY ./books ./books
-COPY ./config ./config
-COPY ./migrations ./migrations
-COPY ./data ./data
-RUN mkdir ./cmd
-COPY ./cmd/books ./cmd/books
+# Copy only necesary files
+COPY ./books/ ./books/
+COPY ./config/ ./config/
+COPY ./cmd/ ./cmd/
+
 
 # create compiled test binary
 RUN CGO_ENABLED=0 \
     GOOS=linux \
     go test ./books \
     -c \
-    -a \
+    -a -v \
     -installsuffix cgo \
     -o $GOPATH/bin/books.test
 
@@ -44,19 +46,25 @@ RUN CGO_ENABLED=0 \
 RUN CGO_ENABLED=0 \
     GOOS=linux \
     go build \
+    -tags netgo \
     -p 1 \
     -a \
     -installsuffix cgo \
     -o $GOPATH/bin/books \
     ./cmd/books/main.go
 
-# tool to wait for postgres connection
-RUN git clone https://github.com/eficode/wait-for.git /wait-for
+# Copy compose, data, migrations and static after compile to prevent
+# unnecesary compilations by non-essential changes
+COPY ./static/ ./static/
+COPY ./data/ ./data/
+COPY ./migrations/ ./migrations/
+COPY ./compose/ ./compose/
 
 
 
 # FROM scratch
 FROM alpine:latest
+
 
 RUN addgroup -S golang \
     && adduser -S -G golang golang
@@ -67,26 +75,26 @@ RUN apk update \
 COPY --from=builder /go/bin/books /books
 COPY --from=builder /go/bin/books.test /test
 COPY --from=builder /go/bin/migrate /migrate
-COPY --from=builder /go/src/github.com/djangulo/library/data /data
 COPY --from=builder /wait-for/wait-for /wait-for
-COPY --from=builder /go/src/github.com/djangulo/library/migrations /migrations
 COPY --from=builder /go/src/github.com/djangulo/library/compose/local/books/entrypoint /entrypoint
 COPY --from=builder /go/src/github.com/djangulo/library/compose/local/books/start /start
-COPY --from=builder /go/src/github.com/djangulo/library/migrations /migrations
-COPY --from=builder /go/src/github.com/djangulo/library/static/books /static/books
-RUN sed -i 's/\r//g' /wait-for
-RUN chmod +x /test /books /wait-for /start /entrypoint
+COPY --from=builder /go/src/github.com/djangulo/library/data/ /data/
+COPY --from=builder /go/src/github.com/djangulo/library/migrations/ /migrations/
+COPY --from=builder /go/src/github.com/djangulo/library/static/ /static/
+# RUN sed -i 's/\r//g' /wait-for
+RUN chmod +x /test /books /wait-for /start /entrypoint /migrate
 RUN chown -R golang:golang \
-    /static \
-    /data \
-    /migrations \
-    /migrate \
     /books \
     /test \
+    /migrate \
     /wait-for \
     /entrypoint \
-    /start
+    /start \
+    /data \
+    /migrations \
+    /static
 
 USER golang
+WORKDIR /
 
 ENTRYPOINT ["/entrypoint"]

@@ -69,7 +69,7 @@ func Get() *Config {
 		DataRoot:   getenv("DATA_ROOT", fp.Join(rootDir, "data")),
 		Seed:       getenv("SEED_DATA_DIR", fp.Join(rootDir, "data", "seed_data")),
 		Corpora:    getenv("CORPORA_DIR", fp.Join(rootDir, "data", "corpora")),
-		Static:     getenv("HTML_TEMPLATES_DIR", fp.Join(rootDir, "static")),
+		Static:     getenv("STATIC_DIR", fp.Join(rootDir, "static")),
 		TestData:   getenv("TESTDATA_DIR", fp.Join(rootDir, "data", "testdata")),
 	}
 	pConf := ProjectConfig{
