@@ -1,4 +1,4 @@
-version: "3.7"
+version: '3.7'
 
 networks:
   library_local:
@@ -23,11 +23,11 @@ services:
     command: yarn run start
     depends_on:
       - library_postgres
-      - api
+      - books
     networks:
       - library_local
     ports:
-      - "3000:3000"
+      - '3000:3000'
 
   books:
     build:
@@ -35,7 +35,15 @@ services:
       dockerfile: ./compose/local/books/Dockerfile
     image: books_local
     command:
-      ["/wait-for", "library_postgres:5432", "--", "/books", "-p", "9001"]
+      [
+        '/wait-for',
+        'library_postgres:5432',
+        '--',
+        '/books',
+        '-p',
+        '9000',
+        '-dev',
+      ]
     restart: always
     depends_on:
       - library_postgres
@@ -45,43 +53,43 @@ services:
       - ./.envs/.local/.postgres
       - ./.envs/.local/.books
     ports:
-      - "9001:9001"
+      - '9000:9000'
     networks:
       - library_local
 
-  api:
-    build:
-      context: .
-      dockerfile: ./compose/production/api/Dockerfile
-    image: api_local
-    command: ["yarn", "start"]
-    # command: ['yarn', 'run', 'start']
-    networks:
-      - library_local
-    ports:
-      - "9000:9000"
-    volumes:
-      - local_api:/api
-    depends_on:
-      - library_postgres
-    env_file:
-      - ./.envs/.local/.postgres
-      - ./.envs/.local/.api
-      - ./.envs/.local/.client
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: ./compose/production/api/Dockerfile
+  #   image: api_local
+  #   command: ['yarn', 'start']
+  #   # command: ['yarn', 'run', 'start']
+  #   networks:
+  #     - library_local
+  #   ports:
+  #     - '9000:9000'
+  #   volumes:
+  #     - local_api:/api
+  #   depends_on:
+  #     - library_postgres
+  #   env_file:
+  #     - ./.envs/.local/.postgres
+  #     - ./.envs/.local/.api
+  #     - ./.envs/.local/.client
 
   library_postgres:
     build:
       context: .
       dockerfile: ./compose/production/postgres/Dockerfile
     healthcheck:
-      test: ["CMD", "sh", "-c", "/usr/local/bin/healthcheck"]
+      test: ['CMD', 'sh', '-c', '/usr/local/bin/healthcheck']
       interval: 60s
       timeout: 10s
       retries: 5
       start_period: 30s
     restart: always
     expose:
-      - "5432"
+      - '5432'
     image: library_local_postgres
     volumes:
       - local_postgres_data:/var/lib/postgresql/data

@@ -13,6 +13,8 @@ RUN mkdir ./static
 COPY ./static/books ./static/books
 COPY ./books ./books
 COPY ./config ./config
+COPY ./migrations ./migrations
+COPY ./data ./data
 RUN mkdir ./cmd
 COPY ./cmd/books ./cmd/books
 
@@ -58,11 +60,14 @@ COPY --from=builder /go/bin/books.test /test
 RUN chmod +x ./test
 RUN chown golang:golang /test
 
-
-COPY --from=builder /go/src/github.com/djangulo/library/static/books /static
-RUN chown -R golang:golang /static
+COPY --from=builder /go/src/github.com/djangulo/library/static/books/html /static/html
+COPY --from=builder /go/src/github.com/djangulo/library/migrations /migrations
+COPY --from=builder /go/src/github.com/djangulo/library/data /data
+RUN chown -R golang:golang /static /data /migrations
 
 COPY --from=builder /wait-for/wait-for /wait-for
 RUN sed -i 's/\r//g' /wait-for
 RUN chmod +x /wait-for
 RUN chown golang:golang /wait-for
+
+USER golang

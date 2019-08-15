@@ -5,5 +5,5 @@ CREATE TABLE IF NOT EXISTS books (
     pub_year INTEGER,
     page_count INTEGER,
     file VARCHAR(255),
-    author references authors (id)
+    author UUID REFERENCES authors (id)
 );

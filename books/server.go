@@ -12,8 +12,7 @@ import (
 )
 
 var (
-	cnf                  = config.Get()
-	htmlDirTemplatesPath = filepath.Join(cnf.Project.Dirs.Static, "books", "html")
+	cnf = config.Get()
 )
 
 // BookServer GraphQL Server for book storage
@@ -36,7 +35,7 @@ type Store interface {
 func NewBookServer(store Store, middlewares []func(http.Handler) http.Handler, developmentMode bool) (*BookServer, error) {
 	b := new(BookServer)
 
-	b.templatesDir = htmlDirTemplatesPath
+	b.templatesDir = cnf.Project.Dirs.Static
 
 	b.store = store
 	b.rootQuery = b.NewRootQuery()

@@ -6,4 +6,4 @@ POSTGRES_DB=library_staging
 POSTGRES_USER=lygu1kqy7qqg3eccwiuh
 POSTGRES_PASSWORD=ECZ599EzltUH2VdS9gxiDPnkuLAs9YrUyq26JFrbbx38a9QVuKlf5kXc8KxlhZfZ
 POSTGRES_SSLMODE=disable
-POSTGRES_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSLMODE}"
+POSTGRES_URL=postgres://lygu1kqy7qqg3eccwiuh:ECZ599EzltUH2VdS9gxiDPnkuLAs9YrUyq26JFrbbx38a9QVuKlf5kXc8KxlhZfZ@library_postgres:5432/library_staging?sslmode=disable

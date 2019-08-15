@@ -2,9 +2,10 @@ package books
 
 import (
 	"archive/zip"
+	"fmt"
 	"github.com/djangulo/library/config"
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres" // unneeded namespace
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"io"
 	"log"
@@ -101,7 +102,10 @@ func AcquireGutenberg(cnf *config.Config) {
 	_, err := os.Stat(fp.Join(cnf.Project.Dirs.Corpora, "gutenberg"))
 	if os.IsNotExist(err) {
 		log.Printf("Unzipping %s...\n", dataFile)
-		Unzip(dataFile, cnf.Project.Dirs.Corpora)
+		_, err := Unzip(dataFile, cnf.Project.Dirs.Corpora)
+		if err != nil {
+			log.Fatal(err)
+		}
 	} else {
 		log.Printf("%s exists, skipping unzip\n", fp.Join(cnf.Project.Dirs.Corpora, "gutenberg"))
 
@@ -109,59 +113,60 @@ func AcquireGutenberg(cnf *config.Config) {
 }
 
 // Unzip zipFile onto dest
-func Unzip(zipFile, dest string) {
-	err := os.Mkdir(dest, os.ModeDir)
-	if err != nil {
-		log.Printf("%s exists, skipping", dest)
-	}
-	// var filenames []string
+func Unzip(src, dest string) ([]string, error) {
+	var filenames []string
 
-	r, err := zip.OpenReader(zipFile)
+	r, err := zip.OpenReader(src)
 	if err != nil {
-		log.Fatal(err)
+		return filenames, err
 	}
 	defer r.Close()
 
-	for _, file := range r.File {
-		path := fp.Join(dest, file.Name)
+	for _, f := range r.File {
+
+		// Store filename/path for returning and using later on
+		fpath := fp.Join(dest, f.Name)
 
 		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
-		if !strings.HasPrefix(path, fp.Clean(dest)+string(os.PathSeparator)) {
-			log.Fatalf("%s: illegal file path", path)
+		if !strings.HasPrefix(fpath, fp.Clean(dest)+string(os.PathSeparator)) {
+			return filenames, fmt.Errorf("%s: illegal file path", fpath)
 		}
 
-		// filenames = append(filenames, path)
-		if file.FileInfo().IsDir() {
+		filenames = append(filenames, fpath)
+
+		if f.FileInfo().IsDir() {
 			// Make Folder
-			os.MkdirAll(path, os.ModePerm)
+			os.MkdirAll(fpath, os.ModePerm)
 			continue
 		}
 
 		// Make File
-		if err = os.MkdirAll(fp.Dir(path), os.ModePerm); err != nil {
-			log.Fatal(err)
+		if err = os.MkdirAll(fp.Dir(fpath), os.ModePerm); err != nil {
+			return filenames, err
 		}
 
-		outFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 		if err != nil {
-			log.Fatal(err)
+			return filenames, err
 		}
 
-		rc, err := file.Open()
+		rc, err := f.Open()
 		if err != nil {
-			log.Fatal(err)
+			return filenames, err
 		}
 
 		_, err = io.Copy(outFile, rc)
 
+		// Close the file without defer to close before next iteration of loop
 		outFile.Close()
 		rc.Close()
 
 		if err != nil {
-			log.Fatal(err)
+			return filenames, err
 		}
 	}
-	log.Printf("Successfully unzipped %s", zipFile)
+	log.Printf("Successfully unzipped %s", src)
+	return filenames, nil
 }
 
 // MigrateDatabase noqa

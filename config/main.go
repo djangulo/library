@@ -32,6 +32,7 @@ type ProjectConfig struct {
 // DirConfig holds configuration options to the directories
 type DirConfig struct {
 	Seed       string
+	DataRoot   string
 	Corpora    string
 	Static     string
 	Migrations string
@@ -61,9 +62,10 @@ func getenv(key, defaultValue string) string {
 
 // Get returns a config object
 func Get() *Config {
-	rootDir := fp.Join(os.Getenv("GOPATH"), "src", "github.com", "djangulo", "library")
+	rootDir := getenv("ROOT_DIR", fp.Join(os.Getenv("GOPATH"), "src", "github.com", "djangulo", "library"))
 	dirConf := DirConfig{
 		Migrations: getenv("MIGRATIONS_DIR", fp.Join(rootDir, "migrations")),
+		DataRoot:   getenv("DATA_ROOT", fp.Join(rootDir, "data")),
 		Seed:       getenv("SEED_DATA_DIR", fp.Join(rootDir, "data", "seed_data")),
 		Corpora:    getenv("CORPORA_DIR", fp.Join(rootDir, "data", "corpora")),
 		Static:     getenv("HTML_TEMPLATES_DIR", fp.Join(rootDir, "static")),
