@@ -2,11 +2,16 @@ package books
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/djangulo/library/config"
 	"github.com/gofrs/uuid"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file" // unneded namespace
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq" // unneded namespace
 	"io"
 	"io/ioutil"
 	"log"
@@ -16,7 +21,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"strings"
+	"sync"
 	"testing"
 )
 
@@ -48,63 +53,70 @@ func TestPageData() (pages []Page) {
 	return
 }
 
+// TestAuthorsData reads pages json data and returns as a slice
+func TestAuthorsData() (authors []Author) {
+	cnf = config.Get()
+	path := filepath.Join(
+		cnf.Project.Dirs.TestData,
+		"fakeAuthors.json",
+	)
+	jsonb, _ := os.Open(path)
+	defer jsonb.Close()
+	byteData, _ := ioutil.ReadAll(jsonb)
+	json.Unmarshal(byteData, &authors)
+	return
+}
+
 // NewStubStore noqa
 func NewStubStore() *StubStore {
 
 	books := TestBookData()
 	pages := TestPageData()
+	authors := TestAuthorsData()
 
 	return &StubStore{
-		books:     books,
-		pages:     pages,
-		BookCalls: map[string]int{},
-		PageCalls: map[string]int{},
+		books:       books,
+		pages:       pages,
+		authors:     authors,
+		BookCalls:   map[string]int{},
+		PageCalls:   map[string]int{},
+		AuthorCalls: map[string]int{},
 	}
 }
 
 // StubStore for testing
 type StubStore struct {
-	books     []Book
-	pages     []Page
-	BookCalls map[string]int
-	PageCalls map[string]int
+	books       []Book
+	pages       []Page
+	authors     []Author
+	BookCalls   map[string]int
+	PageCalls   map[string]int
+	AuthorCalls map[string]int
 }
 
 // Books noqa
 func (s *StubStore) Books(limit, offset int) ([]Book, error) {
 	s.BookCalls["list"]++
-	if offset > len(s.books) {
-		return s.books[len(s.books):], nil
+	items := s.books
+	length := len(items)
+	if offset > length {
+		return items[length:], nil
 	} else if offset < 0 {
 		offset = 0
 	}
-	if limit+offset > len(s.books) {
-		return s.books[offset:], nil
+	if limit+offset > length {
+		return items[offset:], nil
 	}
-	if limit > len(s.books) {
-		limit = len(s.books)
+	if limit > length {
+		limit = length
 	}
-	return s.books[(0 + offset):(offset + limit)], nil
-}
-
-// Page noqa
-func (s *StubStore) Page(bookID uuid.UUID, number int) Page {
-	var page Page
-	for _, p := range s.pages {
-		if p.BookID == bookID && p.PageNumber == number {
-			page = p
-			break
-		}
-	}
-	return page
+	return items[(0 + offset):(offset + limit)], nil
 }
 
 // BookByID noqa
-func (s *StubStore) BookByID(ID uuid.UUID) (Book, error) {
-	bid, _ := ID.Value()
+func (s *StubStore) BookByID(id uuid.UUID) (Book, error) {
 	for _, b := range s.books {
-		id, _ := b.ID.Value()
-		if id == bid {
+		if id.String() == b.ID.String() {
 			s.BookCalls[b.ID.String()]++
 			return b, nil
 		}
@@ -124,15 +136,104 @@ func (s *StubStore) BookBySlug(slug string) (Book, error) {
 }
 
 // BooksByAuthor noqa
-func (s *StubStore) BooksByAuthor(author string) ([]Book, error) {
+func (s *StubStore) BooksByAuthor(name string) ([]Book, error) {
 	s.BookCalls["list"]++
+	var id *uuid.UUID
+	for _, a := range s.authors {
+		if a.Name == name {
+			id = &a.ID
+			break
+		}
+	}
 	books := make([]Book, 0)
 	for _, b := range s.books {
-		if b.Author.Valid && strings.ToLower(b.Author.String) == strings.ToLower(author) {
+		if b.AuthorID.String() == id.String() {
 			books = append(books, b)
 		}
 	}
 	return books, nil
+}
+
+// Pages noqa
+func (s *StubStore) Pages(limit, offset int) ([]Page, error) {
+	s.PageCalls["list"]++
+	items := s.pages
+	length := len(items)
+	if offset > length {
+		return items[length:], nil
+	} else if offset < 0 {
+		offset = 0
+	}
+	if limit+offset > length {
+		return items[offset:], nil
+	}
+	if limit > length {
+		limit = length
+	}
+	return items[(0 + offset):(offset + limit)], nil
+}
+
+// PageByID noqa
+func (s *StubStore) PageByID(id uuid.UUID) (Page, error) {
+	for _, p := range s.pages {
+		if id.String() == p.ID.String() {
+			s.PageCalls[p.ID.String()]++
+			return p, nil
+		}
+	}
+	return Page{}, nil
+}
+
+// PageByBookAndNumber noqa
+func (s *StubStore) PageByBookAndNumber(bookID uuid.UUID, number int) (Page, error) {
+	for _, p := range s.pages {
+		if bookID.String() == p.BookID.String() && p.PageNumber == number {
+			s.PageCalls[p.ID.String()]++
+			return p, nil
+		}
+	}
+	return Page{}, nil
+}
+
+// Authors noqa
+func (s *StubStore) Authors(limit, offset int) ([]Author, error) {
+	s.AuthorCalls["list"]++
+	items := s.authors
+	length := len(items)
+	if offset > length {
+		return items[length:], nil
+	} else if offset < 0 {
+		offset = 0
+	}
+	if limit+offset > length {
+		return items[offset:], nil
+	}
+	if limit > length {
+		limit = length
+	}
+	return items[(0 + offset):(offset + limit)], nil
+}
+
+// AuthorByID noqa
+func (s *StubStore) AuthorByID(id uuid.UUID) (Author, error) {
+	for _, b := range s.authors {
+		if id.String() == b.ID.String() {
+			s.AuthorCalls[b.ID.String()]++
+			return b, nil
+		}
+	}
+	return Author{}, nil
+}
+
+// AuthorBySlug noqa
+func (s *StubStore) AuthorBySlug(slug string) (Author, error) {
+	for _, b := range s.authors {
+		if b.Slug == slug {
+			s.AuthorCalls[b.ID.String()]++
+			return b, nil
+		}
+	}
+	return Author{}, nil
 }
 
 // GraphQLResponse server response object
@@ -190,6 +291,20 @@ func GetAllBookFromGraphQLResponse(t *testing.T, body io.Reader) []Book {
 	return gqlRes.Data.AllBook
 }
 
+// GetPageFromGraphQLResponse noqa
+func GetPageFromGraphQLResponse(t *testing.T, body io.Reader) Page {
+	t.Helper()
+	gqlRes := ParseGraphQLResponse(t, body)
+	return gqlRes.Data.Page
+}
+
+// GetAllPageFromGraphQLResponse noqa
+func GetAllPageFromGraphQLResponse(t *testing.T, body io.Reader) []Page {
+	t.Helper()
+	gqlRes := ParseGraphQLResponse(t, body)
+	return gqlRes.Data.AllPage
+}
+
 // Assertions
 
 // AssertBooks noqa
@@ -209,8 +324,18 @@ func AssertPages(t *testing.T, got, want []Page) {
 }
 
 // AssertBookStoreCalls noqa
-func AssertBookStoreCalls(t *testing.T, got, want int) {
+func AssertBookStoreCalls(t *testing.T, store *StubStore, id string, want int) {
 	t.Helper()
+	got := store.BookCalls[id]
+	if got != want {
+		t.Errorf("got %d want %d calls", got, want)
+	}
+}
+
+// AssertPageStoreCalls noqa
+func AssertPageStoreCalls(t *testing.T, store *StubStore, id string, want int) {
+	t.Helper()
+	got := store.PageCalls[id]
 	if got != want {
 		t.Errorf("got %d want %d calls", got, want)
 	}
@@ -273,46 +398,44 @@ func AssertUUIDsEqual(t *testing.T, got, want uuid.UUID) {
 
 // NewTestSQLStore Creates and returns a test database. Intended for use with
 // integration tests.
-func NewTestSQLStore(host, port, user, dbname, pass string) (*SQLStore, func()) {
-	mainConnStr := fmt.Sprintf(
-		"user=%s password=%s host=%s port=%s dbname=%s sslmode=disable",
-		user,
-		pass,
-		host,
-		port,
-		dbname,
-	)
-	mainDB, err := sqlx.Open("postgres", mainConnStr)
+func NewTestSQLStore(config config.Config) (*SQLStore, func()) {
+	db, err := sqlx.Open("postgres", config.Database["main"].ConnStr())
 	if err != nil {
 		log.Fatalf("failed to connect database %v", err)
 	}
-	_, err = mainDB.Exec(`CREATE DATABASE test_database;`)
+	stmt := fmt.Sprintf("CREATE DATABASE %s;", config.Database["test"].Name)
+	_, err = db.Exec(stmt)
 	if err != nil {
 		log.Fatalf("failed to create test database %v", err)
 	}
+	testConnStr := config.Database["test"].ConnStr()
 
-	testConnStr := fmt.Sprintf(
-		"user=%s password=%s host=%s port=%s dbname=%s sslmode=disable",
-		user,
-		pass,
-		host,
-		port,
-		"library_test_database",
-	)
-	testDB, errOpenTest := sqlx.Open("postgres", testConnStr)
-	if errOpenTest != nil {
-		log.Fatalf("failed to connect to test database %v", errOpenTest)
+	var once sync.Once
+	once.Do(func() {
+		migrateConn, err := sql.Open("postgres", testConnStr)
+		if err != nil {
+			log.Fatalf("failed to connect to test database %v", err)
+		}
+		defer migrateConn.Close()
+
+		driver, err := postgres.WithInstance(migrateConn, &postgres.Config{})
+		m, err := migrate.NewWithDatabaseInstance(
+			"file://"+config.Project.Dirs.Migrations,
+			"postgres",
+			driver,
+		)
+		m.Up()
+
+	})
+
+	testDB, err := sqlx.Open("postgres", testConnStr)
+	if err != nil {
+		log.Fatalf("failed to connect to test database %v", err)
 	}
-
-	// _, errCreateTable := testDB.Exec(CreateTables)
-	// if errCreateTable != nil {
-	// 	log.Fatalf("failed to create test DB table %v", errCreateTable)
-	// }
-
 	removeDatabase := func() {
 		testDB.Close()
-		mainDB.Exec(`DROP DATABASE library_test_database;`)
-		mainDB.Close()
+		db.Exec(`DROP DATABASE library_test_database;`)
+		db.Close()
 	}
 
 	return &SQLStore{testDB}, removeDatabase

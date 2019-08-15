@@ -26,10 +26,16 @@ type BookServer struct {
 
 // Store noqa
 type Store interface {
-	Books(limit int, offset int) ([]Book, error)
-	BookByID(ID uuid.UUID) (Book, error)
-	BookBySlug(slug string) (Book, error)
-	BooksByAuthor(author string) ([]Book, error)
+	Books(int, int) ([]Book, error)
+	BookByID(uuid.UUID) (Book, error)
+	BookBySlug(string) (Book, error)
+	BooksByAuthor(string) ([]Book, error)
+	Pages(int, int) ([]Page, error)
+	PageByID(uuid.UUID) (Page, error)
+	PageByBookAndNumber(uuid.UUID, int) (Page, error)
+	Authors(int, int) ([]Author, error)
+	AuthorByID(uuid.UUID) (Author, error)
+	AuthorBySlug(string) (Author, error)
 }
 
 // NewBookServer returns a new server instance

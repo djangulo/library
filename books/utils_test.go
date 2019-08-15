@@ -44,7 +44,6 @@ func TestGutenbergMeta(t *testing.T) {
 			books.Book{
 				Title:  "The Parent's Assistant",
 				Slug:   "the-parents-assistant",
-				Author: books.NewNullString("Maria Edgeworth"),
 				Source: books.NewNullString("gutenberg"),
 			},
 		},
@@ -55,7 +54,6 @@ func TestGutenbergMeta(t *testing.T) {
 				Title:           "Emma",
 				PublicationYear: books.NewNullInt64(1816),
 				Slug:            "emma",
-				Author:          books.NewNullString("Jane Austen"),
 				Source:          books.NewNullString("gutenberg"),
 			},
 		},
@@ -66,7 +64,6 @@ func TestGutenbergMeta(t *testing.T) {
 				Title:           "The King James Bible",
 				PublicationYear: books.NewNullInt64(0),
 				Slug:            "the-king-james-bible",
-				Author:          books.NewNullString(""),
 				Source:          books.NewNullString("gutenberg"),
 			},
 		},
@@ -77,17 +74,19 @@ func TestGutenbergMeta(t *testing.T) {
 				Title:           "The Tragedie of Hamlet",
 				PublicationYear: books.NewNullInt64(1599),
 				Slug:            "the-tragedie-of-hamlet",
-				Author:          books.NewNullString("William Shakespeare"),
 				Source:          books.NewNullString("gutenberg"),
 			},
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := books.GutenbergMeta(c.in)
+			author, book := books.GutenbergMeta(c.in)
 			want := c.want
-			if !reflect.DeepEqual(got, want) {
-				t.Errorf("\ngot:\n%v \nwant: \n%v", got, want)
+			if !reflect.DeepEqual(author, books.Author{}) {
+				want.AuthorID = &author.ID
+			}
+			if !reflect.DeepEqual(book, want) {
+				t.Errorf("\ngot:\n%v \nwant: \n%v", book, want)
 			}
 		})
 	}

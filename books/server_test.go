@@ -76,7 +76,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 
 		books.AssertStatus(t, response, http.StatusOK)
 		books.AssertEqual(t, got, want)
-		books.AssertBookStoreCalls(t, store.BookCalls["list"], 1)
+		books.AssertBookStoreCalls(t, store, "list", 1)
 	})
 
 	t.Run("can query all books with a limit", func(t *testing.T) {
@@ -102,7 +102,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 
 		books.AssertStatus(t, response, http.StatusOK)
 		books.AssertEqual(t, got, want)
-		books.AssertBookStoreCalls(t, store.BookCalls["list"], 1)
+		books.AssertBookStoreCalls(t, store, "list", 1)
 	})
 
 	t.Run("can query all books with an offset", func(t *testing.T) {
@@ -129,7 +129,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 
 		books.AssertStatus(t, response, http.StatusOK)
 		books.AssertEqual(t, got, want)
-		books.AssertBookStoreCalls(t, store.BookCalls["list"], 1)
+		books.AssertBookStoreCalls(t, store, "list", 1)
 	})
 
 	t.Run("can query allBook filtered by author", func(t *testing.T) {
@@ -155,7 +155,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 
 		books.AssertStatus(t, response, http.StatusOK)
 		books.AssertEqual(t, got, want)
-		books.AssertBookStoreCalls(t, store.BookCalls["list"], 1)
+		books.AssertBookStoreCalls(t, store, "list", 1)
 	})
 
 	t.Run("can query a book by id", func(t *testing.T) {
@@ -186,11 +186,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 
 		books.AssertStatus(t, response, http.StatusOK)
 		books.AssertUUIDsEqual(t, got, want)
-		books.AssertBookStoreCalls(
-			t,
-			store.BookCalls["de0e4051-54b1-4f37-97f2-619b5b568d7f"],
-			1,
-		)
+		books.AssertBookStoreCalls(t, store, got.String(), 1)
 	})
 	t.Run("can query a book by slug", func(t *testing.T) {
 		store := books.NewStubStore()
@@ -221,10 +217,158 @@ func TestGraphQLBookQueries(t *testing.T) {
 
 		books.AssertStatus(t, response, http.StatusOK)
 		books.AssertUUIDsEqual(t, got, want)
-		books.AssertBookStoreCalls(
-			t,
-			store.BookCalls["8c79ac56-39f2-4954-8a1f-cd3b058c169f"],
-			1,
-		)
+		books.AssertBookStoreCalls(t, store, got.String(), 1)
+	})
+}
+
+func TestGraphQLPageQueries(t *testing.T) {
+
+	t.Run("can query all pages", func(t *testing.T) {
+		store := books.NewStubStore()
+		server, _ := books.NewBookServer(store, books.DummyMiddlewares, true)
+
+		jsonStream := []byte(`
+		{
+			"query": "{
+				allPage {
+					id,
+					page_number,
+					book_id,
+					body,
+				}
+			}"
+		}`)
+		jsonStream = books.FlattenJSON(jsonStream)
+		request := books.NewJSONPostRequest("/graphql", jsonStream)
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, request)
+
+		pages := books.GetAllPageFromGraphQLResponse(t, response.Body)
+		got := len(pages)
+		want := len(books.TestPageData())
+
+		books.AssertStatus(t, response, http.StatusOK)
+		books.AssertEqual(t, got, want)
+		books.AssertPageStoreCalls(t, store, "list", 1)
+	})
+
+	t.Run("can query all pages with a limit", func(t *testing.T) {
+		store := books.NewStubStore()
+		server, _ := books.NewBookServer(store, books.DummyMiddlewares, true)
+
+		jsonStream := []byte(`{
+			"query": "{
+				allPage(limit: 10) {
+					id,
+					page_number,
+					book_id,
+					body,
+				}
+			}"
+		}`)
+		jsonStream = books.FlattenJSON(jsonStream)
+		request := books.NewJSONPostRequest("/graphql", jsonStream)
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, request)
+
+		pages := books.GetAllPageFromGraphQLResponse(t, response.Body)
+		got := len(pages)
+		want := 10
+
+		books.AssertStatus(t, response, http.StatusOK)
+		books.AssertEqual(t, got, want)
+		books.AssertPageStoreCalls(t, store, "list", 1)
+	})
+
+	t.Run("can query all pages with an offset", func(t *testing.T) {
+		store := books.NewStubStore()
+		server, _ := books.NewBookServer(store, books.DummyMiddlewares, true)
+
+		jsonStream := []byte(`{
+			"query": "{
+				allPage(offset: 5, limit: 20) {
+					id,
+					page_number,
+					book_id,
+					body,
+				}
+			}"
+		}`)
+		jsonStream = books.FlattenJSON(jsonStream)
+		request := books.NewJSONPostRequest("/graphql", jsonStream)
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, request)
+
+		pages := books.GetAllPageFromGraphQLResponse(t, response.Body)
+		got := pages[0].PageNumber
+		testPages := books.TestPageData()
+		want := testPages[5].PageNumber
+
+		books.AssertStatus(t, response, http.StatusOK)
+		books.AssertEqual(t, got, want)
+		books.AssertPageStoreCalls(t, store, "list", 1)
+	})
+
+	t.Run("can query a page by id", func(t *testing.T) {
+		store := books.NewStubStore()
+		server, _ := books.NewBookServer(store, books.DummyMiddlewares, true)
+
+		jsonStream := []byte(`
+		{
+			"query": "{
+				page(id:\"05f2dd7f-7b42-4d7c-9c25-859f1146ad68\") {
+					id,
+					page_number,
+					book_id,
+					body,
+				}
+			}"
+		}
+		`)
+		jsonStream = books.FlattenJSON(jsonStream)
+		request := books.NewJSONPostRequest("/graphql", jsonStream)
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, request)
+
+		page := books.GetPageFromGraphQLResponse(t, response.Body)
+		got := page.ID
+		want := uuid.Must(uuid.FromString("05f2dd7f-7b42-4d7c-9c25-859f1146ad68"))
+
+		books.AssertStatus(t, response, http.StatusOK)
+		books.AssertUUIDsEqual(t, got, want)
+		books.AssertPageStoreCalls(t, store, got.String(), 1)
+	})
+	t.Run("can query a page by book id and page number", func(t *testing.T) {
+		store := books.NewStubStore()
+		server, _ := books.NewBookServer(store, books.DummyMiddlewares, true)
+
+		jsonStream := []byte(`
+		{
+			"query": "{
+				page(
+						bookId:\"de0e4051-54b1-4f37-97f2-619b5b568d7f\",
+						number: 1
+					) {
+					id,
+					page_number,
+					book_id,
+					body,
+				}
+			}"
+		}
+		`)
+		jsonStream = books.FlattenJSON(jsonStream)
+
+		request := books.NewJSONPostRequest("/graphql", jsonStream)
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, request)
+
+		page := books.GetPageFromGraphQLResponse(t, response.Body)
+		got := page.ID
+		want := uuid.Must(uuid.FromString("05f2dd7f-7b42-4d7c-9c25-859f1146ad68"))
+
+		books.AssertStatus(t, response, http.StatusOK)
+		books.AssertUUIDsEqual(t, got, want)
+		books.AssertPageStoreCalls(t, store, got.String(), 1)
 	})
 }

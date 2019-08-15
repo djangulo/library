@@ -6,13 +6,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-// BooksResolver GraphqlResolver for `book` queries
-func (b *BookServer) BooksResolver(p graphql.ResolveParams) (interface{}, error) {
-	id, idOk := p.Args["id"].(string)
-	slug, slugOk := p.Args["slug"].(string)
+// BookResolver GraphqlResolver for `book` queries
+func (b *BookServer) BookResolver(p graphql.ResolveParams) (interface{}, error) {
+	id, idOK := p.Args["id"].(string)
+	slug, slugOK := p.Args["slug"].(string)
 
 	switch {
-	case idOk:
+	case idOK:
 		uid, err := uuid.FromString(id)
 		if err != nil {
 			return nil, errors.Wrap(err, "error parsing UUID")
@@ -23,7 +23,7 @@ func (b *BookServer) BooksResolver(p graphql.ResolveParams) (interface{}, error)
 		}
 		return book, nil
 
-	case slugOk:
+	case slugOK:
 		book, err := b.store.BookBySlug(slug)
 		if err != nil {
 			return nil, errors.Wrap(err, "BookBySlug failed")
@@ -35,27 +35,27 @@ func (b *BookServer) BooksResolver(p graphql.ResolveParams) (interface{}, error)
 	}
 }
 
-// AllBooksResolver returns all books
-func (b *BookServer) AllBooksResolver(p graphql.ResolveParams) (interface{}, error) {
-	limit, limitOk := p.Args["limit"].(int)
-	offset, offsetOk := p.Args["offset"].(int)
-	author, authorOk := p.Args["author"].(string)
+// AllBookResolver returns all books
+func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, error) {
+	limit, limitOK := p.Args["limit"].(int)
+	offset, offsetOK := p.Args["offset"].(int)
+	author, authorOK := p.Args["author"].(string)
 
 	var lim int
-	if limitOk {
+	if limitOK {
 		lim = limit
 	} else {
 		lim = -1
 	}
 
 	var off int
-	if offsetOk {
+	if offsetOK {
 		off = offset
 	} else {
 		off = 0
 	}
 	switch {
-	case authorOk:
+	case authorOK:
 		books, err := b.store.BooksByAuthor(author)
 		if err != nil {
 			return nil, errors.Wrap(err, "BookByAuthor failed")
@@ -68,4 +68,63 @@ func (b *BookServer) AllBooksResolver(p graphql.ResolveParams) (interface{}, err
 		}
 		return books, nil
 	}
+}
+
+// PageResolver GraphqlResolver for `page` queries
+func (b *BookServer) PageResolver(p graphql.ResolveParams) (interface{}, error) {
+	id, idOK := p.Args["id"].(string)
+	bookID, bookIDOK := p.Args["bookId"].(string)
+	number, numberOK := p.Args["number"].(int)
+
+	switch {
+	case idOK:
+		uid, err := uuid.FromString(id)
+		if err != nil {
+			return nil, errors.Wrap(err, "error parsing UUID")
+		}
+		page, err := b.store.PageByID(uid)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot get from db")
+		}
+		return page, nil
+
+	case bookIDOK && numberOK:
+		bookUUID, err := uuid.FromString(bookID)
+		if err != nil {
+			return nil, errors.Wrap(err, "error parsing UUID")
+		}
+		page, err := b.store.PageByBookAndNumber(bookUUID, number)
+		if err != nil {
+			return nil, errors.Wrap(err, "PageByBookAndNumber failed")
+		}
+		return page, nil
+
+	default:
+		return nil, nil
+	}
+}
+
+// AllPageResolver returns all pages
+func (b *BookServer) AllPageResolver(p graphql.ResolveParams) (interface{}, error) {
+	limit, limitOK := p.Args["limit"].(int)
+	offset, offsetOK := p.Args["offset"].(int)
+
+	var lim int
+	if limitOK {
+		lim = limit
+	} else {
+		lim = -1
+	}
+
+	var off int
+	if offsetOK {
+		off = offset
+	} else {
+		off = 0
+	}
+	pages, err := b.store.Pages(lim, off)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get Books from store")
+	}
+	return pages, nil
 }

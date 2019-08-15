@@ -8,7 +8,7 @@ import (
 
 // Config holds configuration options for the project
 type Config struct {
-	Database DatabaseConfig
+	Database map[string]DatabaseConfig
 	Project  ProjectConfig
 }
 
@@ -25,6 +25,7 @@ type DatabaseConfig struct {
 
 // ProjectConfig holds configuration options specific to this project
 type ProjectConfig struct {
+	Name    string
 	RootDir string
 	Dirs    DirConfig
 }
@@ -72,6 +73,7 @@ func Get() *Config {
 		TestData:   getenv("TESTDATA_DIR", fp.Join(rootDir, "data", "testdata")),
 	}
 	pConf := ProjectConfig{
+		Name:    "library_books",
 		RootDir: rootDir,
 		Dirs:    dirConf,
 	}
@@ -84,6 +86,20 @@ func Get() *Config {
 		SSL:      getenv("POSTGRES_SSLMODE", "disable"),
 		URL:      getenv("POSTGRES_URL", "postgres://lygu1kqy7qqg3eccwiuh:ECZ599EzltUH2VdS9gxiDPnkuLAs9YrUyq26JFrbbx38a9QVuKlf5kXc8KxlhZfZ@localhost:5432/library_staging?sslmode=disable"),
 	}
-	return &Config{Database: dbConfig, Project: pConf}
+	testDbConfig := DatabaseConfig{
+		Host:     dbConfig.Host,
+		Port:     dbConfig.Port,
+		Name:     pConf.Name + "_test_database",
+		User:     dbConfig.User,
+		Password: dbConfig.Password,
+		SSL:      "disable",
+	}
+	return &Config{
+		Database: map[string]DatabaseConfig{
+			"main": dbConfig,
+			"test": testDbConfig,
+		},
+		Project: pConf,
+	}
 
 }

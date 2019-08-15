@@ -2,8 +2,10 @@ package books
 
 import (
 	"archive/zip"
+	"bufio"
 	"fmt"
 	"github.com/djangulo/library/config"
+	"github.com/gofrs/uuid"
 	"io"
 	"log"
 	"net/http"
@@ -31,8 +33,9 @@ func Slugify(str string, slugChar string) string {
 }
 
 // GutenbergMeta extract metadata from the gutenberg format
-func GutenbergMeta(line string) Book {
+func GutenbergMeta(line string) (Author, Book) {
 	var book Book
+	var author Author
 	re := regexp.MustCompile(`^\[([a-zA-Z\s'-]+)\,? (by|By)? ([\s.a-zA-Z]+)?\s?([\d]+)?\]$`)
 	loc := re.FindAllSubmatch([]byte(line), -1)
 	book.Source = NewNullString("gutenberg")
@@ -42,10 +45,13 @@ func GutenbergMeta(line string) Book {
 			book.Title = strings.Trim(title, " ")
 			book.Slug = Slugify(book.Title, "-")
 		}
-		if author := string(loc[0][3]); author != "" {
-			book.Author = NewNullString(strings.Trim(author, " "))
+		if auth := string(loc[0][3]); auth != "" {
+			author.Name = strings.Trim(auth, " ")
+			author.Slug = Slugify(auth, "-")
+			author.ID = uuid.Must(uuid.NewV4())
+			book.AuthorID = &author.ID
 		} else {
-			book.Author = NewNullString("")
+			book.AuthorID = nil
 		}
 		if pubYear := string(loc[0][4]); pubYear != "" {
 			year, err := strconv.Atoi(strings.Trim(pubYear, " "))
@@ -61,10 +67,9 @@ func GutenbergMeta(line string) Book {
 		book.Title = title
 		book.Slug = Slugify(title, "-")
 		book.PublicationYear = NewNullInt64(0)
-		book.Author = NewNullString("")
 	}
 
-	return book
+	return author, book
 }
 
 // AcquireGutenberg conditionally dowloads and seeds database with
@@ -164,4 +169,25 @@ func Unzip(src, dest string) ([]string, error) {
 	}
 	log.Printf("Successfully unzipped %s", src)
 	return filenames, nil
+}
+
+// ParseFile Parses a gutenberg file extracting the author, book, and pages if exist
+func ParseFile(path string) (Author, Book, []Page) {
+	var pages = make([]Page, 0)
+	var book Book
+	var author Author
+
+	file, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		fmt.Printf("\n%+v", scanner)
+	}
+
+	return author, book, pages
 }

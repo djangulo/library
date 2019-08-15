@@ -46,7 +46,7 @@ func main() {
 	log.Println("Books listening on port " + port)
 	log.Println("Books is a-running")
 
-	store, removeStore := books.NewSQLStore(cnf.Database)
+	store, removeStore := books.NewSQLStore(cnf.Database["main"])
 	defer removeStore()
 
 	server, err := books.NewBookServer(store, middlewares, devMode)

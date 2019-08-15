@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
 	"github.com/graphql-go/graphql"
 	"github.com/pkg/errors"
@@ -13,7 +14,7 @@ import (
 // GraphQLRouter router for the /graphql endpoint
 func (b *BookServer) GraphQLRouter() http.Handler {
 	r := chi.NewRouter()
-	// r.Use(middleware.AllowContentType("application/json"))
+	r.Use(middleware.AllowContentType("application/json"))
 
 	schema, err := graphql.NewSchema(
 		graphql.SchemaConfig{
@@ -74,7 +75,7 @@ var bookType = graphql.NewObject(
 				Type: graphql.String,
 			},
 			"author": &graphql.Field{
-				Type: NullableString,
+				Type: graphql.String,
 			},
 			"slug": &graphql.Field{
 				Type: graphql.String,
@@ -97,7 +98,7 @@ var pageType = graphql.NewObject(
 				Type: graphql.String,
 			},
 			"page_number": &graphql.Field{
-				Type: graphql.String,
+				Type: graphql.Int,
 			},
 			"body": &graphql.Field{
 				Type: graphql.String,
@@ -127,18 +128,20 @@ func (b *BookServer) NewRootQuery() *RootQuery {
 						Description: "Get Books by ID or Slug.",
 						Args: graphql.FieldConfigArgument{
 							"id": &graphql.ArgumentConfig{
-								Type: graphql.String,
+								Type:        graphql.String,
+								Description: "Book ID (UUID)",
 							},
 							"slug": &graphql.ArgumentConfig{
-								Type: graphql.String,
+								Type:        graphql.String,
+								Description: "URL compatible slug (e.g. \"Moby Dick\"'s slug is \"moby-dick\")",
 							},
 						},
-						Resolve: b.BooksResolver,
+						Resolve: b.BookResolver,
 					},
 					"allBook": &graphql.Field{
 						Type:        graphql.NewList(bookType),
 						Description: "Get all books.",
-						Resolve:     b.AllBooksResolver,
+						Resolve:     b.AllBookResolver,
 						Args: graphql.FieldConfigArgument{
 							"limit": &graphql.ArgumentConfig{
 								Type:         graphql.Int,
@@ -153,6 +156,43 @@ func (b *BookServer) NewRootQuery() *RootQuery {
 							"author": &graphql.ArgumentConfig{
 								Type:        graphql.String,
 								Description: "Filter by author",
+							},
+						},
+					},
+					"page": &graphql.Field{
+						Type:        pageType,
+						Description: "Get page by id or by book+number. Id takes precedence.",
+						Resolve:     b.PageResolver,
+						Args: graphql.FieldConfigArgument{
+							"id": &graphql.ArgumentConfig{
+								Type:        graphql.String,
+								Description: "Page ID",
+							},
+							"bookId": &graphql.ArgumentConfig{
+								Type:        graphql.String,
+								Description: "ID of the book the page belongs to",
+							},
+							"number": &graphql.ArgumentConfig{
+								Type:         graphql.Int,
+								Description:  "Page number",
+								DefaultValue: 1,
+							},
+						},
+					},
+					"allPage": &graphql.Field{
+						Type:        graphql.NewList(pageType),
+						Description: "Get all pages.",
+						Resolve:     b.AllPageResolver,
+						Args: graphql.FieldConfigArgument{
+							"limit": &graphql.ArgumentConfig{
+								Type:         graphql.Int,
+								DefaultValue: 1000,
+								Description:  "Limit query size",
+							},
+							"offset": &graphql.ArgumentConfig{
+								Type:         graphql.Int,
+								DefaultValue: 0,
+								Description:  "Offset query",
 							},
 						},
 					},

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "f32ad0c4-0c2e-4f4d-b0b8-f5ace440bd9d",
+    "name": "Herman Melville",
+    "slug": "herman-melville"
+  },
+  {
+    "id": "526efdde-c46e-4866-aadc-04d911deab94",
+    "name": "Ernest Hemingway",
+    "slug": "ernest-hemingway"
+  },
+  {
+    "id": "43376818-e402-47c0-b4b5-7e3e43973b40",
+    "name": "Stephen King",
+    "slug": "stephen-king"
+  },
+  {
+    "id": "fc605a1e-6957-4a0d-b906-decc07b4b493",
+    "name": "H.P. Lovecraft",
+    "slug": "h-p-lovecraft"
+  }
+]
