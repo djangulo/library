@@ -4,9 +4,6 @@ import (
 	"archive/zip"
 	"fmt"
 	"github.com/djangulo/library/config"
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres" // unneeded namespace
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"io"
 	"log"
 	"net/http"
@@ -167,18 +164,4 @@ func Unzip(src, dest string) ([]string, error) {
 	}
 	log.Printf("Successfully unzipped %s", src)
 	return filenames, nil
-}
-
-// MigrateDatabase noqa
-func MigrateDatabase(cnf *config.Config) {
-	migrations, err := migrate.New(
-		"file://"+cnf.Project.Dirs.Migrations,
-		cnf.Database.URL,
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := migrations.Up(); err != nil {
-		log.Fatal(err)
-	}
 }

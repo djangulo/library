@@ -3,7 +3,20 @@ LABEL maintainer="Denis Angulo <djal@tuta.io>"
 ENV GO111MODULE=on
 WORKDIR $GOPATH/src/github.com/djangulo/library/
 
-# copy dependency management to cache dependencies
+# install the `migrate` tool to manage migrations
+# https://github.com/golang-migrate/migrate
+RUN go get -u -d github.com/golang-migrate/migrate/cmd/migrate \
+    && cd $GOPATH/src/github.com/golang-migrate/migrate/cmd/migrate \
+    && git checkout v4.5.0 \
+    && go build \
+    -tags 'postgres' \
+    -ldflags="-X main.Version=$(git describe --tags)" \
+    -o $GOPATH/bin/migrate \
+    github.com/golang-migrate/migrate/cmd/migrate \
+    && cd $GOPATH/src/github.com/djangulo/library/
+
+
+# copy go module files to cache dependencies
 COPY ./go.mod .
 COPY ./go.sum .
 
@@ -18,7 +31,7 @@ COPY ./data ./data
 RUN mkdir ./cmd
 COPY ./cmd/books ./cmd/books
 
-# create compiled  test binary
+# create compiled test binary
 RUN CGO_ENABLED=0 \
     GOOS=linux \
     go test ./books \
@@ -37,7 +50,6 @@ RUN CGO_ENABLED=0 \
     -o $GOPATH/bin/books \
     ./cmd/books/main.go
 
-
 # tool to wait for postgres connection
 RUN git clone https://github.com/eficode/wait-for.git /wait-for
 
@@ -53,21 +65,28 @@ RUN apk update \
     && apk --no-cache add ca-certificates
 
 COPY --from=builder /go/bin/books /books
-RUN chmod +x ./books
-RUN chown golang:golang /books
-
 COPY --from=builder /go/bin/books.test /test
-RUN chmod +x ./test
-RUN chown golang:golang /test
-
-COPY --from=builder /go/src/github.com/djangulo/library/static/books/html /static/html
-COPY --from=builder /go/src/github.com/djangulo/library/migrations /migrations
+COPY --from=builder /go/bin/migrate /migrate
 COPY --from=builder /go/src/github.com/djangulo/library/data /data
-RUN chown -R golang:golang /static /data /migrations
-
 COPY --from=builder /wait-for/wait-for /wait-for
+COPY --from=builder /go/src/github.com/djangulo/library/migrations /migrations
+COPY --from=builder /go/src/github.com/djangulo/library/compose/local/books/entrypoint /entrypoint
+COPY --from=builder /go/src/github.com/djangulo/library/compose/local/books/start /start
+COPY --from=builder /go/src/github.com/djangulo/library/migrations /migrations
+COPY --from=builder /go/src/github.com/djangulo/library/static/books /static/books
 RUN sed -i 's/\r//g' /wait-for
-RUN chmod +x /wait-for
-RUN chown golang:golang /wait-for
+RUN chmod +x /test /books /wait-for /start /entrypoint
+RUN chown -R golang:golang \
+    /static \
+    /data \
+    /migrations \
+    /migrate \
+    /books \
+    /test \
+    /wait-for \
+    /entrypoint \
+    /start
 
 USER golang
+
+ENTRYPOINT ["/entrypoint"]

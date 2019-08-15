@@ -21,7 +21,7 @@ func init() {
 		defaultPort = "9000"
 		portUsage   = "port to serve the app on, default '" + defaultPort + "'"
 		devDefault  = false
-		devUsage    = "enable development mode (/___graphql), default false"
+		devUsage    = "enable development mode (graphql playground at /___graphql), default false"
 	)
 	flag.StringVar(&port, "port", defaultPort, portUsage)
 	flag.StringVar(&port, "p", defaultPort, portUsage+" (shorthand)")
@@ -29,7 +29,6 @@ func init() {
 
 	var once sync.Once
 	migrationsAndSeed := func() {
-		books.MigrateDatabase(cnf)
 		books.AcquireGutenberg(cnf)
 	}
 	once.Do(migrationsAndSeed)

@@ -34,16 +34,7 @@ services:
       context: .
       dockerfile: ./compose/local/books/Dockerfile
     image: books_local
-    command:
-      [
-        '/wait-for',
-        'library_postgres:5432',
-        '--',
-        '/books',
-        '-p',
-        '9000',
-        '-dev',
-      ]
+    command: /start
     restart: always
     depends_on:
       - library_postgres
