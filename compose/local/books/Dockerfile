@@ -10,9 +10,8 @@ RUN git clone https://github.com/eficode/wait-for.git /wait-for
 RUN git clone https://github.com/golang-migrate/migrate.git /migrate
 WORKDIR /migrate
 RUN git checkout v4.5.0 \
-    && go build \
+    && CGO_ENABLED=0 go build \
     -tags 'postgres' \
-    -tags netgo \
     -ldflags="-X main.Version=$(git describe --tags)" \
     -o $GOPATH/bin/migrate \
     /migrate/cmd/migrate
