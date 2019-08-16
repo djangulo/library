@@ -1,10 +1,11 @@
-package books
+package testutils
 
 import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/djangulo/library/books"
 	"github.com/djangulo/library/config"
 	"github.com/gofrs/uuid"
 	"github.com/golang-migrate/migrate/v4"
@@ -26,8 +27,8 @@ import (
 )
 
 // TestBookData reads books json data and returns as a slice
-func TestBookData() (books []Book) {
-	cnf = config.Get()
+func TestBookData() (books []books.Book) {
+	cnf := config.Get()
 	path := filepath.Join(
 		cnf.Project.Dirs.TestData,
 		"fakeBooks.json",
@@ -40,8 +41,8 @@ func TestBookData() (books []Book) {
 }
 
 // TestPageData reads pages json data and returns as a slice
-func TestPageData() (pages []Page) {
-	cnf = config.Get()
+func TestPageData() (pages []books.Page) {
+	cnf := config.Get()
 	path := filepath.Join(
 		cnf.Project.Dirs.TestData,
 		"fakePages.json",
@@ -54,8 +55,8 @@ func TestPageData() (pages []Page) {
 }
 
 // TestAuthorsData reads pages json data and returns as a slice
-func TestAuthorsData() (authors []Author) {
-	cnf = config.Get()
+func TestAuthorsData() (authors []books.Author) {
+	cnf := config.Get()
 	path := filepath.Join(
 		cnf.Project.Dirs.TestData,
 		"fakeAuthors.json",
@@ -86,16 +87,16 @@ func NewStubStore() *StubStore {
 
 // StubStore for testing
 type StubStore struct {
-	books       []Book
-	pages       []Page
-	authors     []Author
+	books       []books.Book
+	pages       []books.Page
+	authors     []books.Author
 	BookCalls   map[string]int
 	PageCalls   map[string]int
 	AuthorCalls map[string]int
 }
 
 // Books noqa
-func (s *StubStore) Books(limit, offset int) ([]Book, error) {
+func (s *StubStore) Books(limit, offset int) ([]books.Book, error) {
 	s.BookCalls["list"]++
 	items := s.books
 	length := len(items)
@@ -114,29 +115,29 @@ func (s *StubStore) Books(limit, offset int) ([]Book, error) {
 }
 
 // BookByID noqa
-func (s *StubStore) BookByID(id uuid.UUID) (Book, error) {
+func (s *StubStore) BookByID(id uuid.UUID) (books.Book, error) {
 	for _, b := range s.books {
 		if id.String() == b.ID.String() {
 			s.BookCalls[b.ID.String()]++
 			return b, nil
 		}
 	}
-	return Book{}, nil
+	return books.Book{}, nil
 }
 
 // BookBySlug noqa
-func (s *StubStore) BookBySlug(slug string) (Book, error) {
+func (s *StubStore) BookBySlug(slug string) (books.Book, error) {
 	for _, b := range s.books {
 		if b.Slug == slug {
 			s.BookCalls[b.ID.String()]++
 			return b, nil
 		}
 	}
-	return Book{}, nil
+	return books.Book{}, nil
 }
 
 // BooksByAuthor noqa
-func (s *StubStore) BooksByAuthor(name string) ([]Book, error) {
+func (s *StubStore) BooksByAuthor(name string) ([]books.Book, error) {
 	s.BookCalls["list"]++
 	var id *uuid.UUID
 	for _, a := range s.authors {
@@ -145,7 +146,7 @@ func (s *StubStore) BooksByAuthor(name string) ([]Book, error) {
 			break
 		}
 	}
-	books := make([]Book, 0)
+	books := make([]books.Book, 0)
 	for _, b := range s.books {
 		if b.AuthorID.String() == id.String() {
 			books = append(books, b)
@@ -155,7 +156,7 @@ func (s *StubStore) BooksByAuthor(name string) ([]Book, error) {
 }
 
 // Pages noqa
-func (s *StubStore) Pages(limit, offset int) ([]Page, error) {
+func (s *StubStore) Pages(limit, offset int) ([]books.Page, error) {
 	s.PageCalls["list"]++
 	items := s.pages
 	length := len(items)
@@ -174,29 +175,29 @@ func (s *StubStore) Pages(limit, offset int) ([]Page, error) {
 }
 
 // PageByID noqa
-func (s *StubStore) PageByID(id uuid.UUID) (Page, error) {
+func (s *StubStore) PageByID(id uuid.UUID) (books.Page, error) {
 	for _, p := range s.pages {
 		if id.String() == p.ID.String() {
 			s.PageCalls[p.ID.String()]++
 			return p, nil
 		}
 	}
-	return Page{}, nil
+	return books.Page{}, nil
 }
 
 // PageByBookAndNumber noqa
-func (s *StubStore) PageByBookAndNumber(bookID uuid.UUID, number int) (Page, error) {
+func (s *StubStore) PageByBookAndNumber(bookID uuid.UUID, number int) (books.Page, error) {
 	for _, p := range s.pages {
 		if bookID.String() == p.BookID.String() && p.PageNumber == number {
 			s.PageCalls[p.ID.String()]++
 			return p, nil
 		}
 	}
-	return Page{}, nil
+	return books.Page{}, nil
 }
 
 // Authors noqa
-func (s *StubStore) Authors(limit, offset int) ([]Author, error) {
+func (s *StubStore) Authors(limit, offset int) ([]books.Author, error) {
 	s.AuthorCalls["list"]++
 	items := s.authors
 	length := len(items)
@@ -215,25 +216,25 @@ func (s *StubStore) Authors(limit, offset int) ([]Author, error) {
 }
 
 // AuthorByID noqa
-func (s *StubStore) AuthorByID(id uuid.UUID) (Author, error) {
+func (s *StubStore) AuthorByID(id uuid.UUID) (books.Author, error) {
 	for _, b := range s.authors {
 		if id.String() == b.ID.String() {
 			s.AuthorCalls[b.ID.String()]++
 			return b, nil
 		}
 	}
-	return Author{}, nil
+	return books.Author{}, nil
 }
 
 // AuthorBySlug noqa
-func (s *StubStore) AuthorBySlug(slug string) (Author, error) {
+func (s *StubStore) AuthorBySlug(slug string) (books.Author, error) {
 	for _, b := range s.authors {
 		if b.Slug == slug {
 			s.AuthorCalls[b.ID.String()]++
 			return b, nil
 		}
 	}
-	return Author{}, nil
+	return books.Author{}, nil
 }
 
 // GraphQLResponse server response object
@@ -244,12 +245,12 @@ type GraphQLResponse struct {
 
 // GraphQLDataResponse noqa
 type GraphQLDataResponse struct {
-	Book      Book     `json:"book"`
-	AllBook   []Book   `json:"allBook"`
-	Page      Page     `json:"Page"`
-	AllPage   []Page   `json:"allPage"`
-	Author    Author   `json:"author"`
-	AllAuthor []Author `json:"allAuthor"`
+	Book      books.Book     `json:"book"`
+	AllBook   []books.Book   `json:"allBook"`
+	Page      books.Page     `json:"page"`
+	AllPage   []books.Page   `json:"allPage"`
+	Author    books.Author   `json:"author"`
+	AllAuthor []books.Author `json:"allAuthor"`
 }
 
 // Utils
@@ -278,28 +279,28 @@ func ParseGraphQLResponse(t *testing.T, body io.Reader) (gqlResponse GraphQLResp
 }
 
 // GetBookFromGraphQLResponse noqa
-func GetBookFromGraphQLResponse(t *testing.T, body io.Reader) Book {
+func GetBookFromGraphQLResponse(t *testing.T, body io.Reader) books.Book {
 	t.Helper()
 	gqlRes := ParseGraphQLResponse(t, body)
 	return gqlRes.Data.Book
 }
 
 // GetAllBookFromGraphQLResponse noqa
-func GetAllBookFromGraphQLResponse(t *testing.T, body io.Reader) []Book {
+func GetAllBookFromGraphQLResponse(t *testing.T, body io.Reader) []books.Book {
 	t.Helper()
 	gqlRes := ParseGraphQLResponse(t, body)
 	return gqlRes.Data.AllBook
 }
 
 // GetPageFromGraphQLResponse noqa
-func GetPageFromGraphQLResponse(t *testing.T, body io.Reader) Page {
+func GetPageFromGraphQLResponse(t *testing.T, body io.Reader) books.Page {
 	t.Helper()
 	gqlRes := ParseGraphQLResponse(t, body)
 	return gqlRes.Data.Page
 }
 
 // GetAllPageFromGraphQLResponse noqa
-func GetAllPageFromGraphQLResponse(t *testing.T, body io.Reader) []Page {
+func GetAllPageFromGraphQLResponse(t *testing.T, body io.Reader) []books.Page {
 	t.Helper()
 	gqlRes := ParseGraphQLResponse(t, body)
 	return gqlRes.Data.AllPage
@@ -308,7 +309,7 @@ func GetAllPageFromGraphQLResponse(t *testing.T, body io.Reader) []Page {
 // Assertions
 
 // AssertBooks noqa
-func AssertBooks(t *testing.T, got, want []Book) {
+func AssertBooks(t *testing.T, got, want []books.Book) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v want %v", got, want)
@@ -316,7 +317,7 @@ func AssertBooks(t *testing.T, got, want []Book) {
 }
 
 // AssertPages noqa
-func AssertPages(t *testing.T, got, want []Page) {
+func AssertPages(t *testing.T, got, want []books.Page) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v want %v", got, want)
@@ -398,7 +399,7 @@ func AssertUUIDsEqual(t *testing.T, got, want uuid.UUID) {
 
 // NewTestSQLStore Creates and returns a test database. Intended for use with
 // integration tests.
-func NewTestSQLStore(config config.Config) (*SQLStore, func()) {
+func NewTestSQLStore(config config.Config) (*books.SQLStore, func()) {
 	db, err := sqlx.Open("postgres", config.Database["main"].ConnStr())
 	if err != nil {
 		log.Fatalf("failed to connect database %v", err)
@@ -438,7 +439,7 @@ func NewTestSQLStore(config config.Config) (*SQLStore, func()) {
 		db.Close()
 	}
 
-	return &SQLStore{testDB}, removeDatabase
+	return &books.SQLStore{DB: testDB}, removeDatabase
 }
 
 // Dum dums
