@@ -3,7 +3,7 @@ package books
 import (
 	"context"
 	"fmt"
-	"github.com/djangulo/library/config"
+	config "github.com/djangulo/library/config/books"
 	"github.com/go-chi/chi"
 	"github.com/gofrs/uuid"
 	"html/template"

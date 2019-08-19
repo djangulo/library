@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/djangulo/library/books"
-	"github.com/djangulo/library/config"
+	config "github.com/djangulo/library/config/books"
 	"github.com/gofrs/uuid"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"

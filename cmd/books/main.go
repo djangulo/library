@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/djangulo/library/books"
-	"github.com/djangulo/library/config"
+	config "github.com/djangulo/library/config/books"
 	"github.com/go-chi/chi/middleware"
 	"log"
 	"net/http"
@@ -30,6 +30,7 @@ func init() {
 	var once sync.Once
 	migrationsAndSeed := func() {
 		books.AcquireGutenberg(cnf)
+		books.SeedFromGutenberg(cnf, "main")
 	}
 	once.Do(migrationsAndSeed)
 }

@@ -1,4 +1,4 @@
-package config
+package booksconfig
 
 import (
 	"fmt"
@@ -25,9 +25,10 @@ type DatabaseConfig struct {
 
 // ProjectConfig holds configuration options specific to this project
 type ProjectConfig struct {
-	Name    string
-	RootDir string
-	Dirs    DirConfig
+	Name         string
+	RootDir      string
+	LinesPerPage int
+	Dirs         DirConfig
 }
 
 // DirConfig holds configuration options to the directories
@@ -73,9 +74,10 @@ func Get() *Config {
 		TestData:   getenv("TESTDATA_DIR", fp.Join(rootDir, "data", "testdata")),
 	}
 	pConf := ProjectConfig{
-		Name:    "library_books",
-		RootDir: rootDir,
-		Dirs:    dirConf,
+		Name:         "library_books",
+		RootDir:      rootDir,
+		LinesPerPage: 60,
+		Dirs:         dirConf,
 	}
 	dbConfig := DatabaseConfig{
 		Host:     getenv("POSTGRES_HOST", "localhost"),

@@ -71,13 +71,15 @@ RUN addgroup -S golang \
 RUN apk update \
     && apk --no-cache add ca-certificates
 
+WORKDIR /app
+
 COPY --from=builder /go/bin/books /books
 COPY --from=builder /go/bin/books.test /test
 COPY --from=builder /go/bin/migrate /migrate
 COPY --from=builder /wait-for/wait-for /wait-for
 COPY --from=builder /go/src/github.com/djangulo/library/compose/local/books/entrypoint /entrypoint
 COPY --from=builder /go/src/github.com/djangulo/library/compose/local/books/start /start
-COPY --from=builder /go/src/github.com/djangulo/library/data/ /data/
+COPY --from=builder /go/src/github.com/djangulo/library/data/ /appdata/
 COPY --from=builder /go/src/github.com/djangulo/library/migrations/ /migrations/
 COPY --from=builder /go/src/github.com/djangulo/library/static/ /static/
 # RUN sed -i 's/\r//g' /wait-for
@@ -89,7 +91,7 @@ RUN chown -R golang:golang \
     /wait-for \
     /entrypoint \
     /start \
-    /data \
+    /appdata \
     /migrations \
     /static
 

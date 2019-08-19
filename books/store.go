@@ -2,7 +2,7 @@ package books
 
 import (
 	"fmt"
-	"github.com/djangulo/library/config"
+	config "github.com/djangulo/library/config/books"
 	"github.com/gofrs/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // unneded namespace

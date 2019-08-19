@@ -3,7 +3,7 @@ package books_test
 import (
 // "fmt"
 // // "github.com/djangulo/library/books"
-// // "github.com/djangulo/library/config"
+// // config "github.com/djangulo/library/config/books"
 // // "github.com/gofrs/uuid"
 // // "github.com/jmoiron/sqlx"
 // // "net/http"

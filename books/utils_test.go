@@ -1,6 +1,7 @@
 package books_test
 
 import (
+	"fmt"
 	"github.com/djangulo/library/books"
 	"reflect"
 	"testing"
@@ -90,4 +91,15 @@ func TestGutenbergMeta(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseFile(t *testing.T) {
+	path := "/home/djangulo/go/src/github.com/djangulo/library/data/corpora/gutenberg/austen-emma.txt"
+	author, book, pages := books.ParseFile(path, 60)
+	fmt.Println(author)
+	fmt.Println(book)
+	for i := 0; i < 3; i++ {
+		fmt.Printf("page %d:\n%+v\n", i, pages[i])
+	}
+	fmt.Println("pages: ", len(pages))
 }
