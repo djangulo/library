@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bufio"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	config "github.com/djangulo/library/config/books"
 	"github.com/gofrs/uuid"
@@ -200,7 +201,7 @@ func ParseFile(path string, linesPerPage int) (Author, Book, []Page) {
 	var body string
 	var page Page
 	for scanner.Scan() {
-		if firstLineRe.Match([]byte(scanner.Text())) {
+		if firstLineRe.Match([]byte(strings.Trim(scanner.Text(), " "))) {
 			author, book = GutenbergMeta(scanner.Text())
 		}
 		if counter < linesPerPage {
@@ -225,6 +226,82 @@ func ParseFile(path string, linesPerPage int) (Author, Book, []Page) {
 	return author, book, pages
 }
 
+// SaveJSON Parses gutenberg data into json files, which the app uses to seed
+// the database on initialization.
+func SaveJSON(config *config.Config) error {
+	authors := make([]Author, 0)
+	books := make([]Book, 0)
+	pages := make([]Page, 0)
+	if _, err := os.Stat(config.Project.Dirs.Seed); os.IsNotExist(err) {
+		gutenberg := fp.Join(config.Project.Dirs.Corpora, "gutenberg")
+		log.Printf("Reading data from database from Gutenberg data (dir: %s)...\n", gutenberg)
+		err := os.MkdirAll(config.Project.Dirs.Seed, os.ModeDir)
+		if err != nil {
+			log.Fatalf("error creating directory %v: %v", config.Project.Dirs.Seed, err)
+		}
+		os.Chdir(gutenberg)
+		err = fp.Walk(
+			gutenberg,
+			func(path string, info os.FileInfo, err error) error {
+				log.Println("parsing ", info.Name(), "(", path, ")")
+				if err != nil {
+					log.Fatalln(err)
+					return err
+				}
+				if info.IsDir() && info.Name() == "gutenberg" {
+					log.Printf("skipping a dir %v\n", info.Name())
+					return nil
+				}
+				if strings.Contains(info.Name(), "README") {
+					log.Println("found README, skipping")
+					return nil
+				}
+				author, book, pgs := ParseFile(path, config.Project.LinesPerPage)
+				book.File = info.Name()
+				for _, a := range authors {
+					if author.Slug == a.Slug {
+						book.AuthorID = &a.ID
+						break
+					} else {
+						book.AuthorID = &author.ID
+					}
+				}
+				pages = append(pages, pgs...)
+				authors = append(authors, author)
+				books = append(books, book)
+				return nil
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "could not read files")
+		}
+
+		out, err := os.Create(config.Project.Dirs.Seed + "/books.json")
+		if err != nil {
+			log.Fatalln(err)
+		}
+		w := bufio.NewWriter(out)
+		_, err = w.Write([]byte("["))
+		if err != nil {
+			log.Fatalln(err)
+		}
+		for i, b := range books {
+			f, _ := json.MarshalIndent(b, "", "  ")
+			w.Write(f)
+			if i != len(books)-1 {
+				w.Write([]byte(","))
+			}
+		}
+		_, err = w.Write([]byte("]"))
+		w.Flush()
+
+	} else {
+		log.Printf("%v exists, skipping...\n", config.Project.Dirs.Seed)
+	}
+	log.Println("Successfully seeded database!")
+	return nil
+}
+
 // SeedFromGutenberg Seeds database with generated authors, books and pages
 // from the gutenberg data. Each set of {Author, Book, []Page} is wrapped in a
 // transaction, so as to prevent "pageless" books, or "bookless" pages, etc.
@@ -238,6 +315,7 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 	if err != nil {
 		log.Fatalf("failed to connect database %v", err)
 	}
+
 	defer db.Close()
 	os.Chdir(gutenberg)
 	err = fp.Walk(
@@ -274,6 +352,14 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 			tx, err := db.Begin()
 			if err != nil {
 				return errors.Wrap(err, "could not begin transaction")
+			}
+			_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+			if err != nil {
+				if rollbackErr := tx.Rollback(); rollbackErr != nil {
+					log.Fatalf("seed database - set encoding: unable to rollback: %v", rollbackErr)
+				}
+				log.Fatalf("could not set encoding: %v", err)
+				return errors.Wrap(err, "could not set encoding")
 			}
 			_, err = tx.Exec(
 				`INSERT INTO authors (id, name, slug)
@@ -344,6 +430,14 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 					log.Fatalf("could not insert page: %v", err)
 					return err
 				}
+			}
+			_, err = tx.Exec(`RESET CLIENT_ENCODING`)
+			if err != nil {
+				if rollbackErr := tx.Rollback(); rollbackErr != nil {
+					log.Fatalf("seed database - reset encoding: unable to rollback: %v", rollbackErr)
+				}
+				log.Fatalf("could not reset encoding: %v", err)
+				return errors.Wrap(err, "could not reset encoding")
 			}
 			if commitErr := tx.Commit(); commitErr != nil {
 				log.Fatalf("seed database - commit: unable to commit: %v", commitErr)

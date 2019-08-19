@@ -68,7 +68,7 @@ func Get() *Config {
 	dirConf := DirConfig{
 		Migrations: getenv("MIGRATIONS_DIR", fp.Join(rootDir, "migrations")),
 		DataRoot:   getenv("DATA_ROOT", fp.Join(rootDir, "data")),
-		Seed:       getenv("SEED_DATA_DIR", fp.Join(rootDir, "data", "seed_data")),
+		Seed:       getenv("SEED_DATA_DIR", fp.Join(rootDir, "data", "seed")),
 		Corpora:    getenv("CORPORA_DIR", fp.Join(rootDir, "data", "corpora")),
 		Static:     getenv("STATIC_DIR", fp.Join(rootDir, "static")),
 		TestData:   getenv("TESTDATA_DIR", fp.Join(rootDir, "data", "testdata")),

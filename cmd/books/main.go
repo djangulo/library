@@ -30,7 +30,8 @@ func init() {
 	var once sync.Once
 	migrationsAndSeed := func() {
 		books.AcquireGutenberg(cnf)
-		books.SeedFromGutenberg(cnf, "main")
+		books.SaveJSON(cnf)
+		// books.SeedFromGutenberg(cnf, "main")
 	}
 	once.Do(migrationsAndSeed)
 }
