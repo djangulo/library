@@ -47,8 +47,8 @@
           <a
             rel="noopener noreferrer"
             target="_blank"
-            href="/books/864d0e7c-c309-4186-9737-f20f580a3d3c"
-            >/books/864d0e7c-c309-4186-9737-f20f580a3d3c</a
+            href='/books/{{index .Data "ExampleBookID"}}'
+            >/books/{{index .Data "ExampleBookID"}}</a
           >
         </td>
         <td>&mdash;</td>
@@ -91,8 +91,8 @@
           <a
             rel="noopener noreferrer"
             target="_blank"
-            href="/pages/9a606356-0678-4478-ac4d-ff8bf84634e8"
-            >/pages/9a606356-0678-4478-ac4d-ff8bf84634e8</a
+            href='/pages/{{index .Data "ExamplePageID"}}'
+            >/pages/{{index .Data "ExamplePageID"}}</a
           >
         </td>
         <td>
@@ -108,8 +108,8 @@
           <a
             rel="noopener noreferrer"
             target="_blank"
-            href="/pages/by-params?book-id=864d0e7c-c309-4186-9737-f20f580a3d3c&page-number=1"
-            >/pages/by-params?book-id=864d0e7c-c309-4186-9737-f20f580a3d3c&page-number=1</a
+            href='/pages/by-params?book-id={{index .Data "ExampleBookID"}}&page-number=1'
+            >/pages/by-params?book-id={{index .Data "ExampleBookID"}}&page-number=1</a
           >
         </td>
         <td>

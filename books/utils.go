@@ -11,6 +11,7 @@ import (
 	_ "github.com/lib/pq" // unneded namespace
 	"github.com/pkg/errors"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -21,7 +22,8 @@ import (
 )
 
 var (
-	firstLineRe = regexp.MustCompile(`^\[([a-zA-Z\s'-]+)\,? (by|By)? ([\s.a-zA-Z]+)?\s?([\d]+)?\]$`)
+	firstLineRegex = regexp.MustCompile(`^\[.*(\] ?)$`)
+	metadataRegex  = regexp.MustCompile(`^\[([a-zA-Z\s'-]+)\,? (by|By)? ([\s.a-zA-Z]+)?\s?([\d]+)?(\] ?)$`)
 )
 
 // Slugify returns a slug-compatible version, separated by slugChar
@@ -41,12 +43,14 @@ func Slugify(str string, slugChar string) string {
 }
 
 // GutenbergMeta extract metadata from the gutenberg format
-func GutenbergMeta(line string) (Author, Book) {
+func GutenbergMeta(line string, assignID bool) (Author, Book) {
 	var book Book
 	var author Author
-	loc := firstLineRe.FindAllSubmatch([]byte(line), -1)
+	loc := metadataRegex.FindAllSubmatch([]byte(line), -1)
 	book.Source = NewNullString("nltk-gutenberg")
-	book.ID = uuid.Must(uuid.NewV4())
+	if assignID {
+		book.ID = uuid.Must(uuid.NewV4())
+	}
 
 	if len(loc) > 0 {
 		if title := string(loc[0][1]); title != "" {
@@ -57,9 +61,9 @@ func GutenbergMeta(line string) (Author, Book) {
 			author.Name = strings.Trim(auth, " ")
 			author.Slug = Slugify(auth, "-")
 			author.ID = uuid.Must(uuid.NewV4())
-			book.AuthorID = &author.ID
+			book.AuthorID = NewNullUUID(author.ID.String())
 		} else {
-			book.AuthorID = nil
+			book.AuthorID = NewNullUUID("")
 		}
 		if pubYear := string(loc[0][4]); pubYear != "" {
 			year, err := strconv.Atoi(strings.Trim(pubYear, " "))
@@ -70,12 +74,12 @@ func GutenbergMeta(line string) (Author, Book) {
 			}
 		}
 	} else {
-		edges := regexp.MustCompile(`[\]\[]+`)
+		edges := regexp.MustCompile(`[\[\]]+`)
 		title := edges.ReplaceAllString(line, "")
 		book.Title = title
 		book.Slug = Slugify(title, "-")
 		book.PublicationYear = NewNullInt64(0)
-		book.ID = uuid.Must(uuid.NewV4())
+		book.AuthorID = NewNullUUID("")
 	}
 
 	return author, book
@@ -200,10 +204,12 @@ func ParseFile(path string, linesPerPage int) (Author, Book, []Page) {
 	pageNumber := 1
 	var body string
 	var page Page
+	line := 1
 	for scanner.Scan() {
-		if firstLineRe.Match([]byte(strings.Trim(scanner.Text(), " "))) {
-			author, book = GutenbergMeta(scanner.Text())
+		if line == 1 {
+			author, book = GutenbergMeta(scanner.Text(), true)
 		}
+		line++
 		if counter < linesPerPage {
 			body += scanner.Text() + "\n"
 			counter++
@@ -222,6 +228,9 @@ func ParseFile(path string, linesPerPage int) (Author, Book, []Page) {
 		}
 
 	}
+	if len(pages) > 0 {
+		book.PageCount = len(pages)
+	}
 
 	return author, book, pages
 }
@@ -232,12 +241,13 @@ func SaveJSON(config *config.Config) error {
 	authors := make([]Author, 0)
 	books := make([]Book, 0)
 	pages := make([]Page, 0)
-	if _, err := os.Stat(config.Project.Dirs.Seed); os.IsNotExist(err) {
+	gutenbergSeed := fp.Join(config.Project.Dirs.Seed, "gutenberg")
+	if _, err := os.Stat(gutenbergSeed); os.IsNotExist(err) {
 		gutenberg := fp.Join(config.Project.Dirs.Corpora, "gutenberg")
 		log.Printf("Reading data from database from Gutenberg data (dir: %s)...\n", gutenberg)
-		err := os.MkdirAll(config.Project.Dirs.Seed, os.ModeDir)
+		err := os.MkdirAll(gutenbergSeed, os.ModeDir)
 		if err != nil {
-			log.Fatalf("error creating directory %v: %v", config.Project.Dirs.Seed, err)
+			log.Fatalf("error creating directory %v: %v", gutenbergSeed, err)
 		}
 		os.Chdir(gutenberg)
 		err = fp.Walk(
@@ -260,14 +270,22 @@ func SaveJSON(config *config.Config) error {
 				book.File = info.Name()
 				for _, a := range authors {
 					if author.Slug == a.Slug {
-						book.AuthorID = &a.ID
+						book.AuthorID = NewNullUUID(a.ID.String())
 						break
 					} else {
-						book.AuthorID = &author.ID
+						book.AuthorID = NewNullUUID(author.ID.String())
 					}
 				}
 				pages = append(pages, pgs...)
-				authors = append(authors, author)
+				authorExists := false
+				for _, a := range authors {
+					if a.Slug == author.Slug {
+						authorExists = true
+					}
+				}
+				if !authorExists && author.Slug != "" {
+					authors = append(authors, author)
+				}
 				books = append(books, book)
 				return nil
 			},
@@ -276,7 +294,7 @@ func SaveJSON(config *config.Config) error {
 			return errors.Wrap(err, "could not read files")
 		}
 
-		out, err := os.Create(config.Project.Dirs.Seed + "/books.json")
+		out, err := os.Create(fp.Join(gutenbergSeed, "books.json"))
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -294,119 +312,260 @@ func SaveJSON(config *config.Config) error {
 		}
 		_, err = w.Write([]byte("]"))
 		w.Flush()
+		out.Close()
 
+		out, err = os.Create(fp.Join(gutenbergSeed, "authors.json"))
+		if err != nil {
+			log.Fatalln(err)
+		}
+		w = bufio.NewWriter(out)
+		_, err = w.Write([]byte("["))
+		if err != nil {
+			log.Fatalln(err)
+		}
+		for i, b := range authors {
+			f, _ := json.MarshalIndent(b, "", "  ")
+			w.Write(f)
+			if i != len(authors)-1 {
+				w.Write([]byte(","))
+			}
+		}
+		_, err = w.Write([]byte("]"))
+		w.Flush()
+		out.Close()
+
+		out, err = os.Create(fp.Join(gutenbergSeed, "pages.json"))
+		if err != nil {
+			log.Fatalln(err)
+		}
+		w = bufio.NewWriter(out)
+		_, err = w.Write([]byte("["))
+		if err != nil {
+			log.Fatalln(err)
+		}
+		for i, b := range pages {
+			f, _ := json.MarshalIndent(b, "", "  ")
+			w.Write(f)
+			if i != len(pages)-1 {
+				w.Write([]byte(","))
+			}
+		}
+		_, err = w.Write([]byte("]"))
+		w.Flush()
+		out.Close()
+
+		log.Println("Successfully created JSON files")
 	} else {
 		log.Printf("%v exists, skipping...\n", config.Project.Dirs.Seed)
 	}
-	log.Println("Successfully seeded database!")
 	return nil
 }
 
 // SeedFromGutenberg Seeds database with generated authors, books and pages
-// from the gutenberg data. Each set of {Author, Book, []Page} is wrapped in a
-// transaction, so as to prevent "pageless" books, or "bookless" pages, etc.
+// from the gutenberg data.
 func SeedFromGutenberg(config *config.Config, database string) error {
-	authors := make([]Author, 0)
-	books := make([]Book, 0)
-	pages := make([]Page, 0)
-	gutenberg := fp.Join(config.Project.Dirs.Corpora, "gutenberg")
-	log.Printf("Seeding database from Gutenberg data (dir: %s)...\n", gutenberg)
+	gutenbergSeed := fp.Join(config.Project.Dirs.Seed, "gutenberg")
+	if _, err := os.Stat(gutenbergSeed); os.IsNotExist(err) {
+		return errors.Wrap(err, "Seed directory not found, create json files with `SaveJSON` first.")
+	}
+	var authors []Author
+	var books []Book
+	var pages []Page
+
+	log.Printf("Seeding database from Gutenberg data (dir: %s)...\n", gutenbergSeed)
 	db, err := sql.Open("postgres", config.Database[database].ConnStr())
 	if err != nil {
 		log.Fatalf("failed to connect database %v", err)
 	}
-
 	defer db.Close()
-	os.Chdir(gutenberg)
-	err = fp.Walk(
-		gutenberg,
-		func(path string, info os.FileInfo, err error) error {
-			log.Println("parsing ", info.Name(), "(", path, ")")
-			if err != nil {
-				log.Fatalln(err)
-				return err
-			}
-			if info.IsDir() && info.Name() == "gutenberg" {
-				log.Printf("skipping a dir %v\n", info.Name())
-				return nil
-			}
-			if strings.Contains(info.Name(), "README") {
-				log.Println("found README, skipping")
-				return nil
-			}
-			author, book, pgs := ParseFile(path, config.Project.LinesPerPage)
-			book.File = info.Name()
-			for _, a := range authors {
-				if author.Slug == a.Slug {
-					book.AuthorID = &a.ID
-					break
-				} else {
-					book.AuthorID = &author.ID
-				}
-			}
-			pages = append(pages, pgs...)
-			authors = append(authors, author)
 
-			books = append(books, book)
+	authorsJSON, err := os.Open(fp.Join(gutenbergSeed, "authors.json"))
+	if err != nil {
+		return errors.Wrap(
+			err,
+			fmt.Sprintf(
+				"could not open %s",
+				fp.Join(gutenbergSeed, "authors.json"),
+			),
+		)
+	}
+	byteAuthors, err := ioutil.ReadAll(authorsJSON)
+	if err != nil {
+		return errors.Wrap(
+			err,
+			fmt.Sprintf(
+				"could not read %s",
+				fp.Join(gutenbergSeed, "authors.json"),
+			),
+		)
+	}
 
-			tx, err := db.Begin()
-			if err != nil {
-				return errors.Wrap(err, "could not begin transaction")
-			}
-			_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
-			if err != nil {
-				if rollbackErr := tx.Rollback(); rollbackErr != nil {
-					log.Fatalf("seed database - set encoding: unable to rollback: %v", rollbackErr)
-				}
-				log.Fatalf("could not set encoding: %v", err)
-				return errors.Wrap(err, "could not set encoding")
-			}
-			_, err = tx.Exec(
-				`INSERT INTO authors (id, name, slug)
-				VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
-				`,
-				author.ID,
-				author.Name,
-				author.Slug,
+	err = json.Unmarshal(byteAuthors, &authors)
+	if err != nil {
+		return errors.Wrap(err, "could not unmarshal authors.json")
+	}
+	// insert all authors first
+	tx, err := db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "could not begin transaction")
+	}
+	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"seed database - authors, set encoding: unable to rollback",
 			)
-			if err != nil {
-				if rollbackErr := tx.Rollback(); rollbackErr != nil {
-					log.Fatalf("seed database - authors: unable to rollback: %v", rollbackErr)
-				}
-				log.Fatalf("could not insert author: %v", err)
-				return errors.Wrap(err, "could not insert author")
-			}
-			_, err = tx.Exec(
-				`INSERT INTO books (
-					id,
-					title,
-					slug,
-					publication_year,
-					page_count,
-					file,
-					author_id,
-					source
+		}
+		return errors.Wrap(err, "unable to set encoding")
+	}
+	for _, a := range authors {
+		_, err = tx.Exec(
+			`INSERT INTO authors (id, name, slug)
+			VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
+			`,
+			a.ID,
+			a.Name,
+			a.Slug,
+		)
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				return errors.Wrap(
+					err,
+					"seed database - authors: unable to rollback",
 				)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;`,
-				book.ID,
-				book.Title,
-				book.Slug,
-				book.PublicationYear,
-				book.PageCount,
-				book.File,
-				book.AuthorID,
-				book.Source,
-			)
-			if err != nil {
-				fmt.Printf("%+v\n", err)
-				rollbackErr := tx.Rollback()
-				if rollbackErr != nil {
-					log.Fatalf("seed database - books: unable to rollback: %v", rollbackErr)
-				}
-				log.Fatalf("could not insert book: %v", err)
-				return errors.Wrap(err, "could not insert book")
 			}
-			for _, p := range pages {
+			return errors.Wrap(err, fmt.Sprintf("could not insert author %v", a))
+		}
+	}
+	_, err = tx.Exec(`RESET CLIENT_ENCODING;`)
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"seed database - reset encoding, unable to rollback",
+			)
+		}
+		return errors.Wrap(
+			err,
+			"seed database - reset encoding, unable to reset",
+		)
+	}
+	if commitErr := tx.Commit(); commitErr != nil {
+		return errors.Wrap(err, "unable to commit")
+	}
+
+	// insert books and its pages, each on a transaction
+	booksJSON, err := os.Open(fp.Join(gutenbergSeed, "books.json"))
+	if err != nil {
+		return errors.Wrap(
+			err,
+			fmt.Sprintf(
+				"could not open %s",
+				fp.Join(gutenbergSeed, "books.json"),
+			),
+		)
+	}
+	byteBooks, err := ioutil.ReadAll(booksJSON)
+	if err != nil {
+		return errors.Wrap(
+			err,
+			fmt.Sprintf(
+				"could not read %s",
+				fp.Join(gutenbergSeed, "books.json"),
+			),
+		)
+	}
+	err = json.Unmarshal(byteBooks, &books)
+	if err != nil {
+		return errors.Wrap(err, "could not unmarshal books.json")
+	}
+
+	pagesJSON, err := os.Open(fp.Join(gutenbergSeed, "pages.json"))
+	if err != nil {
+		return errors.Wrap(
+			err,
+			fmt.Sprintf(
+				"could not open %s",
+				fp.Join(gutenbergSeed, "pages.json"),
+			),
+		)
+	}
+	bytePages, err := ioutil.ReadAll(pagesJSON)
+	if err != nil {
+		return errors.Wrap(
+			err,
+			fmt.Sprintf(
+				"could not read %s",
+				fp.Join(gutenbergSeed, "pages.json"),
+			),
+		)
+	}
+	err = json.Unmarshal(bytePages, &pages)
+	if err != nil {
+		return errors.Wrap(err, "could not unmarshal pages.json")
+	}
+
+	for _, b := range books {
+		tx, err := db.Begin()
+		if err != nil {
+			return errors.Wrap(err, "could not begin transaction")
+		}
+
+		_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				return errors.Wrap(
+					err,
+					"seed database - set encoding: unable to rollback",
+				)
+			}
+			return errors.Wrap(err, "unable to set encoding")
+		}
+		_, err = tx.Exec(
+			`INSERT INTO books (
+				id,
+				title,
+				slug,
+				publication_year,
+				page_count,
+				file,
+				author_id,
+				source
+			)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;`,
+			b.ID,
+			b.Title,
+			b.Slug,
+			b.PublicationYear,
+			b.PageCount,
+			b.File,
+			b.AuthorID,
+			b.Source,
+		)
+		if err != nil {
+			rollbackErr := tx.Rollback()
+			if rollbackErr != nil {
+				return errors.Wrap(
+					err,
+					fmt.Sprintf(
+						"seed database - books, unable to rollback on book: %+v",
+						b,
+					),
+				)
+			}
+			return errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"seed database - books, could not insert book: %+v",
+					b,
+				),
+			)
+		}
+
+		for _, p := range pages {
+			if p.BookID.String() == b.ID.String() {
 				_, err := tx.Exec(
 					`INSERT INTO pages (
 						id,
@@ -422,34 +581,68 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 					p.BookID,
 				)
 				if err != nil {
-					if rollbackErr := tx.Rollback(); rollbackErr != nil {
-						log.Fatalf("seed database - books: unable to rollback: %v", rollbackErr)
+					rollbackErr := tx.Rollback()
+					if rollbackErr != nil {
+						return errors.Wrap(
+							err,
+							fmt.Sprintf(
+								"seed database - pages, unable to rollback on page %+v of book %+v",
+								p,
+								b,
+							),
+						)
 					}
-					err = errors.Wrap(err, "could not insert page")
-					fmt.Printf("%+v\n", p)
-					log.Fatalf("could not insert page: %v", err)
-					return err
+					return errors.Wrap(
+						err,
+						fmt.Sprintf(
+							"seed database - pages, could not insert page %+v of book %+v",
+							p,
+							b,
+						),
+					)
 				}
 			}
-			_, err = tx.Exec(`RESET CLIENT_ENCODING`)
-			if err != nil {
-				if rollbackErr := tx.Rollback(); rollbackErr != nil {
-					log.Fatalf("seed database - reset encoding: unable to rollback: %v", rollbackErr)
-				}
-				log.Fatalf("could not reset encoding: %v", err)
-				return errors.Wrap(err, "could not reset encoding")
+		}
+		_, err = tx.Exec(`RESET CLIENT_ENCODING`)
+		if err != nil {
+			rollbackErr := tx.Rollback()
+			if rollbackErr != nil {
+				return errors.Wrap(
+					err,
+					"seed database - reset encoding, unable to rollback",
+				)
 			}
-			if commitErr := tx.Commit(); commitErr != nil {
-				log.Fatalf("seed database - commit: unable to commit: %v", commitErr)
-			}
-
-			return nil
-
-		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "could not seed database")
+			return errors.Wrap(
+				err,
+				"seed database - reset encoding, unable to reset",
+			)
+		}
+		if commitErr := tx.Commit(); commitErr != nil {
+			return errors.Wrap(err, "unable to commit")
+		}
 	}
 	log.Println("Successfully seeded database!")
 	return nil
+}
+
+func mustOpen(path string) *os.File {
+	file, err := os.Open(path)
+	if err != nil {
+		log.Fatalf("unable to open file %s: %v", path, err)
+	}
+	return file
+}
+
+func mustRead(file *os.File) []byte {
+	byteData, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Fatalf("unable to read file %v: %v", file, err)
+	}
+	return byteData
+}
+
+func mustOpenAndRead(path string) []byte {
+	file := mustOpen(path)
+	byteData := mustRead(file)
+	return byteData
 }

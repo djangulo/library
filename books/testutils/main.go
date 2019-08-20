@@ -148,8 +148,11 @@ func (s *StubStore) BooksByAuthor(name string) ([]books.Book, error) {
 	}
 	books := make([]books.Book, 0)
 	for _, b := range s.books {
-		if b.AuthorID.String() == id.String() {
-			books = append(books, b)
+		if b.AuthorID.Valid {
+			if b.AuthorID.UUID.String() == id.String() {
+				books = append(books, b)
+			}
+
 		}
 	}
 	return books, nil

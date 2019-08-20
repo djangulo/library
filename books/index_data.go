@@ -2,20 +2,19 @@ package books
 
 import "html/template"
 
-// IndexData index.html data
-type IndexData struct {
-	Data map[string]template.HTML
+type indexData struct {
+	Data map[string]interface{}
 }
 
-var (
-	// LangData holds translation data, soon to be moved to a json file
-	LangData = map[string]IndexData{
-		"en": indexEn,
-		"es": indexEs,
-	}
-	indexEn = IndexData{
-		Data: map[string]template.HTML{
-			"PageTitle":       "Library &mdash; API",
+// IndexData returns index.html data
+func IndexData(
+	exampleBookID,
+	examplePageID,
+	exampleAuthorID string) map[string]indexData {
+
+	indexEn := indexData{
+		Data: map[string]interface{}{
+			"PageTitle":       template.HTML("Library &mdash; API"),
 			"SubTitle":        "This is the api for the Library app located at ",
 			"OtherLang":       "Versión en español.",
 			"OtherLangLink":   "/es",
@@ -27,16 +26,19 @@ var (
 			"BookList":        "Book list",
 			"BookByID":        "Book by id",
 			"BookSearch":      "Book search by title or author",
-			"qRequired":       "The <code>q</code> parameter is required",
+			"qRequired":       template.HTML("The <code>q</code> parameter is required"),
 			"PageList":        "Page list",
 			"PageByID":        "Page by id",
 			"PageParam":       "Page param search",
-			"paramsRequired":  "Both the <code>book-id</code> and the <code>page-number</code> query params are required.",
+			"paramsRequired":  template.HTML("Both the <code>book-id</code> and the <code>page-number</code> query params are required."),
+			"ExampleBookID":   exampleBookID,
+			"ExamplePageID":   examplePageID,
+			"ExampleAuthorID": exampleAuthorID,
 		},
 	}
-	indexEs = IndexData{
-		Data: map[string]template.HTML{
-			"PageTitle":       "Biblioteca &mdash; API",
+	indexEs := indexData{
+		Data: map[string]interface{}{
+			"PageTitle":       template.HTML("Biblioteca &mdash; API"),
 			"SubTitle":        "Este es el API para la aplicación de biblioteca localizada en ",
 			"OtherLang":       "English version.",
 			"OtherLangLink":   "/en",
@@ -48,11 +50,19 @@ var (
 			"BookList":        "Listado de libros",
 			"BookByID":        "Libros por id",
 			"BookSearch":      "Búsqueda de libros por título o autor",
-			"qRequired":       "El parámetro <code>q</code> es requerido.",
+			"qRequired":       template.HTML("El parámetro <code>q</code> es requerido."),
 			"PageList":        "Listado de páginas",
 			"PageByID":        "Páginas por id",
 			"PageParam":       "Búsqueda de páginas por parámetros",
-			"paramsRequired":  "Ambos parámetros, <code>book-id</code> y <code>page-number</code> son requeridos.",
+			"paramsRequired":  template.HTML("Ambos parámetros, <code>book-id</code> y <code>page-number</code> son requeridos."),
+			"ExampleBookID":   exampleBookID,
+			"ExamplePageID":   examplePageID,
+			"ExampleAuthorID": exampleAuthorID,
 		},
 	}
-)
+	langData := map[string]indexData{
+		"en": indexEn,
+		"es": indexEs,
+	}
+	return langData
+}

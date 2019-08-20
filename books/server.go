@@ -112,7 +112,15 @@ func (b *BookServer) serveIndex(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, fmt.Sprintf("problem opening %s %v", templatePath, err), 400)
 	}
+	sampleBook, _ := b.store.Books(1, 0)
+	samplePage, _ := b.store.Pages(1, 0)
+	sampleAuthor, _ := b.store.Authors(1, 0)
 
-	tmpl.Execute(w, LangData[langCode])
+	data := IndexData(
+		sampleBook[0].ID.String(),
+		samplePage[0].ID.String(),
+		sampleAuthor[0].ID.String(),
+	)
+	tmpl.Execute(w, data[langCode])
 
 }

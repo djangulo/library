@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"log"
 	"net/http"
-	"sync"
 )
 
 var (
@@ -27,13 +26,15 @@ func init() {
 	flag.StringVar(&port, "p", defaultPort, portUsage+" (shorthand)")
 	flag.BoolVar(&devMode, "dev", devDefault, devUsage)
 
-	var once sync.Once
-	migrationsAndSeed := func() {
-		books.AcquireGutenberg(cnf)
-		books.SaveJSON(cnf)
-		// books.SeedFromGutenberg(cnf, "main")
+	books.AcquireGutenberg(cnf)
+	err := books.SaveJSON(cnf)
+	if err != nil {
+		log.Fatalf("Error creating json files: %v", err)
 	}
-	once.Do(migrationsAndSeed)
+	err = books.SeedFromGutenberg(cnf, "main")
+	if err != nil {
+		log.Fatalf("Error creating json files: %v", err)
+	}
 }
 
 var middlewares = []func(http.Handler) http.Handler{

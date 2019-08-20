@@ -24,7 +24,7 @@ type Book struct {
 	PageCount       int        `json:"page_count" db:"page_count"`
 	File            string     `json:"file" db:"file"`
 	Source          NullString `json:"source" db:"source"`
-	AuthorID        *uuid.UUID `json:"author_id" db:"author_id"`
+	AuthorID        NullUUID   `json:"author_id" db:"author_id"`
 	Pages           []Page     `json:"pages"`
 }
 
