@@ -9,6 +9,7 @@ import (
 // Config holds configuration options for the project
 type Config struct {
 	Database map[string]DatabaseConfig
+	Cache    map[string]CacheConfig
 	Project  ProjectConfig
 }
 
@@ -21,6 +22,12 @@ type DatabaseConfig struct {
 	Password string
 	SSL      string
 	URL      string
+}
+
+// CacheConfig holds configuration options for the Redis (or other) cache
+type CacheConfig struct {
+	Host string
+	Port string
 }
 
 // ProjectConfig holds configuration options specific to this project
@@ -54,6 +61,11 @@ func (d DatabaseConfig) ConnStr() string {
 	)
 }
 
+// ConnStr returns a Redis cache connection address
+func (c CacheConfig) ConnStr() string {
+	return fmt.Sprintf("%s:%s", c.Host, c.Port)
+}
+
 func getenv(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if len(value) == 0 {
@@ -79,6 +91,10 @@ func Get() *Config {
 		LinesPerPage: 60,
 		Dirs:         dirConf,
 	}
+	cacheConfig := CacheConfig{
+		Host: getenv("REDIS_HOST", "localhost"),
+		Port: getenv("REDIS_PORT", "6739"),
+	}
 	dbConfig := DatabaseConfig{
 		Host:     getenv("POSTGRES_HOST", "localhost"),
 		Port:     getenv("POSTGRES_PORT", "5432"),
@@ -100,6 +116,9 @@ func Get() *Config {
 		Database: map[string]DatabaseConfig{
 			"main": dbConfig,
 			"test": testDbConfig,
+		},
+		Cache: map[string]CacheConfig{
+			"main": cacheConfig,
 		},
 		Project: pConf,
 	}

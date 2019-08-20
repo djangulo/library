@@ -19,6 +19,7 @@ var (
 // BookServer GraphQL Server for book storage
 type BookServer struct {
 	store        Store
+	cache        Store
 	templatesDir string
 	http.Handler
 	rootQuery *RootQuery
