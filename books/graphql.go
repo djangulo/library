@@ -75,7 +75,7 @@ var bookType = graphql.NewObject(
 				Type: graphql.String,
 			},
 			"author": &graphql.Field{
-				Type: graphql.String,
+				Type: NullableUUID,
 			},
 			"slug": &graphql.Field{
 				Type: graphql.String,
