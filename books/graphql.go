@@ -80,6 +80,9 @@ var bookType = graphql.NewObject(
 			"slug": &graphql.Field{
 				Type: graphql.String,
 			},
+			"file": &graphql.Field{
+				Type: NullableString,
+			},
 			"publication_year": &graphql.Field{
 				Type: graphql.Int,
 			},

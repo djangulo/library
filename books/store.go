@@ -22,7 +22,7 @@ type Book struct {
 	Slug            string     `json:"slug" db:"slug" redis:"slug"`
 	PublicationYear NullInt64  `json:"publication_year" db:"publication_year" redis:"publication_year"`
 	PageCount       int        `json:"page_count" db:"page_count" redis:"page_count"`
-	File            string     `json:"file" db:"file" redis:"file"`
+	File            NullString `json:"file" db:"file" redis:"file"`
 	Source          NullString `json:"source" db:"source" redis:"source"`
 	AuthorID        NullUUID   `json:"author_id" db:"author_id" redis:"author_id"`
 	Pages           []Page     `json:"pages"`

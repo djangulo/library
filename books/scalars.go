@@ -43,7 +43,7 @@ func (v *NullString) UnmarshalJSON(data []byte) error {
 // NewNullString create a new null string
 func NewNullString(value string) NullString {
 	var null NullString
-	if value != "" {
+	if value != "" && value != "null" {
 		null.String = value
 		null.Valid = true
 		return null

@@ -1,11 +1,15 @@
 package books
 
 import (
-	"github.com/gomodule/redigo/redis"
+	"encoding/json"
+	"fmt"
 	config "github.com/djangulo/library/config/books"
-	"log"
-	"time"
+	"github.com/gofrs/uuid"
+	"github.com/gomodule/redigo/redis"
 	"github.com/pkg/errors"
+	"log"
+	"strconv"
+	"time"
 )
 
 type RedisCache struct {
@@ -27,20 +31,22 @@ func NewRedisCache(config config.CacheConfig) (*RedisCache, error) {
 	defer conn.Close()
 	if err != nil {
 		log.Printf("Redis connection unavailable: %v", err)
-		return &RedisCache{Available: false}
+		return &RedisCache{Available: false}, errors.Wrap(
+			err,
+			"redis connection unavailable",
+		)
 	}
 	return &RedisCache{
 		Available: true,
 		Pool: &redis.Pool{
-			MaxIdle: 10,
+			MaxIdle:     10,
 			IdleTimeout: 240 * time.Second,
 			Dial: func() (redis.Conn, error) {
-				return redis.Dial(tcp, connStr)
-			}
-		}
-	}
+				return redis.Dial("tcp", connStr)
+			},
+		},
+	}, nil
 }
-
 
 // // Books fetches a list of books
 // func (r *RedisCache) Books(limit, offset int) ([]Book, error) {
@@ -256,28 +262,83 @@ func NewRedisCache(config config.CacheConfig) (*RedisCache, error) {
 // 	return author, nil
 // }
 
+func (r *RedisCache) InsertBook(book *Book) (*Book, error) {
+	if !r.IsAvailable() {
+		return &Book{}, errors.New("attempted to access unavailable redis cache")
+	}
+	conn := r.Pool.Get()
+	defer conn.Close()
 
-// func (r *RedisCache) InsertBook(book Book) (*Book, error) {
-// 	var book Book
-// 	if !r.IsAvailable() {
-// 		return book, errors.New("attempted to access unavailable redis cache")
-// 	}
-// 	conn, err := r.Pool.Get()
-// 	defer conn.Close()
+	pub, err := json.Marshal(&book.PublicationYear)
+	if err != nil {
+		return &Book{}, errors.Wrap(
+			err,
+			fmt.Sprintf("could not marshal %v", book.PublicationYear),
+		)
+	}
+	src, err := json.Marshal(&book.Source)
+	if err != nil {
+		return &Book{}, errors.Wrap(
+			err,
+			fmt.Sprintf("could not marshal %v", book.Source),
+		)
+	}
+	authorID, err := json.Marshal(&book.AuthorID)
+	if err != nil {
+		return &Book{}, errors.Wrap(
+			err,
+			fmt.Sprintf("could not marshal %v", book.AuthorID),
+		)
+	}
 
-// 	var pubYear int64
-// 	if book.PublicationYear.Valid {
-// 		pubYear = book.PublicationYear.Int64
-// 	}
+	_, err = conn.Do(
+		"HMSET",
+		"book:"+book.ID.String(),
+		"id", book.ID.String(),
+		"title", book.Title,
+		"slug", book.Slug,
+		"publication_year", string(pub),
+		"page_count", book.PageCount,
+		"file", book.File,
+		"source", string(src),
+		"author_id", string(authorID),
+	)
+	if err != nil {
+		return &Book{}, errors.Wrap(
+			err,
+			fmt.Sprintf("could not HMSET book: %v", book),
+		)
+	}
+	return book, nil
 
-// 	_, err := conn.Do(
-// 		"HMSET",
-// 		"book:"+book.ID.String(),
-// 		"title", book.Title,
-// 		"slug", book.Slug,
-// 		"publication_year", book.PublicationYear
-// 	)
+}
 
-
-
-// }
+func MapBytesToBook(bytes [][]byte) *Book {
+	var book Book
+	for i := 0; i < len(bytes); i += 2 {
+		k := string(bytes[i])
+		switch k {
+		case "title":
+			book.Title = string(bytes[i+1])
+		case "slug":
+			book.Slug = string(bytes[i+1])
+		case "publication_year":
+			inty, _ := strconv.Atoi(string(bytes[i+1]))
+			book.PublicationYear = NewNullInt64(int64(inty))
+		case "page_count":
+			inty, _ := strconv.Atoi(string(bytes[i+1]))
+			book.PageCount = inty
+		case "author_id":
+			fmt.Printf("%T", bytes[i+1])
+			fmt.Printf("%T", string(bytes[i+1]))
+			book.AuthorID = NewNullUUID(string(bytes[i+1]))
+		case "file":
+			book.File = NewNullString(string(bytes[i+1]))
+		case "source":
+			book.Source = NewNullString(string(bytes[i+1]))
+		case "id":
+			book.ID = uuid.Must(uuid.FromString(string(bytes[i+1])))
+		}
+	}
+	return &book
+}

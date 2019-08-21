@@ -267,7 +267,7 @@ func SaveJSON(config *config.Config) error {
 					return nil
 				}
 				author, book, pgs := ParseFile(path, config.Project.LinesPerPage)
-				book.File = info.Name()
+				book.File = NewNullString(info.Name())
 				for _, a := range authors {
 					if author.Slug == a.Slug {
 						book.AuthorID = NewNullUUID(a.ID.String())
