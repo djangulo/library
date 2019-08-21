@@ -2,21 +2,38 @@ package books
 
 import (
 	"encoding/json"
-	"fmt"
 	config "github.com/djangulo/library/config/books"
 	"github.com/gofrs/uuid"
 	"github.com/gomodule/redigo/redis"
+	"github.com/nitishm/go-rejson"
 	"github.com/pkg/errors"
 	"log"
-	"strconv"
 	"time"
 )
 
 type RedisCache struct {
 	Available bool
 	Pool      *redis.Pool
+	Handler   *rejson.Handler
 }
 
+// Conn returns a connection from the pool and a convenience close method
+func (r *RedisCache) Conn() (redis.Conn, func()) {
+	conn := r.Pool.Get()
+	removeConn := func() {
+		_, err := conn.Do("FLUSHALL")
+		if err != nil {
+			log.Fatalf("failed to flush the connection: %v", err)
+		}
+		err = conn.Close()
+		if err != nil {
+			log.Fatalf("failed to close the connection: %v", err)
+		}
+	}
+	return conn, removeConn
+}
+
+// IsAvailable checks whether a redis conection was made available on init
 func (r *RedisCache) IsAvailable() bool {
 	if !r.Available {
 		log.Println("Attempted to access unavailable redis cache")
@@ -25,6 +42,7 @@ func (r *RedisCache) IsAvailable() bool {
 	return true
 }
 
+// NewRedisCache returns a `*RedisCache` object with the config provided
 func NewRedisCache(config config.CacheConfig) (*RedisCache, error) {
 	connStr := config.ConnStr()
 	conn, err := redis.Dial("tcp", connStr)
@@ -36,6 +54,7 @@ func NewRedisCache(config config.CacheConfig) (*RedisCache, error) {
 			"redis connection unavailable",
 		)
 	}
+	rh := rejson.NewReJSONHandler()
 	return &RedisCache{
 		Available: true,
 		Pool: &redis.Pool{
@@ -45,6 +64,7 @@ func NewRedisCache(config config.CacheConfig) (*RedisCache, error) {
 				return redis.Dial("tcp", connStr)
 			},
 		},
+		Handler: rh,
 	}, nil
 }
 
@@ -86,20 +106,27 @@ func NewRedisCache(config config.CacheConfig) (*RedisCache, error) {
 // 	return books, nil
 // }
 
-// // BookByID fetches a book by ID
-// func (r *RedisCache) BookByID(ID uuid.UUID) (Book, error) {
-// 	var book Book
-// 	stmt := `
-// 	SELECT * FROM books
-// 	WHERE id = $1
-// 	LIMIT 1;
-// 	`
+// BookByID fetches a book by ID
+func (r *RedisCache) BookByID(ID uuid.UUID) (Book, error) {
+	if !r.IsAvailable() {
+		return Book{}, errors.New("attempted to access unavailable redis cache")
+	}
+	conn, dropConn := r.Conn()
+	defer dropConn()
 
-// 	if err := s.DB.Get(&book, stmt, ID); err != nil {
-// 		return book, errors.Wrap(err, "error querying database")
-// 	}
-// 	return book, nil
-// }
+	r.Handler.SetRedigoClient(conn)
+
+	bookJSON, err := redis.Bytes(r.Handler.JSONGet("book:"+ID.String(), "."))
+	if err != nil {
+		return Book{}, errors.Wrap(err, "failed to JSONGet")
+	}
+	var book Book
+	err = json.Unmarshal(bookJSON, &book)
+	if err != nil {
+		return Book{}, errors.Wrap(err, "failed to unmarshal book")
+	}
+	return book, nil
+}
 
 // // BookBySlug fetches a book by slug
 // func (r *RedisCache) BookBySlug(slug string) (Book, error) {
@@ -266,79 +293,49 @@ func (r *RedisCache) InsertBook(book *Book) (*Book, error) {
 	if !r.IsAvailable() {
 		return &Book{}, errors.New("attempted to access unavailable redis cache")
 	}
-	conn := r.Pool.Get()
-	defer conn.Close()
+	conn, dropConn := r.Conn()
+	defer dropConn()
 
-	pub, err := json.Marshal(&book.PublicationYear)
+	r.Handler.SetRedigoClient(conn)
+
+	res, err := r.Handler.JSONSet("book:"+book.ID.String(), ".", book)
 	if err != nil {
-		return &Book{}, errors.Wrap(
-			err,
-			fmt.Sprintf("could not marshal %v", book.PublicationYear),
-		)
-	}
-	src, err := json.Marshal(&book.Source)
-	if err != nil {
-		return &Book{}, errors.Wrap(
-			err,
-			fmt.Sprintf("could not marshal %v", book.Source),
-		)
-	}
-	authorID, err := json.Marshal(&book.AuthorID)
-	if err != nil {
-		return &Book{}, errors.Wrap(
-			err,
-			fmt.Sprintf("could not marshal %v", book.AuthorID),
-		)
+		return &Book{}, errors.Wrap(err, "failed to JSONset")
 	}
 
-	_, err = conn.Do(
-		"HMSET",
-		"book:"+book.ID.String(),
-		"id", book.ID.String(),
-		"title", book.Title,
-		"slug", book.Slug,
-		"publication_year", string(pub),
-		"page_count", book.PageCount,
-		"file", book.File,
-		"source", string(src),
-		"author_id", string(authorID),
-	)
-	if err != nil {
-		return &Book{}, errors.Wrap(
-			err,
-			fmt.Sprintf("could not HMSET book: %v", book),
-		)
+	if res.(string) == "OK" {
+		return book, nil
 	}
-	return book, nil
+	return &Book{}, errors.New("failed to JSONset")
 
 }
 
-func MapBytesToBook(bytes [][]byte) *Book {
-	var book Book
-	for i := 0; i < len(bytes); i += 2 {
-		k := string(bytes[i])
-		switch k {
-		case "title":
-			book.Title = string(bytes[i+1])
-		case "slug":
-			book.Slug = string(bytes[i+1])
-		case "publication_year":
-			inty, _ := strconv.Atoi(string(bytes[i+1]))
-			book.PublicationYear = NewNullInt64(int64(inty))
-		case "page_count":
-			inty, _ := strconv.Atoi(string(bytes[i+1]))
-			book.PageCount = inty
-		case "author_id":
-			fmt.Printf("%T", bytes[i+1])
-			fmt.Printf("%T", string(bytes[i+1]))
-			book.AuthorID = NewNullUUID(string(bytes[i+1]))
-		case "file":
-			book.File = NewNullString(string(bytes[i+1]))
-		case "source":
-			book.Source = NewNullString(string(bytes[i+1]))
-		case "id":
-			book.ID = uuid.Must(uuid.FromString(string(bytes[i+1])))
-		}
-	}
-	return &book
-}
+// func MapBytesToBook(bytes [][]byte) *Book {
+// 	var book Book
+// 	for i := 0; i < len(bytes); i += 2 {
+// 		k := string(bytes[i])
+// 		switch k {
+// 		case "title":
+// 			book.Title = string(bytes[i+1])
+// 		case "slug":
+// 			book.Slug = string(bytes[i+1])
+// 		case "publication_year":
+// 			inty, _ := strconv.Atoi(string(bytes[i+1]))
+// 			book.PublicationYear = NewNullInt64(int64(inty))
+// 		case "page_count":
+// 			inty, _ := strconv.Atoi(string(bytes[i+1]))
+// 			book.PageCount = inty
+// 		case "author_id":
+// 			fmt.Printf("%T", bytes[i+1])
+// 			fmt.Printf("%T", string(bytes[i+1]))
+// 			book.AuthorID = NewNullUUID(string(bytes[i+1]))
+// 		case "file":
+// 			book.File = NewNullString(string(bytes[i+1]))
+// 		case "source":
+// 			book.Source = NewNullString(string(bytes[i+1]))
+// 		case "id":
+// 			book.ID = uuid.Must(uuid.FromString(string(bytes[i+1])))
+// 		}
+// 	}
+// 	return &book
+// }

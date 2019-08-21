@@ -11,15 +11,14 @@ import (
 
 func TestInsertBook(t *testing.T) {
 	testBooks := testutils.TestBookData()
-	cnf := config.CacheConfig{Host: "localhost", Port: " 6379"}
+	cnf := config.CacheConfig{Host: "localhost", Port: "6379"}
 	cache, _ := books.NewRedisCache(cnf)
 
-	cache.InsertBook(&testBooks[0])
-	conn := cache.Pool.Get()
+	book, _ :=cache.InsertBook(&testBooks[0])
+	conn, dropConn := cache.Conn()
 	values, _ := redis.ByteSlices(redis.Values(conn.Do("HGETALL", "book:"+testBooks[0].ID.String())))
-	book := books.MapBytesToBook(values)
 	// if err != nil {
-	// 	t.Errorf("%v\n", err)
+	// 	t.Errorf("%v\n", err) 
 	// }
 
 	fmt.Printf("\n\nwant: \n%+v\n\n", testBooks[0])

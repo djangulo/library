@@ -19,7 +19,7 @@ var (
 // BookServer GraphQL Server for book storage
 type BookServer struct {
 	store        Store
-	cache        Store
+	cache        *RedisCache
 	templatesDir string
 	http.Handler
 	rootQuery *RootQuery

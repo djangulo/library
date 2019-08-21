@@ -17,31 +17,31 @@ type SQLStore struct {
 
 // Book struct
 type Book struct {
-	ID              uuid.UUID  `json:"id" db:"id" redis:"id"`
-	Title           string     `json:"title" db:"title" redis:"title"`
-	Slug            string     `json:"slug" db:"slug" redis:"slug"`
-	PublicationYear NullInt64  `json:"publication_year" db:"publication_year" redis:"publication_year"`
-	PageCount       int        `json:"page_count" db:"page_count" redis:"page_count"`
-	File            NullString `json:"file" db:"file" redis:"file"`
-	Source          NullString `json:"source" db:"source" redis:"source"`
-	AuthorID        NullUUID   `json:"author_id" db:"author_id" redis:"author_id"`
+	ID              uuid.UUID  `json:"id" db:"id"`
+	Title           string     `json:"title" db:"title"`
+	Slug            string     `json:"slug" db:"slug"`
+	PublicationYear NullInt64  `json:"publication_year" db:"publication_year"`
+	PageCount       int        `json:"page_count" db:"page_count"`
+	File            NullString `json:"file" db:"file"`
+	Source          NullString `json:"source" db:"source"`
+	AuthorID        NullUUID   `json:"author_id" db:"author_id"`
 	Pages           []Page     `json:"pages"`
 }
 
 // Author struct
 type Author struct {
-	ID    uuid.UUID `json:"id" db:"id" redis:"id"`
-	Name  string    `json:"name" db:"name" redis:"name"`
-	Slug  string    `json:"slug" db:"slug" redis:"slug"`
+	ID    uuid.UUID `json:"id" db:"id"`
+	Name  string    `json:"name" db:"name"`
+	Slug  string    `json:"slug" db:"slug"`
 	Books []Book    `json:"books"`
 }
 
 // Page struct
 type Page struct {
-	ID         uuid.UUID  `json:"id" db:"id" redis:"id"`
-	PageNumber int        `json:"page_number" db:"page_number" redis:"page_number"`
-	Body       string     `json:"body" db:"body" redis:"body"`
-	BookID     *uuid.UUID `json:"book_id" db:"book_id" redis:"book_id"`
+	ID         uuid.UUID  `json:"id" db:"id"`
+	PageNumber int        `json:"page_number" db:"page_number"`
+	Body       string     `json:"body" db:"body"`
+	BookID     *uuid.UUID `json:"book_id" db:"book_id"`
 }
 
 // NewSQLStore Returns a new SQL store with a postgres database connection.
