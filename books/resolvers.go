@@ -10,21 +10,42 @@ import (
 func (b *BookServer) BookResolver(p graphql.ResolveParams) (interface{}, error) {
 	id, idOK := p.Args["id"].(string)
 	slug, slugOK := p.Args["slug"].(string)
+	var book Book
+	var err error
+	var uid uuid.UUID
 
 	switch {
 	case idOK:
-		uid, err := uuid.FromString(id)
+		uid, err = uuid.FromString(id)
 		if err != nil {
 			return nil, errors.Wrap(err, "error parsing UUID")
 		}
-		book, err := b.store.BookByID(uid)
+
+		err = b.Cache.IsAvailable()
+		if err == nil {
+			book, err = b.Cache.BookByID(uid)
+		}
+		if err != nil && book.ID == uuid.Nil {
+			book, err := b.Store.BookByID(uid)
+			if err != nil {
+				return nil, errors.Wrap(err, "cannot get from db")
+			}
+
+			err = b.Cache.InsertBook(book)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to add book to cache")
+			}
+			return book, err
+		}
+
+		book, err = b.Store.BookByID(uid)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
 		return book, nil
 
 	case slugOK:
-		book, err := b.store.BookBySlug(slug)
+		book, err = b.Store.BookBySlug(slug)
 		if err != nil {
 			return nil, errors.Wrap(err, "BookBySlug failed")
 		}
@@ -56,13 +77,13 @@ func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, erro
 	}
 	switch {
 	case authorOK:
-		books, err := b.store.BooksByAuthor(author)
+		books, err := b.Store.BooksByAuthor(author)
 		if err != nil {
 			return nil, errors.Wrap(err, "BookByAuthor failed")
 		}
 		return books, nil
 	default:
-		books, err := b.store.Books(lim, off)
+		books, err := b.Store.Books(lim, off)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get Books from store")
 		}
@@ -82,7 +103,7 @@ func (b *BookServer) PageResolver(p graphql.ResolveParams) (interface{}, error) 
 		if err != nil {
 			return nil, errors.Wrap(err, "error parsing UUID")
 		}
-		page, err := b.store.PageByID(uid)
+		page, err := b.Store.PageByID(uid)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
@@ -93,7 +114,7 @@ func (b *BookServer) PageResolver(p graphql.ResolveParams) (interface{}, error) 
 		if err != nil {
 			return nil, errors.Wrap(err, "error parsing UUID")
 		}
-		page, err := b.store.PageByBookAndNumber(bookUUID, number)
+		page, err := b.Store.PageByBookAndNumber(bookUUID, number)
 		if err != nil {
 			return nil, errors.Wrap(err, "PageByBookAndNumber failed")
 		}
@@ -122,7 +143,7 @@ func (b *BookServer) AllPageResolver(p graphql.ResolveParams) (interface{}, erro
 	} else {
 		off = 0
 	}
-	pages, err := b.store.Pages(lim, off)
+	pages, err := b.Store.Pages(lim, off)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get Books from store")
 	}

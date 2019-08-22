@@ -18,8 +18,8 @@ var (
 
 // BookServer GraphQL Server for book storage
 type BookServer struct {
-	store        Store
-	cache        *RedisCache
+	Store        Store
+	Cache        Store
 	templatesDir string
 	http.Handler
 	rootQuery *RootQuery
@@ -27,10 +27,12 @@ type BookServer struct {
 
 // Store noqa
 type Store interface {
+	IsAvailable() error
 	Books(int, int) ([]Book, error)
 	BookByID(uuid.UUID) (Book, error)
 	BookBySlug(string) (Book, error)
 	BooksByAuthor(string) ([]Book, error)
+	InsertBook(Book) error
 	Pages(int, int) ([]Page, error)
 	PageByID(uuid.UUID) (Page, error)
 	PageByBookAndNumber(uuid.UUID, int) (Page, error)
@@ -40,12 +42,18 @@ type Store interface {
 }
 
 // NewBookServer returns a new server instance
-func NewBookServer(store Store, middlewares []func(http.Handler) http.Handler, developmentMode bool) (*BookServer, error) {
+func NewBookServer(
+	store Store,
+	cache Store,
+	middlewares []func(http.Handler) http.Handler,
+	developmentMode bool,
+) (*BookServer, error) {
 	b := new(BookServer)
 
 	b.templatesDir = htmlDirPath
 
-	b.store = store
+	b.Store = store
+	b.Cache = cache
 	b.rootQuery = b.NewRootQuery()
 	r := chi.NewRouter()
 
@@ -113,9 +121,9 @@ func (b *BookServer) serveIndex(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, fmt.Sprintf("problem opening %s %v", templatePath, err), 400)
 	}
-	sampleBook, _ := b.store.Books(1, 0)
-	samplePage, _ := b.store.Pages(1, 0)
-	sampleAuthor, _ := b.store.Authors(1, 0)
+	sampleBook, _ := b.Store.Books(1, 0)
+	samplePage, _ := b.Store.Pages(1, 0)
+	sampleAuthor, _ := b.Store.Authors(1, 0)
 
 	data := IndexData(
 		sampleBook[0].ID.String(),

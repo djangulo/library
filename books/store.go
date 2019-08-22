@@ -10,6 +10,11 @@ import (
 	"log"
 )
 
+var (
+	// ErrSQLStoreUnavailable returned if SQL store is unavailable
+	ErrSQLStoreUnavailable = errors.New("Attempted to access unavailable SQL connection")
+)
+
 // SQLStore houses the PostgreSQL connection
 type SQLStore struct {
 	DB *sqlx.DB
@@ -55,6 +60,11 @@ func NewSQLStore(config config.DatabaseConfig) (*SQLStore, func()) {
 	}
 
 	return &SQLStore{db}, removeDatabase
+}
+
+// IsAvailable checks whether it's possible to connect to the DB or not
+func (s *SQLStore) IsAvailable() error {
+	return s.DB.Ping()
 }
 
 // Books fetches a list of books
@@ -139,6 +149,45 @@ func (s *SQLStore) BooksByAuthor(author string) ([]Book, error) {
 	}
 
 	return books, nil
+}
+
+// InsertBook inserts new book into the database
+func (s *SQLStore) InsertBook(book Book) error {
+	if book.Title == "" {
+		return errors.New("title property empty (\"\") or unset, title is required")
+	}
+	if book.ID == uuid.Nil {
+		uid, err := uuid.NewV4()
+		if err != nil {
+			return errors.Wrap(err, "faled to create new UUID for book")
+		}
+		book.ID = uid
+	}
+	stmt := `INSERT INTO books (
+		id,title,slug,publication_year,page_count,
+		file,author_id,source
+	)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;`
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return TxError(tx, err, "could not begin transaction")
+	}
+	_, err = tx.Exec(
+		stmt,
+		book.ID,
+		book.Title,
+		book.Slug,
+		book.PublicationYear,
+		book.PageCount,
+		book.File,
+		book.AuthorID,
+		book.Source,
+	)
+	if err != nil {
+		return TxError(tx, err, "could not insert book")
+	}
+	return nil
+
 }
 
 // Pages fetches a list of books

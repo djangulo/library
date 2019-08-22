@@ -2,7 +2,8 @@ package books
 
 import "html/template"
 
-type indexData struct {
+// IdxData noqa
+type IdxData struct {
 	Data map[string]interface{}
 }
 
@@ -10,9 +11,9 @@ type indexData struct {
 func IndexData(
 	exampleBookID,
 	examplePageID,
-	exampleAuthorID string) map[string]indexData {
+	exampleAuthorID string) map[string]IdxData {
 
-	indexEn := indexData{
+	indexEn := IdxData{
 		Data: map[string]interface{}{
 			"PageTitle":       template.HTML("Library &mdash; API"),
 			"SubTitle":        "This is the api for the Library app located at ",
@@ -36,7 +37,7 @@ func IndexData(
 			"ExampleAuthorID": exampleAuthorID,
 		},
 	}
-	indexEs := indexData{
+	indexEs := IdxData{
 		Data: map[string]interface{}{
 			"PageTitle":       template.HTML("Biblioteca &mdash; API"),
 			"SubTitle":        "Este es el API para la aplicación de biblioteca localizada en ",
@@ -60,7 +61,7 @@ func IndexData(
 			"ExampleAuthorID": exampleAuthorID,
 		},
 	}
-	langData := map[string]indexData{
+	langData := map[string]IdxData{
 		"en": indexEn,
 		"es": indexEs,
 	}

@@ -646,3 +646,15 @@ func mustOpenAndRead(path string) []byte {
 	byteData := mustRead(file)
 	return byteData
 }
+
+// TxError tries to rollback the transaction, and wraps the error
+// if fails to rollback
+func TxError(tx *sql.Tx, err error, wrapMsg string) error {
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(err, wrapMsg)
+		}
+		return errors.Wrap(err, wrapMsg)
+	}
+	return nil
+}

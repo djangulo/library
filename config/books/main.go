@@ -65,6 +65,19 @@ func (d DatabaseConfig) ConnStr() string {
 	)
 }
 
+// ConnStrURI returns a PostgreSQL compatible connection string URI
+func (d DatabaseConfig) ConnStrURI() string {
+	return fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		d.User,
+		d.Password,
+		d.Host,
+		d.Port,
+		d.Name,
+		d.SSL,
+	)
+}
+
 // ConnStr returns a Redis cache connection address
 func (c CacheConfig) ConnStr() string {
 	return fmt.Sprintf("%s:%s", c.Host, c.Port)
@@ -109,7 +122,7 @@ func Get() *Config {
 	}
 	cacheConfig := CacheConfig{
 		Host:     getenv("REDIS_HOST", "localhost"),
-		Port:     getenv("REDIS_PORT", "6739"),
+		Port:     getenv("REDIS_PORT", "6379"),
 		Password: getenv("REDIS_PASSWORD", ""),
 		DB:       getenvInt("REDIS_DB", 0),
 	}
@@ -137,6 +150,7 @@ func Get() *Config {
 		},
 		Cache: map[string]CacheConfig{
 			"main": cacheConfig,
+			"test": cacheConfig,
 		},
 		Project: pConf,
 	}

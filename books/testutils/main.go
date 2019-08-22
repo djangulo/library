@@ -2,17 +2,16 @@ package testutils
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/djangulo/library/books"
 	config "github.com/djangulo/library/config/books"
 	"github.com/gofrs/uuid"
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file" // unneded namespace
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // unneded namespace
+	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -69,13 +68,14 @@ func TestAuthorsData() (authors []books.Author) {
 }
 
 // NewStubStore noqa
-func NewStubStore() *StubStore {
+func NewStubStore(available error) *StubStore {
 
 	books := TestBookData()
 	pages := TestPageData()
 	authors := TestAuthorsData()
 
 	return &StubStore{
+		Available:   available,
 		books:       books,
 		pages:       pages,
 		authors:     authors,
@@ -87,12 +87,17 @@ func NewStubStore() *StubStore {
 
 // StubStore for testing
 type StubStore struct {
+	Available   error
 	books       []books.Book
 	pages       []books.Page
 	authors     []books.Author
 	BookCalls   map[string]int
 	PageCalls   map[string]int
 	AuthorCalls map[string]int
+}
+
+func (s *StubStore) IsAvailable() error {
+	return s.Available
 }
 
 // Books noqa
@@ -156,6 +161,15 @@ func (s *StubStore) BooksByAuthor(name string) ([]books.Book, error) {
 		}
 	}
 	return books, nil
+}
+
+func (s *StubStore) InsertBook(book books.Book) error {
+	if book.ID == uuid.Nil || book.Title == "" {
+		return errors.New("invalid book")
+	}
+	s.books = append(s.books, book)
+	return nil
+
 }
 
 // Pages noqa
@@ -402,7 +416,7 @@ func AssertUUIDsEqual(t *testing.T, got, want uuid.UUID) {
 
 // NewTestSQLStore Creates and returns a test database. Intended for use with
 // integration tests.
-func NewTestSQLStore(config config.Config) (*books.SQLStore, func()) {
+func NewTestSQLStore(config *config.Config) (*books.SQLStore, func()) {
 	db, err := sqlx.Open("postgres", config.Database["main"].ConnStr())
 	if err != nil {
 		log.Fatalf("failed to connect database %v", err)
@@ -416,18 +430,19 @@ func NewTestSQLStore(config config.Config) (*books.SQLStore, func()) {
 
 	var once sync.Once
 	once.Do(func() {
-		migrateConn, err := sql.Open("postgres", testConnStr)
-		if err != nil {
-			log.Fatalf("failed to connect to test database %v", err)
-		}
-		defer migrateConn.Close()
-
-		driver, err := postgres.WithInstance(migrateConn, &postgres.Config{})
-		m, err := migrate.NewWithDatabaseInstance(
+		// migrateConn, err := sql.Open("postgres", testConnStr)
+		// if err != nil {
+		// 	log.Fatalf("failed to connect to test database %v", err)
+		// }
+		// defer migrateConn.Close()
+		fmt.Printf("\n\n%v\n\n", "file://"+config.Project.Dirs.Migrations)
+		m, err := migrate.New(
 			"file://"+config.Project.Dirs.Migrations,
-			"postgres",
-			driver,
+			config.Database["test"].ConnStrURI(),
 		)
+		if err != nil {
+			panic(err)
+		}
 		m.Up()
 
 	})
@@ -438,7 +453,8 @@ func NewTestSQLStore(config config.Config) (*books.SQLStore, func()) {
 	}
 	removeDatabase := func() {
 		testDB.Close()
-		db.Exec(`DROP DATABASE library_test_database;`)
+		stmt := fmt.Sprintf(`DROP DATABASE %s;`, config.Database["test"].Name)
+		db.Exec(stmt)
 		db.Close()
 	}
 

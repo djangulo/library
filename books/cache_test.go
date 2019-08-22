@@ -10,22 +10,43 @@ import (
 	"testing"
 )
 
-func TestInsertBook(t *testing.T) {
+func TestBookCache(t *testing.T) {
 	testBooks := testutils.TestBookData()
-	cnf := config.CacheConfig{Host: "127.0.0.1", Port: "6379"}
+	cnf := config.CacheConfig{Host: "localhost", Port: "6379"}
 	cache, _ := books.NewRedisCache(cnf)
 
-	want, err := cache.InsertBook(&testBooks[0])
-	if err != nil {
-		t.Errorf("received error on InsertBook: %v", err)
-	}
+	t.Run("can insert/retrieve book by ID", func(t *testing.T) {
+		want := testBooks[1]
+		err := cache.InsertBook(want)
+		if err != nil {
+			t.Errorf("received error on InsertBook: %v", err)
+		}
 
-	got, err := cache.BookByID(want.ID)
-	if err != nil {
-		t.Errorf("received error on BookByID: %v", err)
-	}
+		got, err := cache.BookByID(want.ID)
+		if err != nil {
+			t.Errorf("received error on BookByID: %v", err)
+		}
 
-	if !reflect.DeepEqual(*want, got) {
-		t.Errorf("got --- %v --- want--- \n%v\n", got, want)
-	}
+		if !reflect.DeepEqual(want, got) {
+			t.Errorf("got --- %v --- want--- \n%v\n", got, want)
+		}
+	})
+
+	t.Run("can insert/retrieve book by slug", func(t *testing.T) {
+		want := testBooks[1]
+		err := cache.InsertBook(want)
+		if err != nil {
+			t.Errorf("received error on InsertBook: %v", err)
+		}
+
+		got, err := cache.BookBySlug(want.Slug)
+		if err != nil {
+			t.Errorf("received error on BookBySlug: %v", err)
+		}
+
+		if !reflect.DeepEqual(want, got) {
+			t.Errorf("got --- %v --- want--- \n%v\n", got, want)
+		}
+	})
+
 }
