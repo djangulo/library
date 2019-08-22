@@ -2,8 +2,10 @@ package booksconfig
 
 import (
 	"fmt"
+	"log"
 	"os"
 	fp "path/filepath"
+	"strconv"
 )
 
 // Config holds configuration options for the project
@@ -26,8 +28,10 @@ type DatabaseConfig struct {
 
 // CacheConfig holds configuration options for the Redis (or other) cache
 type CacheConfig struct {
-	Host string
-	Port string
+	Host     string
+	Port     string
+	Password string
+	DB       int
 }
 
 // ProjectConfig holds configuration options specific to this project
@@ -74,6 +78,18 @@ func getenv(key, defaultValue string) string {
 	return value
 }
 
+func getenvInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if len(value) == 0 {
+		return defaultValue
+	}
+	inted, err := strconv.Atoi(value)
+	if err != nil {
+		log.Panicln(err)
+	}
+	return inted
+}
+
 // Get returns a config object
 func Get() *Config {
 	rootDir := getenv("ROOT_DIR", fp.Join(os.Getenv("GOPATH"), "src", "github.com", "djangulo", "library"))
@@ -92,8 +108,10 @@ func Get() *Config {
 		Dirs:         dirConf,
 	}
 	cacheConfig := CacheConfig{
-		Host: getenv("REDIS_HOST", "localhost"),
-		Port: getenv("REDIS_PORT", "6739"),
+		Host:     getenv("REDIS_HOST", "localhost"),
+		Port:     getenv("REDIS_PORT", "6739"),
+		Password: getenv("REDIS_PASSWORD", ""),
+		DB:       getenvInt("REDIS_DB", 0),
 	}
 	dbConfig := DatabaseConfig{
 		Host:     getenv("POSTGRES_HOST", "localhost"),

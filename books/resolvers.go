@@ -10,21 +10,12 @@ import (
 func (b *BookServer) BookResolver(p graphql.ResolveParams) (interface{}, error) {
 	id, idOK := p.Args["id"].(string)
 	slug, slugOK := p.Args["slug"].(string)
-	var err error
-	var book Book
-	var uid uuid.UUID
 
 	switch {
 	case idOK:
-		uid, err = uuid.FromString(id)
+		uid, err := uuid.FromString(id)
 		if err != nil {
 			return nil, errors.Wrap(err, "error parsing UUID")
-		}
-		if b.cache.IsAvailable() {
-			book, err = b.cache.BookByID(uid)
-		}
-		if err != nil {
-
 		}
 		book, err := b.store.BookByID(uid)
 		if err != nil {

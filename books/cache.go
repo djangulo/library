@@ -2,36 +2,22 @@ package books
 
 import (
 	"encoding/json"
+	// "fmt"
 	config "github.com/djangulo/library/config/books"
+	"github.com/go-redis/redis"
 	"github.com/gofrs/uuid"
-	"github.com/gomodule/redigo/redis"
-	"github.com/nitishm/go-rejson"
 	"github.com/pkg/errors"
 	"log"
 	"time"
 )
 
+// RedisCache cache layer
 type RedisCache struct {
 	Available bool
-	Pool      *redis.Pool
-	Handler   *rejson.Handler
+	Client    *redis.Client
 }
 
 // Conn returns a connection from the pool and a convenience close method
-func (r *RedisCache) Conn() (redis.Conn, func()) {
-	conn := r.Pool.Get()
-	removeConn := func() {
-		_, err := conn.Do("FLUSHALL")
-		if err != nil {
-			log.Fatalf("failed to flush the connection: %v", err)
-		}
-		err = conn.Close()
-		if err != nil {
-			log.Fatalf("failed to close the connection: %v", err)
-		}
-	}
-	return conn, removeConn
-}
 
 // IsAvailable checks whether a redis conection was made available on init
 func (r *RedisCache) IsAvailable() bool {
@@ -45,8 +31,12 @@ func (r *RedisCache) IsAvailable() bool {
 // NewRedisCache returns a `*RedisCache` object with the config provided
 func NewRedisCache(config config.CacheConfig) (*RedisCache, error) {
 	connStr := config.ConnStr()
-	conn, err := redis.Dial("tcp", connStr)
-	defer conn.Close()
+	client := redis.NewClient(&redis.Options{
+		Addr:     connStr,
+		Password: config.Password,
+		DB:       config.DB,
+	})
+	_, err := client.Ping().Result()
 	if err != nil {
 		log.Printf("Redis connection unavailable: %v", err)
 		return &RedisCache{Available: false}, errors.Wrap(
@@ -54,17 +44,9 @@ func NewRedisCache(config config.CacheConfig) (*RedisCache, error) {
 			"redis connection unavailable",
 		)
 	}
-	rh := rejson.NewReJSONHandler()
 	return &RedisCache{
 		Available: true,
-		Pool: &redis.Pool{
-			MaxIdle:     10,
-			IdleTimeout: 240 * time.Second,
-			Dial: func() (redis.Conn, error) {
-				return redis.Dial("tcp", connStr)
-			},
-		},
-		Handler: rh,
+		Client:    client,
 	}, nil
 }
 
@@ -111,20 +93,20 @@ func (r *RedisCache) BookByID(ID uuid.UUID) (Book, error) {
 	if !r.IsAvailable() {
 		return Book{}, errors.New("attempted to access unavailable redis cache")
 	}
-	conn, dropConn := r.Conn()
-	defer dropConn()
 
-	r.Handler.SetRedigoClient(conn)
-
-	bookJSON, err := redis.Bytes(r.Handler.JSONGet("book:"+ID.String(), "."))
+	bookStr, err := r.Client.Get("book:" + ID.String()).Result()
 	if err != nil {
-		return Book{}, errors.Wrap(err, "failed to JSONGet")
+		return Book{}, errors.Wrap(err, "could not GET book")
 	}
+
+	b := []byte(bookStr)
+
 	var book Book
-	err = json.Unmarshal(bookJSON, &book)
+	err = json.Unmarshal(b, &book)
 	if err != nil {
-		return Book{}, errors.Wrap(err, "failed to unmarshal book")
+		return Book{}, errors.Wrap(err, "could not unmarshal book JSON")
 	}
+
 	return book, nil
 }
 
@@ -293,21 +275,20 @@ func (r *RedisCache) InsertBook(book *Book) (*Book, error) {
 	if !r.IsAvailable() {
 		return &Book{}, errors.New("attempted to access unavailable redis cache")
 	}
-	conn, dropConn := r.Conn()
-	defer dropConn()
+	// conn, dropConn := r.Conn()
+	// defer dropConn()
 
-	r.Handler.SetRedigoClient(conn)
-
-	res, err := r.Handler.JSONSet("book:"+book.ID.String(), ".", book)
+	b, err := json.Marshal(&book)
 	if err != nil {
-		return &Book{}, errors.Wrap(err, "failed to JSONset")
+		return &Book{}, errors.Wrap(err, "could not marshal book")
 	}
 
-	if res.(string) == "OK" {
-		return book, nil
+	err = r.Client.Set("book:"+book.ID.String(), string(b), 24*time.Hour).Err()
+	if err != nil {
+		return &Book{}, errors.Wrap(err, "could not SET book")
 	}
-	return &Book{}, errors.New("failed to JSONset")
 
+	return book, nil
 }
 
 // func MapBytesToBook(bytes [][]byte) *Book {

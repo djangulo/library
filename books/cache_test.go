@@ -1,26 +1,31 @@
 package books_test
 
 import (
-	"fmt"
+	// "fmt"
 	"github.com/djangulo/library/books"
 	"github.com/djangulo/library/books/testutils"
 	config "github.com/djangulo/library/config/books"
-	"github.com/gomodule/redigo/redis"
+	// "github.com/gomodule/redigo/redis"
+	"reflect"
 	"testing"
 )
 
 func TestInsertBook(t *testing.T) {
 	testBooks := testutils.TestBookData()
-	cnf := config.CacheConfig{Host: "localhost", Port: "6379"}
+	cnf := config.CacheConfig{Host: "127.0.0.1", Port: "6379"}
 	cache, _ := books.NewRedisCache(cnf)
 
-	book, _ :=cache.InsertBook(&testBooks[0])
-	conn, dropConn := cache.Conn()
-	values, _ := redis.ByteSlices(redis.Values(conn.Do("HGETALL", "book:"+testBooks[0].ID.String())))
-	// if err != nil {
-	// 	t.Errorf("%v\n", err) 
-	// }
+	want, err := cache.InsertBook(&testBooks[0])
+	if err != nil {
+		t.Errorf("received error on InsertBook: %v", err)
+	}
 
-	fmt.Printf("\n\nwant: \n%+v\n\n", testBooks[0])
-	fmt.Printf("\n\ngot: \n%+v\n\n", book)
+	got, err := cache.BookByID(want.ID)
+	if err != nil {
+		t.Errorf("received error on BookByID: %v", err)
+	}
+
+	if !reflect.DeepEqual(*want, got) {
+		t.Errorf("got --- %v --- want--- \n%v\n", got, want)
+	}
 }
