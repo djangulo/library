@@ -33,7 +33,7 @@ func init() {
 	}
 	err = books.SeedFromGutenberg(cnf, "main")
 	if err != nil {
-		log.Fatalf("Error creating json files: %v", err)
+		log.Fatalf("Error seeding database: %v", err)
 	}
 }
 

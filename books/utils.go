@@ -153,12 +153,12 @@ func Unzip(src, dest string) ([]string, error) {
 
 		if f.FileInfo().IsDir() {
 			// Make Folder
-			os.MkdirAll(fpath, os.ModePerm)
+			os.MkdirAll(fpath, 0766)
 			continue
 		}
 
 		// Make File
-		if err = os.MkdirAll(fp.Dir(fpath), os.ModePerm); err != nil {
+		if err = os.MkdirAll(fp.Dir(fpath), 0766); err != nil {
 			return filenames, err
 		}
 
@@ -245,7 +245,7 @@ func SaveJSON(config *config.Config) error {
 	if _, err := os.Stat(gutenbergSeed); os.IsNotExist(err) {
 		gutenberg := fp.Join(config.Project.Dirs.Corpora, "gutenberg")
 		log.Printf("Reading data from database from Gutenberg data (dir: %s)...\n", gutenberg)
-		err := os.MkdirAll(gutenbergSeed, os.ModeDir)
+		err := os.MkdirAll(gutenbergSeed, 0766)
 		if err != nil {
 			log.Fatalf("error creating directory %v: %v", gutenbergSeed, err)
 		}
@@ -456,7 +456,6 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 		return errors.Wrap(err, "unable to commit")
 	}
 
-	// insert books and its pages, each on a transaction
 	booksJSON, err := os.Open(fp.Join(gutenbergSeed, "books.json"))
 	if err != nil {
 		return errors.Wrap(
@@ -477,52 +476,26 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 			),
 		)
 	}
+
 	err = json.Unmarshal(byteBooks, &books)
 	if err != nil {
 		return errors.Wrap(err, "could not unmarshal books.json")
 	}
-
-	pagesJSON, err := os.Open(fp.Join(gutenbergSeed, "pages.json"))
+	tx, err = db.Begin()
 	if err != nil {
-		return errors.Wrap(
-			err,
-			fmt.Sprintf(
-				"could not open %s",
-				fp.Join(gutenbergSeed, "pages.json"),
-			),
-		)
+		return errors.Wrap(err, "could not begin transaction")
 	}
-	bytePages, err := ioutil.ReadAll(pagesJSON)
+	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
 	if err != nil {
-		return errors.Wrap(
-			err,
-			fmt.Sprintf(
-				"could not read %s",
-				fp.Join(gutenbergSeed, "pages.json"),
-			),
-		)
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"seed database - books, set encoding: unable to rollback",
+			)
+		}
+		return errors.Wrap(err, "unable to set encoding")
 	}
-	err = json.Unmarshal(bytePages, &pages)
-	if err != nil {
-		return errors.Wrap(err, "could not unmarshal pages.json")
-	}
-
 	for _, b := range books {
-		tx, err := db.Begin()
-		if err != nil {
-			return errors.Wrap(err, "could not begin transaction")
-		}
-
-		_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
-		if err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				return errors.Wrap(
-					err,
-					"seed database - set encoding: unable to rollback",
-				)
-			}
-			return errors.Wrap(err, "unable to set encoding")
-		}
 		_, err = tx.Exec(
 			`INSERT INTO books (
 				id,
@@ -545,82 +518,280 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 			b.Source,
 		)
 		if err != nil {
-			rollbackErr := tx.Rollback()
-			if rollbackErr != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
 				return errors.Wrap(
 					err,
-					fmt.Sprintf(
-						"seed database - books, unable to rollback on book: %+v",
-						b,
-					),
+					"seed database - authors: unable to rollback",
 				)
 			}
-			return errors.Wrap(
-				err,
-				fmt.Sprintf(
-					"seed database - books, could not insert book: %+v",
-					b,
-				),
-			)
-		}
-
-		for _, p := range pages {
-			if p.BookID.String() == b.ID.String() {
-				_, err := tx.Exec(
-					`INSERT INTO pages (
-						id,
-						page_number,
-						body,
-						book_id
-					)
-					VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;
-					`,
-					p.ID,
-					p.PageNumber,
-					p.Body,
-					p.BookID,
-				)
-				if err != nil {
-					rollbackErr := tx.Rollback()
-					if rollbackErr != nil {
-						return errors.Wrap(
-							err,
-							fmt.Sprintf(
-								"seed database - pages, unable to rollback on page %+v of book %+v",
-								p,
-								b,
-							),
-						)
-					}
-					return errors.Wrap(
-						err,
-						fmt.Sprintf(
-							"seed database - pages, could not insert page %+v of book %+v",
-							p,
-							b,
-						),
-					)
-				}
-			}
-		}
-		_, err = tx.Exec(`RESET CLIENT_ENCODING`)
-		if err != nil {
-			rollbackErr := tx.Rollback()
-			if rollbackErr != nil {
-				return errors.Wrap(
-					err,
-					"seed database - reset encoding, unable to rollback",
-				)
-			}
-			return errors.Wrap(
-				err,
-				"seed database - reset encoding, unable to reset",
-			)
-		}
-		if commitErr := tx.Commit(); commitErr != nil {
-			return errors.Wrap(err, "unable to commit")
+			return errors.Wrap(err, fmt.Sprintf("could not insert author %v", b))
 		}
 	}
+	_, err = tx.Exec(`RESET CLIENT_ENCODING;`)
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"seed database - reset encoding, unable to rollback",
+			)
+		}
+		return errors.Wrap(
+			err,
+			"seed database - reset encoding, unable to reset",
+		)
+	}
+	if commitErr := tx.Commit(); commitErr != nil {
+		return errors.Wrap(err, "unable to commit")
+	}
+
+	pagesJSON, err := os.Open(fp.Join(gutenbergSeed, "pages.json"))
+	if err != nil {
+		return errors.Wrap(
+			err,
+			fmt.Sprintf(
+				"could not open %s",
+				fp.Join(gutenbergSeed, "pages.json"),
+			),
+		)
+	}
+	bytePages, err := ioutil.ReadAll(pagesJSON)
+	if err != nil {
+		return errors.Wrap(
+			err,
+			fmt.Sprintf(
+				"could not read %s",
+				fp.Join(gutenbergSeed, "pages.json"),
+			),
+		)
+	}
+
+	err = json.Unmarshal(bytePages, &pages)
+	if err != nil {
+		return errors.Wrap(err, "could not unmarshal pages.json")
+	}
+	tx, err = db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "could not begin transaction")
+	}
+	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"seed database - pages, set encoding: unable to rollback",
+			)
+		}
+		return errors.Wrap(err, "unable to set encoding")
+	}
+	for _, p := range pages {
+		_, err := tx.Exec(
+			`INSERT INTO pages (
+				id,
+				page_number,
+				body,
+				book_id
+			)
+			VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;
+			`,
+			p.ID,
+			p.PageNumber,
+			p.Body,
+			p.BookID,
+		)
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				return errors.Wrap(
+					err,
+					"seed database - pages: unable to rollback",
+				)
+			}
+			return errors.Wrap(err, fmt.Sprintf("could not insert page %v", p))
+		}
+	}
+	_, err = tx.Exec(`RESET CLIENT_ENCODING;`)
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"seed database - reset encoding, unable to rollback",
+			)
+		}
+		return errors.Wrap(
+			err,
+			"seed database - reset encoding, unable to reset",
+		)
+	}
+	if commitErr := tx.Commit(); commitErr != nil {
+		return errors.Wrap(err, "unable to commit")
+	}
+
+	// insert books and its pages, each on a transaction
+	// booksJSON, err := os.Open(fp.Join(gutenbergSeed, "books.json"))
+	// if err != nil {
+	// 	return errors.Wrap(
+	// 		err,
+	// 		fmt.Sprintf(
+	// 			"could not open %s",
+	// 			fp.Join(gutenbergSeed, "books.json"),
+	// 		),
+	// 	)
+	// }
+	// byteBooks, err := ioutil.ReadAll(booksJSON)
+	// if err != nil {
+	// 	return errors.Wrap(
+	// 		err,
+	// 		fmt.Sprintf(
+	// 			"could not read %s",
+	// 			fp.Join(gutenbergSeed, "books.json"),
+	// 		),
+	// 	)
+	// }
+	// err = json.Unmarshal(byteBooks, &books)
+	// if err != nil {
+	// 	return errors.Wrap(err, "could not unmarshal books.json")
+	// }
+
+	// pagesJSON, err := os.Open(fp.Join(gutenbergSeed, "pages.json"))
+	// if err != nil {
+	// 	return errors.Wrap(
+	// 		err,
+	// 		fmt.Sprintf(
+	// 			"could not open %s",
+	// 			fp.Join(gutenbergSeed, "pages.json"),
+	// 		),
+	// 	)
+	// }
+	// bytePages, err := ioutil.ReadAll(pagesJSON)
+	// if err != nil {
+	// 	return errors.Wrap(
+	// 		err,
+	// 		fmt.Sprintf(
+	// 			"could not read %s",
+	// 			fp.Join(gutenbergSeed, "pages.json"),
+	// 		),
+	// 	)
+	// }
+	// err = json.Unmarshal(bytePages, &pages)
+	// if err != nil {
+	// 	return errors.Wrap(err, "could not unmarshal pages.json")
+	// }
+
+	// for _, b := range books {
+	// 	tx, err := db.Begin()
+	// 	if err != nil {
+	// 		return errors.Wrap(err, "could not begin transaction")
+	// 	}
+
+	// 	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+	// 	if err != nil {
+	// 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+	// 			return errors.Wrap(
+	// 				err,
+	// 				"seed database - set encoding: unable to rollback",
+	// 			)
+	// 		}
+	// 		return errors.Wrap(err, "unable to set encoding")
+	// 	}
+	// 	_, err = tx.Exec(
+	// 		`INSERT INTO books (
+	// 			id,
+	// 			title,
+	// 			slug,
+	// 			publication_year,
+	// 			page_count,
+	// 			file,
+	// 			author_id,
+	// 			source
+	// 		)
+	// 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;`,
+	// 		b.ID,
+	// 		b.Title,
+	// 		b.Slug,
+	// 		b.PublicationYear,
+	// 		b.PageCount,
+	// 		b.File,
+	// 		b.AuthorID,
+	// 		b.Source,
+	// 	)
+	// 	if err != nil {
+	// 		rollbackErr := tx.Rollback()
+	// 		if rollbackErr != nil {
+	// 			return errors.Wrap(
+	// 				err,
+	// 				fmt.Sprintf(
+	// 					"seed database - books, unable to rollback on book: %+v",
+	// 					b,
+	// 				),
+	// 			)
+	// 		}
+	// 		return errors.Wrap(
+	// 			err,
+	// 			fmt.Sprintf(
+	// 				"seed database - books, could not insert book: %+v",
+	// 				b,
+	// 			),
+	// 		)
+	// 	}
+
+	// 	for _, p := range pages {
+	// 		if p.BookID.String() == b.ID.String() {
+	// 			_, err := tx.Exec(
+	// 				`INSERT INTO pages (
+	// 					id,
+	// 					page_number,
+	// 					body,
+	// 					book_id
+	// 				)
+	// 				VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;
+	// 				`,
+	// 				p.ID,
+	// 				p.PageNumber,
+	// 				p.Body,
+	// 				p.BookID,
+	// 			)
+	// 			if err != nil {
+	// 				rollbackErr := tx.Rollback()
+	// 				if rollbackErr != nil {
+	// 					return errors.Wrap(
+	// 						err,
+	// 						fmt.Sprintf(
+	// 							"seed database - pages, unable to rollback on page %+v of book %+v",
+	// 							p,
+	// 							b,
+	// 						),
+	// 					)
+	// 				}
+	// 				return errors.Wrap(
+	// 					err,
+	// 					fmt.Sprintf(
+	// 						"seed database - pages, could not insert page %+v of book %+v",
+	// 						p,
+	// 						b,
+	// 					),
+	// 				)
+	// 			}
+	// 		}
+	// 	}
+	// 	_, err = tx.Exec(`RESET CLIENT_ENCODING`)
+	// 	if err != nil {
+	// 		rollbackErr := tx.Rollback()
+	// 		if rollbackErr != nil {
+	// 			return errors.Wrap(
+	// 				err,
+	// 				"seed database - reset encoding, unable to rollback",
+	// 			)
+	// 		}
+	// 		return errors.Wrap(
+	// 			err,
+	// 			"seed database - reset encoding, unable to reset",
+	// 		)
+	// 	}
+	// 	if commitErr := tx.Commit(); commitErr != nil {
+	// 		return errors.Wrap(err, "unable to commit")
+	// 	}
+	// }
 	log.Println("Successfully seeded database!")
 	return nil
 }

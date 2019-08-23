@@ -38,366 +38,365 @@ var (
 var middlewares = []func(http.Handler) http.Handler{
 	middleware.RequestID,
 	middleware.RealIP,
-	middleware.Logger,
+	// middleware.Logger,
 	middleware.Recoverer,
 }
 
-func TestBookQueriesWithoutCache(t *testing.T) {
-
+func testServer(store books.Store, withCache bool) (*books.BookServer, []books.Author, []books.Book, []books.Page) {
 	cache, err := books.NewRedisCache(cnf.Cache["test"])
+	if !withCache {
+		cache.Available = false
+	}
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	cache.Available = false
-
-	store, remove := testutils.NewTestSQLStore(cnf)
-	defer remove()
-
-	books.AcquireGutenberg(cnf)
-	err = books.SaveJSON(cnf)
-	if err != nil {
-		log.Fatalf("Error creating json files: %v", err)
-	}
-	err = books.SeedFromGutenberg(cnf, "main")
-	if err != nil {
-		log.Fatalf("Error creating json files: %v", err)
-	}
 
 	server, _ := books.NewBookServer(store, cache, middlewares, true)
 
 	// values to test against
-	testBooks, _ := server.Store.Books(2, 0)
-	testAuthors, _ := server.Store.Authors(2, 0)
-
-	t.Run("can query all books", func(t *testing.T) {
-		jsonStream := []byte(`
-		{
-			"query": "{
-				allBook {
-					title,
-					publication_year,
-					slug,
-					author,
-					id,
-					pages{
-						id
-					}
-				}
-			}"
-		}`)
-		jsonStream = testutils.FlattenJSON(jsonStream)
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
-
-		bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
-		got := len(bookArr)
-		want := len(testutils.TestBookData())
-
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertEqual(t, got, want)
-	})
-
-	t.Run("can query all books with a limit", func(t *testing.T) {
-		jsonStream := []byte(`{
-			"query": "{
-				allBook(limit: 3) {
-					title,
-					pages{id}
-				}
-			}"
-		}`)
-		jsonStream = testutils.FlattenJSON(jsonStream)
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
-
-		bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
-		got := len(bookArr)
-		want := 3
-
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertEqual(t, got, want)
-	})
-
-	t.Run("can query all books with an offset", func(t *testing.T) {
-		jsonStream := []byte(`{
-			"query": "{
-				allBook(offset: 1) {
-					title,
-					pages{id}
-				}
-			}"
-		}`)
-		jsonStream = testutils.FlattenJSON(jsonStream)
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
-
-		bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
-		got := bookArr[0].Title
-		testBooks := testutils.TestBookData()
-		want := testBooks[1].Title
-
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertEqual(t, got, want)
-	})
-
-	t.Run("can query allBook filtered by author", func(t *testing.T) {
-		str := fmt.Sprintf(`{
-			"query": "{
-				allBook(author: \"%s\") {
-					title,
-					pages{id}
-				}
-			}"
-		}`, testAuthors[0].Name)
-		jsonStream := []byte(str)
-		jsonStream = testutils.FlattenJSON(jsonStream)
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
-
-		bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
-		got := len(bookArr)
-		want := 3
-
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertEqual(t, got, want)
-	})
-
-	t.Run("can query a book by id", func(t *testing.T) {
-		str := fmt.Sprintf(`
-		{
-			"query": "{
-				book(id:\"%s\") {
-					title,
-					publication_year,
-					slug,
-					author,
-					id
-				}
-			}"
-		}
-		`, testBooks[0].ID.String())
-		jsonStream := []byte(str)
-		jsonStream = testutils.FlattenJSON(jsonStream)
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
-
-		book := testutils.GetBookFromGraphQLResponse(t, response.Body)
-		got := book.ID
-		want := testBooks[0].ID
-
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertUUIDsEqual(t, got, want)
-	})
-	t.Run("can query a book by slug", func(t *testing.T) {
-		str := fmt.Sprintf(`
-		{
-			"query": "{
-				book(slug:\"%s\") {
-					title,
-					publication_year,
-					slug,
-					author,
-					id
-				}
-			}"
-		}
-		`, testBooks[0].Slug)
-		jsonStream := []byte(str)
-		jsonStream = testutils.FlattenJSON(jsonStream)
-
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
-
-		book := testutils.GetBookFromGraphQLResponse(t, response.Body)
-		got := book.ID
-		want := testBooks[0].ID
-
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertUUIDsEqual(t, got, want)
-	})
-
+	testBooks, _ := store.Books(2, 0)
+	testAuthors, _ := store.Authors(2, 0)
+	testPages, _ := store.Pages(2, 0)
+	return server, testAuthors, testBooks, testPages
 }
-
-func TestBookQueriesWithCache(t *testing.T) {
-
-	cache, _ := books.NewRedisCache(cnf.Cache["test"])
+func TestBookQueriesWithoutCache(t *testing.T) {
 
 	store, remove := testutils.NewTestSQLStore(cnf)
 	defer remove()
-
 	books.AcquireGutenberg(cnf)
 	err := books.SaveJSON(cnf)
 	if err != nil {
 		log.Fatalf("Error creating json files: %v", err)
 	}
-	err = books.SeedFromGutenberg(cnf, "main")
+	err = books.SeedFromGutenberg(cnf, "test")
 	if err != nil {
-		log.Fatalf("Error creating json files: %v", err)
+		log.Fatalf("Error seeding database: %v", err)
 	}
+	t.Run("tests without cache", func(t *testing.T) {
+		t.Run("can query all books", func(t *testing.T) {
+			server, _, _, _ := testServer(store, false)
+			jsonStream := []byte(`
+			{
+				"query": "{
+					allBook {
+						title,
+						publication_year,
+						slug,
+						author,
+						id,
+						pages{
+							id
+						}
+					}
+				}"
+			}`)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
 
-	server, _ := books.NewBookServer(store, cache, middlewares, true)
+			bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
+			got := len(bookArr)
+			want := len(testutils.TestBookData())
 
-	// values to test against
-	testBooks, _ := server.Store.Books(2, 0)
-	testAuthors, _ := server.Store.Authors(2, 0)
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertEqual(t, got, want)
+		})
 
-	t.Run("can query all books", func(t *testing.T) {
-		jsonStream := []byte(`
-		{
-			"query": "{
-				allBook {
-					title,
-					publication_year,
-					slug,
-					author,
-					id,
-					pages{
+		t.Run("can query all books with a limit", func(t *testing.T) {
+			server, _, _, _ := testServer(store, false)
+			jsonStream := []byte(`{
+				"query": "{
+					allBook(limit: 3) {
+						title,
+						pages{id}
+					}
+				}"
+			}`)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
+
+			bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
+			got := len(bookArr)
+			want := 3
+
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertEqual(t, got, want)
+		})
+
+		t.Run("can query all books with an offset", func(t *testing.T) {
+			server, _, testBooks, _ := testServer(store, false)
+			jsonStream := []byte(`{
+				"query": "{
+					allBook(offset: 1) {
+						title,
+						pages{id}
+					}
+				}"
+			}`)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
+
+			bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
+			if len(bookArr) == 0 {
+				t.Fatal("expected a result but got none")
+			}
+			got := bookArr[0].Title
+			want := testBooks[1].Title
+
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertEqual(t, got, want)
+		})
+
+		t.Run("can query allBook filtered by author", func(t *testing.T) {
+			server, testAuthors, _, _ := testServer(store, false)
+			str := fmt.Sprintf(`{
+				"query": "{
+					allBook(author: \"%s\") {
+						title,
+						pages{id}
+					}
+				}"
+			}`, testAuthors[0].Name)
+			jsonStream := []byte(str)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
+
+			bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
+			got := len(bookArr)
+			want := 3
+
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertEqual(t, got, want)
+		})
+
+		t.Run("can query a book by id", func(t *testing.T) {
+			server, _, testBooks, _ := testServer(store, false)
+			str := fmt.Sprintf(`
+			{
+				"query": "{
+					book(id:\"%s\") {
+						title,
+						publication_year,
+						slug,
+						author,
 						id
 					}
-				}
-			}"
-		}`)
-		jsonStream = testutils.FlattenJSON(jsonStream)
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
+				}"
+			}
+			`, testBooks[0].ID.String())
+			jsonStream := []byte(str)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
 
-		bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
-		got := len(bookArr)
-		want := len(testutils.TestBookData())
+			book := testutils.GetBookFromGraphQLResponse(t, response.Body)
+			got := book.ID
+			want := testBooks[0].ID
 
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertEqual(t, got, want)
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertUUIDsEqual(t, got, want)
+		})
+		t.Run("can query a book by slug", func(t *testing.T) {
+			server, _, testBooks, _ := testServer(store, false)
+			str := fmt.Sprintf(`
+			{
+				"query": "{
+					book(slug:\"%s\") {
+						title,
+						publication_year,
+						slug,
+						author,
+						id
+					}
+				}"
+			}
+			`, testBooks[0].Slug)
+			jsonStream := []byte(str)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
+
+			book := testutils.GetBookFromGraphQLResponse(t, response.Body)
+			got := book.ID
+			want := testBooks[0].ID
+
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertUUIDsEqual(t, got, want)
+		})
 	})
 
-	t.Run("can query all books with a limit", func(t *testing.T) {
-		jsonStream := []byte(`{
-			"query": "{
-				allBook(limit: 3) {
-					title,
-					pages{id}
-				}
-			}"
-		}`)
-		jsonStream = testutils.FlattenJSON(jsonStream)
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
+	t.Run("tests with a cache", func(t *testing.T) {
+		t.Run("can query all books", func(t *testing.T) {
+			server, _, _, _ := testServer(store, true)
+			jsonStream := []byte(`
+			{
+				"query": "{
+					allBook {
+						title,
+						publication_year,
+						slug,
+						author,
+						id,
+						pages{
+							id
+						}
+					}
+				}"
+			}`)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
 
-		bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
-		got := len(bookArr)
-		want := 3
+			bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
+			got := len(bookArr)
+			want := len(testutils.TestBookData())
 
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertEqual(t, got, want)
-	})
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertEqual(t, got, want)
+		})
 
-	t.Run("can query all books with an offset", func(t *testing.T) {
-		jsonStream := []byte(`{
-			"query": "{
-				allBook(offset: 1) {
-					title,
-					pages{id}
-				}
-			}"
-		}`)
-		jsonStream = testutils.FlattenJSON(jsonStream)
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
+		t.Run("can query all books with a limit", func(t *testing.T) {
+			server, _, _, _ := testServer(store, true)
+			jsonStream := []byte(`{
+				"query": "{
+					allBook(limit: 3) {
+						title,
+						pages{id}
+					}
+				}"
+			}`)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
 
-		bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
-		got := bookArr[0].Title
-		testBooks := testutils.TestBookData()
-		want := testBooks[1].Title
+			bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
+			got := len(bookArr)
+			want := 3
 
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertEqual(t, got, want)
-	})
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertEqual(t, got, want)
+		})
 
-	t.Run("can query allBook filtered by author", func(t *testing.T) {
-		str := fmt.Sprintf(`{
-			"query": "{
-				allBook(author: \"%s\") {
-					title,
-					pages{id}
-				}
-			}"
-		}`, testAuthors[0].Name)
-		jsonStream := []byte(str)
-		jsonStream = testutils.FlattenJSON(jsonStream)
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
+		t.Run("can query all books with an offset", func(t *testing.T) {
+			server, _, testBooks, _ := testServer(store, true)
+			jsonStream := []byte(`{
+				"query": "{
+					allBook(offset: 1) {
+						title,
+						pages{id}
+					}
+				}"
+			}`)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
 
-		bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
-		got := len(bookArr)
-		want := 3
+			bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
+			if len(bookArr) == 0 {
+				t.Fatal("expected a result but got none")
+			}
+			got := bookArr[0].Title
+			want := testBooks[1].Title
 
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertEqual(t, got, want)
-	})
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertEqual(t, got, want)
+		})
 
-	t.Run("can query a book by id", func(t *testing.T) {
-		str := fmt.Sprintf(`
-		{
-			"query": "{
-				book(id:\"%s\") {
-					title,
-					publication_year,
-					slug,
-					author,
-					id
-				}
-			}"
-		}
-		`, testBooks[0].ID.String())
-		jsonStream := []byte(str)
-		jsonStream = testutils.FlattenJSON(jsonStream)
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
+		t.Run("can query allBook filtered by author", func(t *testing.T) {
+			server, testAuthors, _, _ := testServer(store, true)
+			str := fmt.Sprintf(`{
+				"query": "{
+					allBook(author: \"%s\") {
+						title,
+						pages{id}
+					}
+				}"
+			}`, testAuthors[0].Name)
+			jsonStream := []byte(str)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
 
-		book := testutils.GetBookFromGraphQLResponse(t, response.Body)
-		got := book.ID
-		want := testBooks[0].ID
+			bookArr := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
+			got := len(bookArr)
+			want := 3
 
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertUUIDsEqual(t, got, want)
-	})
-	t.Run("can query a book by slug", func(t *testing.T) {
-		str := fmt.Sprintf(`
-		{
-			"query": "{
-				book(slug:\"%s\") {
-					title,
-					publication_year,
-					slug,
-					author,
-					id
-				}
-			}"
-		}
-		`, testBooks[0].Slug)
-		jsonStream := []byte(str)
-		jsonStream = testutils.FlattenJSON(jsonStream)
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertEqual(t, got, want)
+		})
 
-		request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
+		t.Run("can query a book by id", func(t *testing.T) {
+			server, _, testBooks, _ := testServer(store, true)
+			str := fmt.Sprintf(`
+			{
+				"query": "{
+					book(id:\"%s\") {
+						title,
+						publication_year,
+						slug,
+						author,
+						id
+					}
+				}"
+			}
+			`, testBooks[0].ID.String())
+			jsonStream := []byte(str)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
 
-		book := testutils.GetBookFromGraphQLResponse(t, response.Body)
-		got := book.ID
-		want := testBooks[0].ID
+			book := testutils.GetBookFromGraphQLResponse(t, response.Body)
+			got := book.ID
+			want := testBooks[0].ID
 
-		testutils.AssertStatus(t, response, http.StatusOK)
-		testutils.AssertUUIDsEqual(t, got, want)
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertUUIDsEqual(t, got, want)
+		})
+		t.Run("can query a book by slug", func(t *testing.T) {
+			server, _, testBooks, _ := testServer(store, true)
+			str := fmt.Sprintf(`
+			{
+				"query": "{
+					book(slug:\"%s\") {
+						title,
+						publication_year,
+						slug,
+						author,
+						id
+					}
+				}"
+			}
+			`, testBooks[0].Slug)
+			jsonStream := []byte(str)
+			jsonStream = testutils.FlattenJSON(jsonStream)
+
+			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
+
+			book := testutils.GetBookFromGraphQLResponse(t, response.Body)
+			got := book.ID
+			want := testBooks[0].ID
+
+			testutils.AssertStatus(t, response, http.StatusOK)
+			testutils.AssertUUIDsEqual(t, got, want)
+		})
 	})
 
 }

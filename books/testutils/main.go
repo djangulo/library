@@ -2,13 +2,15 @@ package testutils
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/djangulo/library/books"
 	config "github.com/djangulo/library/config/books"
 	"github.com/gofrs/uuid"
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/source/file" // unneded namespace
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // unneded namespace
 	"github.com/pkg/errors"
@@ -430,15 +432,16 @@ func NewTestSQLStore(config *config.Config) (*books.SQLStore, func()) {
 
 	var once sync.Once
 	once.Do(func() {
-		// migrateConn, err := sql.Open("postgres", testConnStr)
-		// if err != nil {
-		// 	log.Fatalf("failed to connect to test database %v", err)
-		// }
-		// defer migrateConn.Close()
-		fmt.Printf("\n\n%v\n\n", "file://"+config.Project.Dirs.Migrations)
-		m, err := migrate.New(
+		migrateConn, err := sql.Open("postgres", testConnStr)
+		if err != nil {
+			log.Fatalf("failed to connect to test database %v", err)
+		}
+		defer migrateConn.Close()
+		driver, err := postgres.WithInstance(migrateConn, &postgres.Config{})
+		m, err := migrate.NewWithDatabaseInstance(
 			"file://"+config.Project.Dirs.Migrations,
-			config.Database["test"].ConnStrURI(),
+			"postgres",
+			driver,
 		)
 		if err != nil {
 			panic(err)

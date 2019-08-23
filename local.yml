@@ -1,31 +1,31 @@
 version: '3.7'
 
 networks:
-  library_local:
+  gobooks_local:
 
 volumes:
-  local_client: {}
-  local_api: {}
-  local_postgres_data: {}
-  local_postgres_backups: {}
+  gobooks_local_client: {}
+  gobooks_local_api: {}
+  gobooks_local_postgres_data: {}
+  gobooks_local_postgres_backups: {}
 
 services:
   client:
     build:
       context: .
       dockerfile: ./compose/local/client/Dockerfile
-    image: client_local
+    image: gobooks_local_client
     restart: always
     volumes:
-      - local_client:/client
+      - gobooks_local_client:/client
     env_file:
       - ./.envs/.local/.client
     command: yarn run start
     depends_on:
-      - library_postgres
+      - gobooks_local_postgres
       - books
     networks:
-      - library_local
+      - gobooks_local
     ports:
       - '3000:3000'
 
@@ -33,11 +33,11 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/books/Dockerfile
-    image: books_local
+    image: gobooks_local_books
     command: /start
     restart: always
     depends_on:
-      - library_postgres
+      - gobooks_local_postgres
     volumes:
       - .:/app
     env_file:
@@ -47,7 +47,7 @@ services:
     ports:
       - '9000:9000'
     networks:
-      - library_local
+      - gobooks_local
 
   redis:
     image: redis:latest
@@ -72,7 +72,7 @@ services:
   #     - ./.envs/.local/.api
   #     - ./.envs/.local/.client
 
-  library_postgres:
+  gobooks_local_postgres:
     build:
       context: .
       dockerfile: ./compose/production/postgres/Dockerfile
@@ -85,11 +85,11 @@ services:
     restart: always
     expose:
       - '5432'
-    image: library_local_postgres
+    image: gobooks_local_postgres
     volumes:
-      - local_postgres_data:/var/lib/postgresql/data
-      - local_postgres_backups:/backups
+      - gobooks_local_postgres_data:/var/lib/postgresql/data
+      - gobooks_local_postgres_backups:/backups
     env_file:
       - ./.envs/.local/.postgres
     networks:
-      - library_local
+      - gobooks_local
