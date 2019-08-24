@@ -29,7 +29,6 @@ var (
 
 // IsAvailable checks whether a redis conection was made available on init
 func (r *RedisCache) IsAvailable() error {
-	fmt.Printf("\nfrom cache.IsAvailable(): %+v\n", r)
 	if !r.Available {
 		return ErrCacheUnavailable
 	}

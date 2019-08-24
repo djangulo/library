@@ -368,9 +368,6 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 	if _, err := os.Stat(gutenbergSeed); os.IsNotExist(err) {
 		return errors.Wrap(err, "Seed directory not found, create json files with `SaveJSON` first.")
 	}
-	var authors []Author
-	var books []Book
-	var pages []Page
 
 	log.Printf("Seeding database from Gutenberg data (dir: %s)...\n", gutenbergSeed)
 	db, err := sql.Open("postgres", config.Database[database].ConnStr())
@@ -379,41 +376,165 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 	}
 	defer db.Close()
 
-	authorsJSON, err := os.Open(fp.Join(gutenbergSeed, "authors.json"))
+	authors, err := AuthorSeedData(cnf)
 	if err != nil {
-		return errors.Wrap(
-			err,
-			fmt.Sprintf(
-				"could not open %s",
-				fp.Join(gutenbergSeed, "authors.json"),
-			),
-		)
-	}
-	byteAuthors, err := ioutil.ReadAll(authorsJSON)
-	if err != nil {
-		return errors.Wrap(
-			err,
-			fmt.Sprintf(
-				"could not read %s",
-				fp.Join(gutenbergSeed, "authors.json"),
-			),
-		)
+		return errors.Wrap(err, "unable to get book seed data")
 	}
 
-	err = json.Unmarshal(byteAuthors, &authors)
-	if err != nil {
-		return errors.Wrap(err, "could not unmarshal authors.json")
-	}
-	// insert all authors first
 	tx, err := db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "could not begin transaction")
 	}
-	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+	err = seedAuthors(tx, authors)
+	if err != nil {
+		return errors.Wrap(err, "could not seed authors")
+	}
+	if commitErr := tx.Commit(); commitErr != nil {
+		return errors.Wrap(err, "unable to commit")
+	}
+
+	books, err := BookSeedData(cnf)
+	if err != nil {
+		return errors.Wrap(err, "unable to get book seed data")
+	}
+	tx, err = db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "could not begin transaction")
+	}
+	err = seedBooks(tx, books)
+	if err != nil {
+		return errors.Wrap(err, "could not seed books")
+	}
+	if commitErr := tx.Commit(); commitErr != nil {
+		return errors.Wrap(err, "unable to commit")
+	}
+
+	pages, err := PageSeedData(cnf)
+	if err != nil {
+		return errors.Wrap(err, "unable to get page seed data")
+	}
+	tx, err = db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "could not begin transaction")
+	}
+	err = seedPages(tx, pages)
+	if err != nil {
+		return errors.Wrap(err, "could not seed pages")
+	}
+
+	if commitErr := tx.Commit(); commitErr != nil {
+		return errors.Wrap(err, "unable to commit")
+	}
+
+	log.Println("Successfully seeded database!")
+	return nil
+}
+
+// TxError tries to rollback the transaction, and wraps the error
+// if fails to rollback
+func TxError(tx *sql.Tx, err error, wrapMsg string) error {
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(err, wrapMsg)
+		}
+		return errors.Wrap(err, wrapMsg)
+	}
+	return nil
+}
+
+func AuthorSeedData(config *config.Config) ([]Author, error) {
+	path := fp.Join(
+		config.Project.Dirs.Seed,
+		"gutenberg",
+		"authors.json",
+	)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, errors.Wrap(
+			err,
+			fmt.Sprintf("could not open %s", path),
+		)
+	}
+	byteData, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, errors.Wrap(
+			err,
+			fmt.Sprintf("could not read %s", path),
+		)
+	}
+
+	var authors []Author
+	err = json.Unmarshal(byteData, &authors)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal into array of %T", authors))
+	}
+	return authors, nil
+}
+
+func BookSeedData(config *config.Config) ([]Book, error) {
+	path := fp.Join(
+		config.Project.Dirs.Seed,
+		"gutenberg",
+		"books.json",
+	)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, errors.Wrap(
+			err,
+			fmt.Sprintf("could not open %s", path),
+		)
+	}
+	byteData, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, errors.Wrap(
+			err,
+			fmt.Sprintf("could not read %s", path),
+		)
+	}
+
+	var books []Book
+	err = json.Unmarshal(byteData, &books)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal into array of %T", books))
+	}
+	return books, nil
+}
+
+func PageSeedData(config *config.Config) ([]Page, error) {
+	path := fp.Join(
+		config.Project.Dirs.Seed,
+		"gutenberg",
+		"pages.json",
+	)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, errors.Wrap(
+			err,
+			fmt.Sprintf("could not open %s", path),
+		)
+	}
+	byteData, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, errors.Wrap(
+			err,
+			fmt.Sprintf("could not read %s", path),
+		)
+	}
+
+	var pages []Page
+	err = json.Unmarshal(byteData, &pages)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal into array of %T", pages))
+	}
+	return pages, nil
+}
+
+func seedAuthors(tx *sql.Tx, authors []Author) error {
+	_, err := tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			return errors.Wrap(
-				err,
+				rollbackErr,
 				"seed database - authors, set encoding: unable to rollback",
 			)
 		}
@@ -452,51 +573,22 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 			"seed database - reset encoding, unable to reset",
 		)
 	}
-	if commitErr := tx.Commit(); commitErr != nil {
-		return errors.Wrap(err, "unable to commit")
-	}
+	return nil
+}
 
-	booksJSON, err := os.Open(fp.Join(gutenbergSeed, "books.json"))
-	if err != nil {
-		return errors.Wrap(
-			err,
-			fmt.Sprintf(
-				"could not open %s",
-				fp.Join(gutenbergSeed, "books.json"),
-			),
-		)
-	}
-	byteBooks, err := ioutil.ReadAll(booksJSON)
-	if err != nil {
-		return errors.Wrap(
-			err,
-			fmt.Sprintf(
-				"could not read %s",
-				fp.Join(gutenbergSeed, "books.json"),
-			),
-		)
-	}
-
-	err = json.Unmarshal(byteBooks, &books)
-	if err != nil {
-		return errors.Wrap(err, "could not unmarshal books.json")
-	}
-	tx, err = db.Begin()
-	if err != nil {
-		return errors.Wrap(err, "could not begin transaction")
-	}
-	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+func seedBooks(tx *sql.Tx, books []Book) error {
+	_, err := tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			return errors.Wrap(
-				err,
+				rollbackErr,
 				"seed database - books, set encoding: unable to rollback",
 			)
 		}
 		return errors.Wrap(err, "unable to set encoding")
 	}
 	for _, b := range books {
-		_, err = tx.Exec(
+		_, err := tx.Exec(
 			`INSERT INTO books (
 				id,
 				title,
@@ -541,44 +633,15 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 			"seed database - reset encoding, unable to reset",
 		)
 	}
-	if commitErr := tx.Commit(); commitErr != nil {
-		return errors.Wrap(err, "unable to commit")
-	}
+	return nil
+}
 
-	pagesJSON, err := os.Open(fp.Join(gutenbergSeed, "pages.json"))
-	if err != nil {
-		return errors.Wrap(
-			err,
-			fmt.Sprintf(
-				"could not open %s",
-				fp.Join(gutenbergSeed, "pages.json"),
-			),
-		)
-	}
-	bytePages, err := ioutil.ReadAll(pagesJSON)
-	if err != nil {
-		return errors.Wrap(
-			err,
-			fmt.Sprintf(
-				"could not read %s",
-				fp.Join(gutenbergSeed, "pages.json"),
-			),
-		)
-	}
-
-	err = json.Unmarshal(bytePages, &pages)
-	if err != nil {
-		return errors.Wrap(err, "could not unmarshal pages.json")
-	}
-	tx, err = db.Begin()
-	if err != nil {
-		return errors.Wrap(err, "could not begin transaction")
-	}
-	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+func seedPages(tx *sql.Tx, pages []Page) error {
+	_, err := tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			return errors.Wrap(
-				err,
+				rollbackErr,
 				"seed database - pages, set encoding: unable to rollback",
 			)
 		}
@@ -622,210 +685,6 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 			err,
 			"seed database - reset encoding, unable to reset",
 		)
-	}
-	if commitErr := tx.Commit(); commitErr != nil {
-		return errors.Wrap(err, "unable to commit")
-	}
-
-	// insert books and its pages, each on a transaction
-	// booksJSON, err := os.Open(fp.Join(gutenbergSeed, "books.json"))
-	// if err != nil {
-	// 	return errors.Wrap(
-	// 		err,
-	// 		fmt.Sprintf(
-	// 			"could not open %s",
-	// 			fp.Join(gutenbergSeed, "books.json"),
-	// 		),
-	// 	)
-	// }
-	// byteBooks, err := ioutil.ReadAll(booksJSON)
-	// if err != nil {
-	// 	return errors.Wrap(
-	// 		err,
-	// 		fmt.Sprintf(
-	// 			"could not read %s",
-	// 			fp.Join(gutenbergSeed, "books.json"),
-	// 		),
-	// 	)
-	// }
-	// err = json.Unmarshal(byteBooks, &books)
-	// if err != nil {
-	// 	return errors.Wrap(err, "could not unmarshal books.json")
-	// }
-
-	// pagesJSON, err := os.Open(fp.Join(gutenbergSeed, "pages.json"))
-	// if err != nil {
-	// 	return errors.Wrap(
-	// 		err,
-	// 		fmt.Sprintf(
-	// 			"could not open %s",
-	// 			fp.Join(gutenbergSeed, "pages.json"),
-	// 		),
-	// 	)
-	// }
-	// bytePages, err := ioutil.ReadAll(pagesJSON)
-	// if err != nil {
-	// 	return errors.Wrap(
-	// 		err,
-	// 		fmt.Sprintf(
-	// 			"could not read %s",
-	// 			fp.Join(gutenbergSeed, "pages.json"),
-	// 		),
-	// 	)
-	// }
-	// err = json.Unmarshal(bytePages, &pages)
-	// if err != nil {
-	// 	return errors.Wrap(err, "could not unmarshal pages.json")
-	// }
-
-	// for _, b := range books {
-	// 	tx, err := db.Begin()
-	// 	if err != nil {
-	// 		return errors.Wrap(err, "could not begin transaction")
-	// 	}
-
-	// 	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
-	// 	if err != nil {
-	// 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-	// 			return errors.Wrap(
-	// 				err,
-	// 				"seed database - set encoding: unable to rollback",
-	// 			)
-	// 		}
-	// 		return errors.Wrap(err, "unable to set encoding")
-	// 	}
-	// 	_, err = tx.Exec(
-	// 		`INSERT INTO books (
-	// 			id,
-	// 			title,
-	// 			slug,
-	// 			publication_year,
-	// 			page_count,
-	// 			file,
-	// 			author_id,
-	// 			source
-	// 		)
-	// 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;`,
-	// 		b.ID,
-	// 		b.Title,
-	// 		b.Slug,
-	// 		b.PublicationYear,
-	// 		b.PageCount,
-	// 		b.File,
-	// 		b.AuthorID,
-	// 		b.Source,
-	// 	)
-	// 	if err != nil {
-	// 		rollbackErr := tx.Rollback()
-	// 		if rollbackErr != nil {
-	// 			return errors.Wrap(
-	// 				err,
-	// 				fmt.Sprintf(
-	// 					"seed database - books, unable to rollback on book: %+v",
-	// 					b,
-	// 				),
-	// 			)
-	// 		}
-	// 		return errors.Wrap(
-	// 			err,
-	// 			fmt.Sprintf(
-	// 				"seed database - books, could not insert book: %+v",
-	// 				b,
-	// 			),
-	// 		)
-	// 	}
-
-	// 	for _, p := range pages {
-	// 		if p.BookID.String() == b.ID.String() {
-	// 			_, err := tx.Exec(
-	// 				`INSERT INTO pages (
-	// 					id,
-	// 					page_number,
-	// 					body,
-	// 					book_id
-	// 				)
-	// 				VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;
-	// 				`,
-	// 				p.ID,
-	// 				p.PageNumber,
-	// 				p.Body,
-	// 				p.BookID,
-	// 			)
-	// 			if err != nil {
-	// 				rollbackErr := tx.Rollback()
-	// 				if rollbackErr != nil {
-	// 					return errors.Wrap(
-	// 						err,
-	// 						fmt.Sprintf(
-	// 							"seed database - pages, unable to rollback on page %+v of book %+v",
-	// 							p,
-	// 							b,
-	// 						),
-	// 					)
-	// 				}
-	// 				return errors.Wrap(
-	// 					err,
-	// 					fmt.Sprintf(
-	// 						"seed database - pages, could not insert page %+v of book %+v",
-	// 						p,
-	// 						b,
-	// 					),
-	// 				)
-	// 			}
-	// 		}
-	// 	}
-	// 	_, err = tx.Exec(`RESET CLIENT_ENCODING`)
-	// 	if err != nil {
-	// 		rollbackErr := tx.Rollback()
-	// 		if rollbackErr != nil {
-	// 			return errors.Wrap(
-	// 				err,
-	// 				"seed database - reset encoding, unable to rollback",
-	// 			)
-	// 		}
-	// 		return errors.Wrap(
-	// 			err,
-	// 			"seed database - reset encoding, unable to reset",
-	// 		)
-	// 	}
-	// 	if commitErr := tx.Commit(); commitErr != nil {
-	// 		return errors.Wrap(err, "unable to commit")
-	// 	}
-	// }
-	log.Println("Successfully seeded database!")
-	return nil
-}
-
-func mustOpen(path string) *os.File {
-	file, err := os.Open(path)
-	if err != nil {
-		log.Fatalf("unable to open file %s: %v", path, err)
-	}
-	return file
-}
-
-func mustRead(file *os.File) []byte {
-	byteData, err := ioutil.ReadAll(file)
-	if err != nil {
-		log.Fatalf("unable to read file %v: %v", file, err)
-	}
-	return byteData
-}
-
-func mustOpenAndRead(path string) []byte {
-	file := mustOpen(path)
-	byteData := mustRead(file)
-	return byteData
-}
-
-// TxError tries to rollback the transaction, and wraps the error
-// if fails to rollback
-func TxError(tx *sql.Tx, err error, wrapMsg string) error {
-	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return errors.Wrap(err, wrapMsg)
-		}
-		return errors.Wrap(err, wrapMsg)
 	}
 	return nil
 }

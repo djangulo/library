@@ -8,6 +8,7 @@ import (
 	_ "github.com/lib/pq" // unneded namespace
 	"github.com/pkg/errors"
 	"log"
+	"strings"
 )
 
 var (
@@ -133,8 +134,23 @@ func (s *SQLStore) BookBySlug(slug string) (Book, error) {
 // BooksByAuthor returns books by a given author
 func (s *SQLStore) BooksByAuthor(author string) ([]Book, error) {
 	books := make([]Book, 0)
-	stmt := `SELECT * FROM books WHERE author = $1 LIMIT 1000;`
-	rows, err := s.DB.Queryx(stmt, author)
+	lowercased := strings.ToLower(author)
+	stmt := `
+	SELECT
+		id, title, book_slug AS slug, publication_year, page_count, file,
+		source
+	FROM (
+		SELECT
+			b.id, b.title, b.slug AS book_slug, b.publication_year,
+			b.page_count, b.file, b.source, b.author_id,
+			a.slug AS author_slug, a.name
+		FROM books AS b
+		JOIN authors AS a
+		ON b.author_id = a.id
+	) AS books_authors
+	WHERE lower(name) = $1 OR author_slug = $2;
+	`
+	rows, err := s.DB.Queryx(stmt, lowercased, lowercased)
 
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("database query failed\n\t%s", stmt))
