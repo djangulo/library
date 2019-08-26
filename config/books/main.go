@@ -120,12 +120,25 @@ func Get() *Config {
 		LinesPerPage: 60,
 		Dirs:         dirConf,
 	}
-	cacheConfig := CacheConfig{
+	mainCacheConfig := CacheConfig{
 		Host:     getenv("REDIS_HOST", "localhost"),
 		Port:     getenv("REDIS_PORT", "6379"),
 		Password: getenv("REDIS_PASSWORD", ""),
 		DB:       getenvInt("REDIS_DB", 0),
 	}
+	testCacheConfig := CacheConfig{
+		Host:     mainCacheConfig.Host,
+		Port:     mainCacheConfig.Port,
+		Password: mainCacheConfig.Password,
+		DB:       1,
+	}
+	benchCacheConfig := CacheConfig{
+		Host:     mainCacheConfig.Host,
+		Port:     mainCacheConfig.Port,
+		Password: mainCacheConfig.Password,
+		DB:       2,
+	}
+
 	dbConfig := DatabaseConfig{
 		Host:     getenv("POSTGRES_HOST", "localhost"),
 		Port:     getenv("POSTGRES_PORT", "5432"),
@@ -135,6 +148,7 @@ func Get() *Config {
 		SSL:      getenv("POSTGRES_SSLMODE", "disable"),
 		URL:      getenv("POSTGRES_URL", "postgres://lygu1kqy7qqg3eccwiuh:ECZ599EzltUH2VdS9gxiDPnkuLAs9YrUyq26JFrbbx38a9QVuKlf5kXc8KxlhZfZ@localhost:5432/library_staging?sslmode=disable"),
 	}
+
 	testDbConfig := DatabaseConfig{
 		Host:     dbConfig.Host,
 		Port:     dbConfig.Port,
@@ -143,14 +157,25 @@ func Get() *Config {
 		Password: dbConfig.Password,
 		SSL:      "disable",
 	}
+	benchDbConfig := DatabaseConfig{
+		Host:     dbConfig.Host,
+		Port:     dbConfig.Port,
+		Name:     pConf.Name + "_benchmark_database",
+		User:     dbConfig.User,
+		Password: dbConfig.Password,
+		SSL:      "disable",
+	}
+
 	return &Config{
 		Database: map[string]DatabaseConfig{
-			"main": dbConfig,
-			"test": testDbConfig,
+			"main":  dbConfig,
+			"test":  testDbConfig,
+			"bench": benchDbConfig,
 		},
 		Cache: map[string]CacheConfig{
-			"main": cacheConfig,
-			"test": cacheConfig,
+			"main":  mainCacheConfig,
+			"test":  testCacheConfig,
+			"bench": benchCacheConfig,
 		},
 		Project: pConf,
 	}

@@ -19,7 +19,7 @@ var (
 // BookServer GraphQL Server for book storage
 type BookServer struct {
 	Store        Store
-	Cache        Store
+	Cache        Cache
 	templatesDir string
 	http.Handler
 	rootQuery *RootQuery
@@ -27,12 +27,34 @@ type BookServer struct {
 
 // Store noqa
 type Store interface {
+	Books(int, int) ([]Book, error)
+	BookByID(uuid.UUID) (Book, error)
+	BookBySlug(string) (Book, error)
+	BooksByAuthor(string) ([]Book, error)
+	Pages(int, int) ([]Page, error)
+	PageByID(uuid.UUID) (Page, error)
+	PageByBookAndNumber(uuid.UUID, int) (Page, error)
+	Authors(int, int) ([]Author, error)
+	AuthorByID(uuid.UUID) (Author, error)
+	AuthorBySlug(string) (Author, error)
+}
+
+// Cache noqa
+type Cache interface {
 	IsAvailable() error
 	Books(int, int) ([]Book, error)
 	BookByID(uuid.UUID) (Book, error)
 	BookBySlug(string) (Book, error)
 	BooksByAuthor(string) ([]Book, error)
+	GetBookQuery(string) ([]Book, error)
+	SaveBookQuery(string, []Book) error
+	GetPageQuery(string) ([]Page, error)
+	SavePageQuery(string, []Page) error
+	GetAuthorQuery(string) ([]Author, error)
+	SaveAuthorQuery(string, []Author) error
 	InsertBook(Book) error
+	InsertPage(Page) error
+	InsertAuthor(Author) error
 	Pages(int, int) ([]Page, error)
 	PageByID(uuid.UUID) (Page, error)
 	PageByBookAndNumber(uuid.UUID, int) (Page, error)
@@ -44,7 +66,7 @@ type Store interface {
 // NewBookServer returns a new server instance
 func NewBookServer(
 	store Store,
-	cache Store,
+	cache Cache,
 	middlewares []func(http.Handler) http.Handler,
 	developmentMode bool,
 ) (*BookServer, error) {
@@ -91,9 +113,9 @@ func NewBookServer(
 // 	return fmt.Sprintf("%v", string(l.languageCode))
 // }
 
-type key int
+type languageKey int
 
-var langKey key = 100000001
+var langKey languageKey = 100000001
 
 // LanguageCtx reads language code from url (/en/) and assigns a system language
 func LanguageCtx(next http.Handler) http.Handler {

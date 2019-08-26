@@ -87,12 +87,12 @@ func GutenbergMeta(line string, assignID bool) (Author, Book) {
 
 // AcquireGutenberg conditionally dowloads and seeds database with
 // gutenberg data.
-func AcquireGutenberg(cnf *config.Config) {
-	log.Println(cnf.Project.RootDir, cnf.Project.Dirs.Corpora, cnf.Project.Dirs.DataRoot)
+func AcquireGutenberg(cnf *config.Config, verbose bool) {
+	if verbose {
+		log.Println(cnf.Project.RootDir, cnf.Project.Dirs.Corpora, cnf.Project.Dirs.DataRoot)
+	}
 	dataFile := fp.Join(cnf.Project.Dirs.DataRoot, "gutenberg.zip")
 	if _, err := os.Stat(dataFile); os.IsNotExist(err) {
-		fmt.Println("isnotexst: ", err)
-
 		out, err := os.Create(dataFile)
 		if err != nil {
 			log.Fatal(err)
@@ -113,24 +113,30 @@ func AcquireGutenberg(cnf *config.Config) {
 			log.Fatal(err)
 		}
 	} else {
-		log.Printf("%s exists, skipping download\n", dataFile)
+		if verbose {
+			log.Printf("%s exists, skipping download\n", dataFile)
+		}
 	}
 
 	_, err := os.Stat(fp.Join(cnf.Project.Dirs.Corpora, "gutenberg"))
 	if os.IsNotExist(err) {
-		log.Printf("Unzipping %s...\n", dataFile)
-		_, err := Unzip(dataFile, cnf.Project.Dirs.Corpora)
+		if verbose {
+			log.Printf("Unzipping %s...\n", dataFile)
+		}
+		_, err := Unzip(dataFile, cnf.Project.Dirs.Corpora, verbose)
 		if err != nil {
 			log.Fatal(err)
 		}
 	} else {
-		log.Printf("%s exists, skipping unzip\n", fp.Join(cnf.Project.Dirs.Corpora, "gutenberg"))
+		if verbose {
+			log.Printf("%s exists, skipping unzip\n", fp.Join(cnf.Project.Dirs.Corpora, "gutenberg"))
+		}
 
 	}
 }
 
 // Unzip zipFile onto dest
-func Unzip(src, dest string) ([]string, error) {
+func Unzip(src, dest string, verbose bool) ([]string, error) {
 	var filenames []string
 
 	r, err := zip.OpenReader(src)
@@ -182,12 +188,14 @@ func Unzip(src, dest string) ([]string, error) {
 			return filenames, err
 		}
 	}
-	log.Printf("Successfully unzipped %s", src)
+	if verbose {
+		log.Printf("Successfully unzipped %s", src)
+	}
 	return filenames, nil
 }
 
 // ParseFile Parses a gutenberg file extracting the author, book, and pages if exist
-func ParseFile(path string, linesPerPage int) (Author, Book, []Page) {
+func ParseFile(path string, linesPerPage int, verbose bool) (Author, Book, []Page) {
 	var pages = make([]Page, 0)
 	var book Book
 	var author Author
@@ -237,14 +245,16 @@ func ParseFile(path string, linesPerPage int) (Author, Book, []Page) {
 
 // SaveJSON Parses gutenberg data into json files, which the app uses to seed
 // the database on initialization.
-func SaveJSON(config *config.Config) error {
+func SaveJSON(config *config.Config, verbose bool) error {
 	authors := make([]Author, 0)
 	books := make([]Book, 0)
 	pages := make([]Page, 0)
 	gutenbergSeed := fp.Join(config.Project.Dirs.Seed, "gutenberg")
 	if _, err := os.Stat(gutenbergSeed); os.IsNotExist(err) {
 		gutenberg := fp.Join(config.Project.Dirs.Corpora, "gutenberg")
-		log.Printf("Reading data from database from Gutenberg data (dir: %s)...\n", gutenberg)
+		if verbose {
+			log.Printf("Reading data from database from Gutenberg data (dir: %s)...\n", gutenberg)
+		}
 		err := os.MkdirAll(gutenbergSeed, 0766)
 		if err != nil {
 			log.Fatalf("error creating directory %v: %v", gutenbergSeed, err)
@@ -253,20 +263,26 @@ func SaveJSON(config *config.Config) error {
 		err = fp.Walk(
 			gutenberg,
 			func(path string, info os.FileInfo, err error) error {
-				log.Println("parsing ", info.Name(), "(", path, ")")
+				if verbose {
+					log.Println("parsing ", info.Name(), "(", path, ")")
+				}
 				if err != nil {
 					log.Fatalln(err)
 					return err
 				}
 				if info.IsDir() && info.Name() == "gutenberg" {
-					log.Printf("skipping a dir %v\n", info.Name())
+					if verbose {
+						log.Printf("skipping a dir %v\n", info.Name())
+					}
 					return nil
 				}
 				if strings.Contains(info.Name(), "README") {
-					log.Println("found README, skipping")
+					if verbose {
+						log.Println("found README, skipping")
+					}
 					return nil
 				}
-				author, book, pgs := ParseFile(path, config.Project.LinesPerPage)
+				author, book, pgs := ParseFile(path, config.Project.LinesPerPage, verbose)
 				book.File = NewNullString(info.Name())
 				for _, a := range authors {
 					if author.Slug == a.Slug {
@@ -354,22 +370,27 @@ func SaveJSON(config *config.Config) error {
 		w.Flush()
 		out.Close()
 
-		log.Println("Successfully created JSON files")
+		if verbose {
+			log.Println("Successfully created JSON files")
+		}
 	} else {
-		log.Printf("%v exists, skipping...\n", config.Project.Dirs.Seed)
+		if verbose {
+			log.Printf("%v exists, skipping...\n", config.Project.Dirs.Seed)
+		}
 	}
 	return nil
 }
 
 // SeedFromGutenberg Seeds database with generated authors, books and pages
 // from the gutenberg data.
-func SeedFromGutenberg(config *config.Config, database string) error {
+func SeedFromGutenberg(config *config.Config, database string, verbose bool) error {
 	gutenbergSeed := fp.Join(config.Project.Dirs.Seed, "gutenberg")
 	if _, err := os.Stat(gutenbergSeed); os.IsNotExist(err) {
 		return errors.Wrap(err, "Seed directory not found, create json files with `SaveJSON` first.")
 	}
-
-	log.Printf("Seeding database from Gutenberg data (dir: %s)...\n", gutenbergSeed)
+	if verbose {
+		log.Printf("Seeding database from Gutenberg data (dir: %s)...\n", gutenbergSeed)
+	}
 	db, err := sql.Open("postgres", config.Database[database].ConnStr())
 	if err != nil {
 		log.Fatalf("failed to connect database %v", err)
@@ -426,7 +447,9 @@ func SeedFromGutenberg(config *config.Config, database string) error {
 		return errors.Wrap(err, "unable to commit")
 	}
 
-	log.Println("Successfully seeded database!")
+	if verbose {
+		log.Println("Successfully seeded database!")
+	}
 	return nil
 }
 

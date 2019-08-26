@@ -26,12 +26,12 @@ func init() {
 	flag.StringVar(&port, "p", defaultPort, portUsage+" (shorthand)")
 	flag.BoolVar(&devMode, "dev", devDefault, devUsage)
 
-	books.AcquireGutenberg(cnf)
-	err := books.SaveJSON(cnf)
+	books.AcquireGutenberg(cnf, true)
+	err := books.SaveJSON(cnf, true)
 	if err != nil {
 		log.Fatalf("Error creating json files: %v", err)
 	}
-	err = books.SeedFromGutenberg(cnf, "main")
+	err = books.SeedFromGutenberg(cnf, "main", true)
 	if err != nil {
 		log.Fatalf("Error seeding database: %v", err)
 	}
@@ -52,7 +52,12 @@ func main() {
 	store, removeStore := books.NewSQLStore(cnf.Database["main"])
 	defer removeStore()
 
-	server, err := books.NewBookServer(store, middlewares, devMode)
+	cache, err := books.NewRedisCache(cnf.Cache["main"])
+	if err != nil {
+		log.Fatalf("could not create cache %v", err)
+	}
+
+	server, err := books.NewBookServer(store, cache, middlewares, devMode)
 	if err != nil {
 		log.Fatalf("could not create server %v", err)
 	}

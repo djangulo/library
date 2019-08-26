@@ -20,6 +20,7 @@ func TestSlugify(t *testing.T) {
 		{"dollar", "$$tHe$$$VeRy$$$UnIqUe$$nAmE$$ $", veryUnique},
 		{"exclamation", "!!!tHe!VeRy!UnIqUe!!!nAmE!!!!", veryUnique},
 		{"multiple dashes", "----tHe---VeRy--UnIqUe--nAmE-----", veryUnique},
+		{"idempotency", veryUnique, veryUnique},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

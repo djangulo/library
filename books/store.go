@@ -167,46 +167,7 @@ func (s *SQLStore) BooksByAuthor(author string) ([]Book, error) {
 	return books, nil
 }
 
-// InsertBook inserts new book into the database
-func (s *SQLStore) InsertBook(book Book) error {
-	if book.Title == "" {
-		return errors.New("title property empty (\"\") or unset, title is required")
-	}
-	if book.ID == uuid.Nil {
-		uid, err := uuid.NewV4()
-		if err != nil {
-			return errors.Wrap(err, "faled to create new UUID for book")
-		}
-		book.ID = uid
-	}
-	stmt := `INSERT INTO books (
-		id,title,slug,publication_year,page_count,
-		file,author_id,source
-	)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;`
-	tx, err := s.DB.Begin()
-	if err != nil {
-		return TxError(tx, err, "could not begin transaction")
-	}
-	_, err = tx.Exec(
-		stmt,
-		book.ID,
-		book.Title,
-		book.Slug,
-		book.PublicationYear,
-		book.PageCount,
-		book.File,
-		book.AuthorID,
-		book.Source,
-	)
-	if err != nil {
-		return TxError(tx, err, "could not insert book")
-	}
-	return nil
-
-}
-
-// Pages fetches a list of books
+// Pages fetches a list of pages
 func (s *SQLStore) Pages(limit, offset int) ([]Page, error) {
 	pages := make([]Page, 0)
 	var lim int
@@ -221,7 +182,11 @@ func (s *SQLStore) Pages(limit, offset int) ([]Page, error) {
 	} else {
 		off = offset
 	}
-	stmt := `SELECT * FROM pages ORDER BY page_number LIMIT $1 OFFSET $2;`
+	stmt := `
+	SELECT
+		id, page_number, book_id, body
+	FROM pages
+	LIMIT $1 OFFSET $2;`
 	rows, err := s.DB.Queryx(stmt, lim, off)
 
 	if err != nil {
@@ -257,11 +222,18 @@ func (s *SQLStore) PageByID(ID uuid.UUID) (Page, error) {
 func (s *SQLStore) PageByBookAndNumber(bookID uuid.UUID, number int) (Page, error) {
 	var page Page
 	stmt := `
-	SELECT * FROM pages
-	WHERE book = $1
-	AND
-	page_number = $2
-	LIMIT 1;`
+	SELECT
+		id, page_number, book_id, body
+	FROM (
+		SELECT
+			b.id AS books_book_id,
+			p.id, p.page_number, p.book_id, p.body
+		FROM pages AS p
+		JOIN books AS b
+		ON b.id = p.book_id
+	) AS pages_books
+	WHERE book_id = $1 AND page_number = $2;
+	`
 	if err := s.DB.Get(&page, stmt, bookID, number); err != nil {
 		return page, errors.Wrap(err, "error querying database")
 	}
@@ -305,7 +277,9 @@ func (s *SQLStore) Authors(limit, offset int) ([]Author, error) {
 func (s *SQLStore) AuthorByID(ID uuid.UUID) (Author, error) {
 	var author Author
 	stmt := `
-	SELECT * FROM authors
+	SELECT
+		id, name, slug
+	FROM authors
 	WHERE id = $1
 	LIMIT 1;
 	`
@@ -318,9 +292,12 @@ func (s *SQLStore) AuthorByID(ID uuid.UUID) (Author, error) {
 
 // AuthorBySlug fetches an author by slug
 func (s *SQLStore) AuthorBySlug(slug string) (Author, error) {
+	slug = Slugify(slug, "-")
 	var author Author
 	stmt := `
-	SELECT * FROM authors
+	SELECT
+		id, name, slug
+	FROM authors
 	WHERE slug = $1
 	LIMIT 1;
 	`

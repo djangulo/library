@@ -74,16 +74,22 @@ var bookType = graphql.NewObject(
 			"title": &graphql.Field{
 				Type: graphql.String,
 			},
-			"author": &graphql.Field{
+			"author_id": &graphql.Field{
 				Type: NullableUUID,
 			},
 			"slug": &graphql.Field{
+				Type: graphql.String,
+			},
+			"source": &graphql.Field{
 				Type: graphql.String,
 			},
 			"file": &graphql.Field{
 				Type: NullableString,
 			},
 			"publication_year": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"page_count": &graphql.Field{
 				Type: graphql.Int,
 			},
 			"pages": &graphql.Field{
@@ -171,7 +177,7 @@ func (b *BookServer) NewRootQuery() *RootQuery {
 								Type:        graphql.String,
 								Description: "Page ID",
 							},
-							"bookId": &graphql.ArgumentConfig{
+							"book_id": &graphql.ArgumentConfig{
 								Type:        graphql.String,
 								Description: "ID of the book the page belongs to",
 							},
@@ -186,6 +192,38 @@ func (b *BookServer) NewRootQuery() *RootQuery {
 						Type:        graphql.NewList(pageType),
 						Description: "Get all pages.",
 						Resolve:     b.AllPageResolver,
+						Args: graphql.FieldConfigArgument{
+							"limit": &graphql.ArgumentConfig{
+								Type:         graphql.Int,
+								DefaultValue: 1000,
+								Description:  "Limit query size",
+							},
+							"offset": &graphql.ArgumentConfig{
+								Type:         graphql.Int,
+								DefaultValue: 0,
+								Description:  "Offset query",
+							},
+						},
+					},
+					"author": &graphql.Field{
+						Type:        authorType,
+						Description: "Get author by id or name (slug works too). Id takes precedence.",
+						Resolve:     b.AuthorResolver,
+						Args: graphql.FieldConfigArgument{
+							"id": &graphql.ArgumentConfig{
+								Type:        graphql.String,
+								Description: "Author ID",
+							},
+							"name": &graphql.ArgumentConfig{
+								Type:        graphql.String,
+								Description: "Name (or slug) of the author. Both \"Herman Melville\" and \"herman-melville\" would work.",
+							},
+						},
+					},
+					"allAuthor": &graphql.Field{
+						Type:        graphql.NewList(authorType),
+						Description: "Get all authors.",
+						Resolve:     b.AllAuthorResolver,
 						Args: graphql.FieldConfigArgument{
 							"limit": &graphql.ArgumentConfig{
 								Type:         graphql.Int,
