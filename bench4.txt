@@ -1,0 +1,50 @@
+goos: linux
+goarch: amd64
+pkg: github.com/djangulo/library/books
+BenchmarkServer/without_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_0-8         	      50	  25600047 ns/op
+BenchmarkServer/without_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_1000-8      	      50	  22156910 ns/op
+BenchmarkServer/without_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_2000-8      	     100	  23938387 ns/op
+BenchmarkServer/without_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_3000-8      	     100	  24671959 ns/op
+BenchmarkServer/without_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_4000-8      	     200	   9233290 ns/op
+BenchmarkServer/without_cache/benchmark_allBook_query-8                                          	    1000	   1856551 ns/op
+BenchmarkServer/without_cache/benchmark_allAuthor_queries-8                                      	    2000	   1000971 ns/op
+BenchmarkServer/without_cache/benchmark_individual_book_queries/BookByID(ebb8f878-0d30-4952-9e52-eaba9c19e8d1)-8         	    2000	   1093981 ns/op
+BenchmarkServer/without_cache/benchmark_individual_book_queries/BookBySlug(emma)-8                                       	    2000	   1074558 ns/op
+BenchmarkServer/without_cache/benchmark_individual_book_queries/BookByID(b40e5108-5a43-409e-b79b-dc0ee230d4b7)-8         	    2000	   1068130 ns/op
+BenchmarkServer/without_cache/benchmark_individual_book_queries/BookBySlug(persuasion)-8                                 	    2000	   1136557 ns/op
+BenchmarkServer/without_cache/benchmark_individual_author_queries/AuthorByID(3c9998cc-6538-4182-a62a-e8b1ea7ad737)-8     	    2000	    870074 ns/op
+BenchmarkServer/without_cache/benchmark_individual_author_queries/AuthorBySlug(jane-austen)-8                            	    2000	    866456 ns/op
+BenchmarkServer/without_cache/benchmark_individual_author_queries/AuthorByID(d0be6fa3-f11a-411b-aa1a-38176bfef02b)-8     	    2000	    880425 ns/op
+BenchmarkServer/without_cache/benchmark_individual_author_queries/AuthorBySlug(william-blake)-8                          	    2000	    858245 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_0-8                             	      30	  45071155 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_1000-8                          	      30	  40242790 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_2000-8                          	      30	  42739527 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_3000-8                          	      30	  44573835 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_4000-8                          	     100	  21945276 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_allBook_query-8                                                              	    1000	   1626430 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_allAuthor_queries-8                                                          	    2000	    697654 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_individual_book_queries/BookByID(ebb8f878-0d30-4952-9e52-eaba9c19e8d1)-8     	      50	  28309729 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_individual_book_queries/BookBySlug(emma)-8                                   	      50	  29556701 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_individual_book_queries/BookByID(b40e5108-5a43-409e-b79b-dc0ee230d4b7)-8     	      50	  30338336 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_individual_book_queries/BookBySlug(persuasion)-8                             	      50	  30133139 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_individual_author_queries/AuthorByID(3c9998cc-6538-4182-a62a-e8b1ea7ad737)-8 	      50	  29314141 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_individual_author_queries/AuthorBySlug(jane-austen)-8                        	      50	  29360180 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_individual_author_queries/AuthorByID(d0be6fa3-f11a-411b-aa1a-38176bfef02b)-8 	      50	  29675951 ns/op
+BenchmarkServer/with_redigo_cache/benchmark_individual_author_queries/AuthorBySlug(william-blake)-8                      	      50	  31573478 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_0-8                           	      30	  46334362 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_1000-8                        	      30	  46320704 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_2000-8                        	      30	  43006131 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_3000-8                        	      30	  43346045 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_allPage_queries/query_pages_lim:1000_offset:_4000-8                        	     100	  20632957 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_allBook_query-8                                                            	    1000	   1624708 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_allAuthor_queries-8                                                        	    2000	    670246 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_individual_book_queries/BookByID(ebb8f878-0d30-4952-9e52-eaba9c19e8d1)-8   	     100	  16159409 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_individual_book_queries/BookBySlug(emma)-8                                 	     100	  16264370 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_individual_book_queries/BookByID(b40e5108-5a43-409e-b79b-dc0ee230d4b7)-8   	     300	   5315497 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_individual_book_queries/BookBySlug(persuasion)-8                           	     300	   5242863 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_individual_author_queries/AuthorByID(3c9998cc-6538-4182-a62a-e8b1ea7ad737)-8         	     100	  20444590 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_individual_author_queries/AuthorBySlug(jane-austen)-8                                	      50	  30815680 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_individual_author_queries/AuthorByID(d0be6fa3-f11a-411b-aa1a-38176bfef02b)-8         	     100	  13180187 ns/op
+BenchmarkServer/with_go-redis_cache/benchmark_individual_author_queries/AuthorBySlug(william-blake)-8                              	      50	  29279602 ns/op
+PASS
+ok  	github.com/djangulo/library/books	87.441s
