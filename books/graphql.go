@@ -57,9 +57,6 @@ var authorType = graphql.NewObject(
 			"slug": &graphql.Field{
 				Type: graphql.String,
 			},
-			"books": &graphql.Field{
-				Type: graphql.NewList(bookType),
-			},
 		},
 	},
 )
@@ -91,9 +88,6 @@ var bookType = graphql.NewObject(
 			},
 			"page_count": &graphql.Field{
 				Type: graphql.Int,
-			},
-			"pages": &graphql.Field{
-				Type: graphql.NewList(pageType),
 			},
 		},
 	},

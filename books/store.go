@@ -23,31 +23,29 @@ type SQLStore struct {
 
 // Book struct
 type Book struct {
-	ID              uuid.UUID  `json:"id" db:"id"`
-	Title           string     `json:"title" db:"title"`
-	Slug            string     `json:"slug" db:"slug"`
-	PublicationYear NullInt64  `json:"publication_year" db:"publication_year"`
-	PageCount       int        `json:"page_count" db:"page_count"`
-	File            NullString `json:"file" db:"file"`
-	Source          NullString `json:"source" db:"source"`
-	AuthorID        NullUUID   `json:"author_id" db:"author_id"`
-	Pages           []Page     `json:"pages"`
+	ID              uuid.UUID  `json:"id" db:"id" redis:"id"`
+	Title           string     `json:"title" db:"title" redis:"title"`
+	Slug            string     `json:"slug" db:"slug" redis:"slug"`
+	PublicationYear NullInt64  `json:"publication_year" db:"publication_year" redis:"publication_year"`
+	PageCount       int        `json:"page_count" db:"page_count" redis:"page_count"`
+	File            NullString `json:"file" db:"file" redis:"file"`
+	Source          NullString `json:"source" db:"source" redis:"source"`
+	AuthorID        NullUUID   `json:"author_id" db:"author_id" redis:"author_id"`
 }
 
 // Author struct
 type Author struct {
-	ID    uuid.UUID `json:"id" db:"id"`
-	Name  string    `json:"name" db:"name"`
-	Slug  string    `json:"slug" db:"slug"`
-	Books []Book    `json:"books"`
+	ID   uuid.UUID `json:"id" db:"id" redis:"id"`
+	Name string    `json:"name" db:"name" redis:"name"`
+	Slug string    `json:"slug" db:"slug" redis:"slug"`
 }
 
 // Page struct
 type Page struct {
-	ID         uuid.UUID  `json:"id" db:"id"`
-	PageNumber int        `json:"page_number" db:"page_number"`
-	Body       string     `json:"body" db:"body"`
-	BookID     *uuid.UUID `json:"book_id" db:"book_id"`
+	ID         uuid.UUID  `json:"id" db:"id" redis:"id"`
+	PageNumber int        `json:"page_number" db:"page_number" redis:"page_number"`
+	Body       string     `json:"body" db:"body" redis:"body"`
+	BookID     *uuid.UUID `json:"book_id" db:"book_id" redis:"book_id"`
 }
 
 // NewSQLStore Returns a new SQL store with a postgres database connection.
@@ -306,4 +304,60 @@ func (s *SQLStore) AuthorBySlug(slug string) (Author, error) {
 		return author, errors.Wrap(err, "error querying database")
 	}
 	return author, nil
+}
+
+func (s *SQLStore) InsertBook(book Book) error {
+	_, err := s.DB.Exec(
+		`INSERT INTO books (
+				id,
+				title,
+				slug,
+				publication_year,
+				page_count,
+				file,
+				author_id,
+				source
+			)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;`,
+		b.ID,
+		b.Title,
+		b.Slug,
+		b.PublicationYear,
+		b.PageCount,
+		b.File,
+		b.AuthorID,
+		b.Source,
+	)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("could not insert author %v", b))
+	}
+	return nil
+}
+
+func (s *SQLStore) BulkInsertBook(books []Book) error {
+	_, err := s.DB.Exec(
+		`INSERT INTO books (
+				id,
+				title,
+				slug,
+				publication_year,
+				page_count,
+				file,
+				author_id,
+				source
+			)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+		b.ID,
+		b.Title,
+		b.Slug,
+		b.PublicationYear,
+		b.PageCount,
+		b.File,
+		b.AuthorID,
+		b.Source,
+	)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("could not insert author %v", b))
+	}
+	return nil
 }

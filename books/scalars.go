@@ -17,6 +17,14 @@ type NullString struct {
 	sql.NullString
 }
 
+// RedisArg from the redis.Argument interface
+func (v NullString) RedisArg() interface{} {
+	if v.Valid {
+		return v.String
+	}
+	return ""
+}
+
 // MarshalJSON from the json.Marshaler interface
 func (v NullString) MarshalJSON() ([]byte, error) {
 	if v.Valid {
@@ -100,6 +108,14 @@ var NullableString = graphql.NewScalar(graphql.ScalarConfig{
 // queries and mutations
 type NullInt64 struct {
 	sql.NullInt64
+}
+
+// RedisArg from the redis.Argument interface
+func (v NullInt64) RedisArg() interface{} {
+	if v.Valid {
+		return v.Int64
+	}
+	return ""
 }
 
 // MarshalJSON from the json.Marshaler interface
@@ -194,6 +210,14 @@ var NullableInt64 = graphql.NewScalar(graphql.ScalarConfig{
 // queries and mutations
 type NullUUID struct {
 	uuid.NullUUID
+}
+
+// RedisArg from the redis.Argument interface
+func (v NullUUID) RedisArg() interface{} {
+	if v.Valid {
+		return v.UUID.String()
+	}
+	return ""
 }
 
 // MarshalJSON from the json.Marshaler interface

@@ -8,6 +8,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -83,26 +84,44 @@ func (r *RedisCache) Books(limit, offset int) ([]Book, error) {
 
 // BookByID fetches a book by ID
 func (r *RedisCache) BookByID(ID uuid.UUID) (Book, error) {
-	keyMatch := fmt.Sprintf("book:*:%s", ID.String())
-	keys := r.Client.Scan(0, keyMatch, 0).Iterator()
-	for keys.Next() {
-		_, id, err := parseBookID(keys.Val())
-		if err != nil {
-			return Book{}, errors.Wrap(err, fmt.Sprintf("could not parse book cache ID: %v", keys.Val()))
-		}
-		if id == ID {
-			strBytes, err := r.Client.Get(keys.Val()).Result()
-			if err != nil {
-				return Book{}, errors.Wrap(err, fmt.Sprintf("could not GET id: %v", keys.Val()))
-			}
-			var book Book
-			err = json.Unmarshal([]byte(strBytes), &book)
-			if err != nil {
-				return Book{}, errors.Wrap(err, fmt.Sprintf("could not unmarshal json into instance of Book, json: %v", strBytes))
-			}
-			return book, nil
-		}
+	// match := fmt.Sprintf("book:*:%s", ID.String())
+	// keys := r.Client.Scan(0, match, 0).Iterator()
+	// for keys.Next() {
+	// 	_, id, err := parseBookID(keys.Val())
+	// 	if err != nil {
+	// 		return Book{}, errors.Wrap(err, fmt.Sprintf("could not parse book cache ID: %v", keys.Val()))
+	// 	}
+	// 	if id == ID {
+	// 		strBytes, err := r.Client.Get(keys.Val()).Result()
+	// 		if err != nil {
+	// 			return Book{}, errors.Wrap(err, fmt.Sprintf("could not GET id: %v", keys.Val()))
+	// 		}
+	// 		var book Book
+	// 		err = json.Unmarshal([]byte(strBytes), &book)
+	// 		if err != nil {
+	// 			return Book{}, errors.Wrap(err, fmt.Sprintf("could not unmarshal json into instance of Book, json: %v", strBytes))
+	// 		}
+	// 		return book, nil
+	// 	}
 
+	// }
+	// return Book{}, nil
+	match := fmt.Sprintf("book:*:%s", ID.String())
+
+	fields := []string{"id", "title", "slug", "file", "source", "publication_year", "page_count", "author_id"}
+	keys := r.Client.Scan(0, match, 0).Iterator()
+	for keys.Next() {
+		key := keys.Val()
+		result, err := r.Client.HMGet(key, fields...).Result()
+		if err != nil {
+			return Book{}, errors.Wrap(err, fmt.Sprintf("could not HMGET id: %v", key))
+		}
+		// fmt.Printf("\n\nresults: %+v\n\n", result)
+		book, err := unvectorizeBook(fields, result)
+		if err != nil {
+			return Book{}, errors.Wrap(err, "could parse HMGet results")
+		}
+		return book, nil
 	}
 	return Book{}, nil
 
@@ -110,26 +129,47 @@ func (r *RedisCache) BookByID(ID uuid.UUID) (Book, error) {
 
 // BookBySlug fetches a book by slug
 func (r *RedisCache) BookBySlug(slug string) (Book, error) {
-	keyMatch := fmt.Sprintf("book:%s:*", slug)
-	keys := r.Client.Scan(0, keyMatch, 0).Iterator()
-	for keys.Next() {
-		bookSlug, _, err := parseBookID(keys.Val())
-		if err != nil {
-			return Book{}, errors.Wrap(err, fmt.Sprintf("could not parse book cache ID: %v", keys.Val()))
-		}
-		if bookSlug == slug {
-			strBytes, err := r.Client.Get(keys.Val()).Result()
-			if err != nil {
-				return Book{}, errors.Wrap(err, fmt.Sprintf("could not GET id: %v", keys.Val()))
-			}
-			var book Book
-			err = json.Unmarshal([]byte(strBytes), &book)
-			if err != nil {
-				return Book{}, errors.Wrap(err, fmt.Sprintf("could not unmarshal json into instance of Book, json: %v", strBytes))
-			}
-			return book, nil
-		}
+	// slug = Slugify(slug, "-")
+	// match := fmt.Sprintf("book:%s:*", slug)
+	// keys := r.Client.Scan(0, match, 0).Iterator()
+	// for keys.Next() {
+	// 	bookSlug, _, err := parseBookID(keys.Val())
+	// 	if err != nil {
+	// 		return Book{}, errors.Wrap(err, fmt.Sprintf("could not parse book cache ID: %v", keys.Val()))
+	// 	}
+	// 	if bookSlug == slug {
+	// 		strBytes, err := r.Client.Get(keys.Val()).Result()
+	// 		if err != nil {
+	// 			return Book{}, errors.Wrap(err, fmt.Sprintf("could not GET id: %v", keys.Val()))
+	// 		}
+	// 		var book Book
+	// 		err = json.Unmarshal([]byte(strBytes), &book)
+	// 		if err != nil {
+	// 			return Book{}, errors.Wrap(err, fmt.Sprintf("could not unmarshal json into instance of Book, json: %v", strBytes))
+	// 		}
+	// 		return book, nil
+	// 	}
 
+	// }
+	// return Book{}, nil
+
+	slug = Slugify(slug, "-")
+	match := fmt.Sprintf("book:%s:*", slug)
+
+	fields := []string{"id", "title", "slug", "file", "source", "publication_year", "page_count", "author_id"}
+	keys := r.Client.Scan(0, match, 0).Iterator()
+	for keys.Next() {
+		key := keys.Val()
+		result, err := r.Client.HMGet(key, fields...).Result()
+		if err != nil {
+			return Book{}, errors.Wrap(err, fmt.Sprintf("could not HMGET id: %v", key))
+		}
+		// fmt.Printf("\n\nresults: %+v\n\n", result)
+		book, err := unvectorizeBook(fields, result)
+		if err != nil {
+			return Book{}, errors.Wrap(err, "could parse HMGet results")
+		}
+		return book, nil
 	}
 	return Book{}, nil
 }
@@ -282,8 +322,8 @@ func (r *RedisCache) Authors(limit, offset int) ([]Author, error) {
 
 // AuthorByID fetches an auhtor by ID
 func (r *RedisCache) AuthorByID(ID uuid.UUID) (Author, error) {
-	authorKeyMatch := fmt.Sprintf("author:*:%s", ID.String())
-	keys := r.Client.Scan(0, authorKeyMatch, 0).Iterator()
+	match := fmt.Sprintf("author:*:%s", ID.String())
+	keys := r.Client.Scan(0, match, 0).Iterator()
 	for keys.Next() {
 		_, id, err := parseBookID(keys.Val())
 		if err != nil {
@@ -310,10 +350,10 @@ func (r *RedisCache) AuthorByID(ID uuid.UUID) (Author, error) {
 func (r *RedisCache) AuthorBySlug(slug string) (Author, error) {
 	slug = Slugify(slug, "-")
 
-	authorKeyMatch := fmt.Sprintf("author%s:*", slug)
-	authorKeys := r.Client.Scan(0, authorKeyMatch, 0).Iterator()
-	for authorKeys.Next() {
-		key := authorKeys.Val()
+	match := fmt.Sprintf("author%s:*", slug)
+	keys := r.Client.Scan(0, match, 0).Iterator()
+	for keys.Next() {
+		key := keys.Val()
 		authorSlug, _, err := parseAuthorID(key)
 		if err != nil {
 			log.Println(errors.Wrap(err, fmt.Sprintf("could not parse author cache ID: %v", key)))
@@ -340,21 +380,34 @@ func (r *RedisCache) AuthorBySlug(slug string) (Author, error) {
 // InsertBook inserts book into the cache
 func (r *RedisCache) InsertBook(book Book) error {
 
-	b, err := json.Marshal(&book)
-	if err != nil {
-		return errors.Wrap(err, "could not marshal book")
-	}
-	bookCacheID, err := serializeBookID(book)
+	// b, err := json.Marshal(&book)
+	// if err != nil {
+	// 	return errors.Wrap(err, "could not marshal book")
+	// }
+	// bookCacheID, err := serializeBookID(book)
+	// if err != nil {
+	// 	return errors.Wrap(err, "could not serialize book cache ID")
+	// }
+
+	// err = r.Client.Set(bookCacheID, string(b), 1*time.Hour).Err()
+	// if err != nil {
+	// 	return errors.Wrap(err, "could not SET book")
+	// }
+
+	// return nil
+
+	hash, _ := stringMapOfBook(book)
+	cacheID, err := serializeBookID(book)
 	if err != nil {
 		return errors.Wrap(err, "could not serialize book cache ID")
 	}
-
-	err = r.Client.Set(bookCacheID, string(b), 1*time.Hour).Err()
+	err = r.Client.HMSet(cacheID, hash).Err()
 	if err != nil {
-		return errors.Wrap(err, "could not SET book")
+		return errors.Wrap(err, "could not HMSet book")
 	}
 
 	return nil
+
 }
 
 // InsertAuthor inserts author into the cache
@@ -536,4 +589,106 @@ func parsePageID(pageCacheID string) (uuid.UUID, error) {
 		return uuid.Nil, errors.Wrap(err, "could not parse uuid")
 	}
 	return uid, nil
+}
+
+func stringMapOfBook(book Book) (map[string]interface{}, error) {
+	b := map[string]interface{}{
+		"id":         book.ID.String(),
+		"title":      book.Title,
+		"slug":       book.Slug,
+		"page_count": strconv.Itoa(book.PageCount),
+	}
+	if book.PublicationYear.Valid {
+		b["publication_year"] = strconv.Itoa(int(book.PublicationYear.Int64))
+	}
+	if book.File.Valid {
+		b["file"] = book.File.String
+	}
+	if book.Source.Valid {
+		b["source"] = book.Source.String
+	}
+	if book.AuthorID.Valid {
+		b["author_id"] = book.AuthorID.UUID.String()
+	}
+	return b, nil
+}
+
+func unhashBook(hashmap map[string]interface{}) (Book, error) {
+	var book Book
+	for k, v := range hashmap {
+		switch v := v.(type) {
+		case string:
+			switch k {
+			case "title":
+				book.Title = v
+			case "slug":
+				book.Slug = v
+			case "page_count":
+				inty, err := strconv.Atoi(v)
+				if err != nil {
+					return Book{}, errors.Wrap(err, "could not convert page count to int")
+				}
+				book.PageCount = inty
+			case "id":
+				uid, err := uuid.FromString(v)
+				if err != nil {
+					return Book{}, errors.Wrap(err, "could not convert id to UUID")
+				}
+				book.ID = uid
+			case "publication_year":
+				inty, err := strconv.Atoi(v)
+				if err != nil {
+					return Book{}, errors.Wrap(err, "could not convert page count to int")
+				}
+				book.PublicationYear = NewNullInt64(int64(inty))
+			case "file":
+				book.File = NewNullString(v)
+			case "source":
+				book.Source = NewNullString(v)
+			case "author_id":
+				book.AuthorID = NewNullUUID(v)
+			}
+		}
+	}
+	return book, nil
+}
+
+func unvectorizeBook(fields []string, results []interface{}) (Book, error) {
+	var book Book
+	for i, r := range results {
+		switch v := r.(type) {
+		case string:
+			switch fields[i] {
+			case "title":
+				book.Title = v
+			case "slug":
+				book.Slug = v
+			case "page_count":
+				inty, err := strconv.Atoi(v)
+				if err != nil {
+					return Book{}, errors.Wrap(err, "could not convert page count to int")
+				}
+				book.PageCount = inty
+			case "id":
+				uid, err := uuid.FromString(v)
+				if err != nil {
+					return Book{}, errors.Wrap(err, "could not convert id to UUID")
+				}
+				book.ID = uid
+			case "publication_year":
+				inty, err := strconv.Atoi(v)
+				if err != nil {
+					return Book{}, errors.Wrap(err, "could not convert page count to int")
+				}
+				book.PublicationYear = NewNullInt64(int64(inty))
+			case "file":
+				book.File = NewNullString(v)
+			case "source":
+				book.Source = NewNullString(v)
+			case "author_id":
+				book.AuthorID = NewNullUUID(v)
+			}
+		}
+	}
+	return book, nil
 }

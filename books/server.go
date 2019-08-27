@@ -27,6 +27,7 @@ type BookServer struct {
 
 // Store noqa
 type Store interface {
+	IsAvailable() error
 	Books(int, int) ([]Book, error)
 	BookByID(uuid.UUID) (Book, error)
 	BookBySlug(string) (Book, error)
@@ -37,6 +38,12 @@ type Store interface {
 	Authors(int, int) ([]Author, error)
 	AuthorByID(uuid.UUID) (Author, error)
 	AuthorBySlug(string) (Author, error)
+	InsertBook(Book) error
+	InsertPage(Page) error
+	InsertAuthor(Author) error
+	BulkInsertBook([]Book) error
+	BulkInsertPage([]Page) error
+	BulkInsertAuthor([]Author) error
 }
 
 // Cache noqa

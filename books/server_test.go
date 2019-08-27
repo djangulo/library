@@ -59,14 +59,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			{
 				"query": "{
 					allBook {
+						id,
 						title,
-						publication_year,
 						slug,
 						author_id,
-						id,
-						pages{
-							id
-						}
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}`)
@@ -92,8 +92,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			jsonStream := []byte(`{
 				"query": "{
 					allBook(limit: 3) {
+						id,
 						title,
-						pages{id}
+						slug,
+						author_id,
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}`)
@@ -119,8 +125,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			jsonStream := []byte(`{
 				"query": "{
 					allBook(offset: 3) {
+						id,
 						title,
-						pages{id}
+						slug,
+						author_id,
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}`)
@@ -147,8 +159,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			jsonStream := []byte(`{
 				"query": "{
 					allBook(author: \"Stephen King\") {
+						id,
 						title,
-						pages{id}
+						slug,
+						author_id,
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}`)
@@ -175,11 +193,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			{
 				"query": "{
 					book(id:\"de0e4051-54b1-4f37-97f2-619b5b568d7f\") {
+						id,
 						title,
-						publication_year,
 						slug,
 						author_id,
-						id
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}
@@ -206,11 +227,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			{
 				"query": "{
 					book(slug:\"the-call-of-cthulu\") {
+						id,
 						title,
-						publication_year,
 						slug,
 						author_id,
-						id
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}
@@ -241,14 +265,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			{
 				"query": "{
 					allBook {
+						id,
 						title,
-						publication_year,
 						slug,
 						author_id,
-						id,
-						pages{
-							id
-						}
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}`)
@@ -274,8 +298,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			jsonStream := []byte(`{
 				"query": "{
 					allBook(limit: 3) {
+						id,
 						title,
-						pages{id}
+						slug,
+						author_id,
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}`)
@@ -301,8 +331,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			jsonStream := []byte(`{
 				"query": "{
 					allBook(offset: 3) {
+						id,
 						title,
-						pages{id}
+						slug,
+						author_id,
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}`)
@@ -329,8 +365,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			jsonStream := []byte(`{
 				"query": "{
 					allBook(author: \"Stephen King\") {
+						id,
 						title,
-						pages{id}
+						slug,
+						author_id,
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}`)
@@ -357,11 +399,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			{
 				"query": "{
 					book(id:\"de0e4051-54b1-4f37-97f2-619b5b568d7f\") {
+						id,
 						title,
-						publication_year,
 						slug,
 						author_id,
-						id
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}
@@ -388,11 +433,14 @@ func TestGraphQLBookQueries(t *testing.T) {
 			{
 				"query": "{
 					book(slug:\"the-call-of-cthulu\") {
+						id,
 						title,
-						publication_year,
 						slug,
 						author_id,
-						id
+						file,
+						source,
+						publication_year,
+						page_count
 					}
 				}"
 			}
