@@ -382,7 +382,7 @@ func (s *SQLStore) InsertAuthor(author Author) error {
 		slug,
 		name
 	)
-	VALUES ($1, $2, $3, $4);
+	VALUES ($1, $2, $3);
 	`
 	_, err := s.DB.Queryx(
 		stmt,
@@ -435,16 +435,16 @@ func (s *SQLStore) BulkInsertBooks(books []Book) error {
 		return errors.Wrap(err, "BulkInsertBooks: begin transaction failed")
 	}
 
-	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
-	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return errors.Wrap(
-				rollbackErr,
-				"BulkInsertBooks: set encoding, unable to rollback",
-			)
-		}
-		return errors.Wrap(err, "BulkInsertBooks: set encoding failed")
-	}
+	// _, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+	// if err != nil {
+	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
+	// 		return errors.Wrap(
+	// 			rollbackErr,
+	// 			"BulkInsertBooks: set encoding, unable to rollback",
+	// 		)
+	// 	}
+	// 	return errors.Wrap(err, "BulkInsertBooks: set encoding failed")
+	// }
 	_, err = tx.Exec(stmt, valueArgs...)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -458,20 +458,20 @@ func (s *SQLStore) BulkInsertBooks(books []Book) error {
 			"BulkInsertBooks: insert failed",
 		)
 	}
-	_, err = tx.Exec(`RESET CLIENT_ENCODING;`)
-	if err != nil {
+	// _, err = tx.Exec(`RESET CLIENT_ENCODING;`)
+	// if err != nil {
 
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return errors.Wrap(
-				err,
-				"BulkInsertBooks: reset encoding, unable to rollback",
-			)
-		}
-		return errors.Wrap(
-			err,
-			"BulkInsertBooks: reset encoding failed",
-		)
-	}
+	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
+	// 		return errors.Wrap(
+	// 			err,
+	// 			"BulkInsertBooks: reset encoding, unable to rollback",
+	// 		)
+	// 	}
+	// 	return errors.Wrap(
+	// 		err,
+	// 		"BulkInsertBooks: reset encoding failed",
+	// 	)
+	// }
 	if commitErr := tx.Commit(); commitErr != nil {
 		return errors.Wrap(err, "BulkInsertBooks: commit failed")
 	}
@@ -488,21 +488,21 @@ func (s *SQLStore) BulkInsertPages(pages []Page) error {
 			valueStrings,
 			fmt.Sprintf(
 				"($%d, $%d, $%d, $%d)",
-				i*8+1, i*8+2, i*8+3, i*8+4,
+				i*4+1, i*4+2, i*4+3, i*4+4,
 			),
 		)
 		valueArgs = append(valueArgs, page.ID)
-		valueArgs = append(valueArgs, page.BookID)
 		valueArgs = append(valueArgs, page.PageNumber)
 		valueArgs = append(valueArgs, page.Body)
+		valueArgs = append(valueArgs, page.BookID)
 	}
 
 	stmt := fmt.Sprintf(`
 	INSERT INTO pages (
 		id,
-		book_id,
 		page_number,
-		body
+		body,
+		book_id
 	) VALUES %s;`, strings.Join(valueStrings, ","))
 
 	tx, err := s.DB.Begin()
@@ -510,16 +510,17 @@ func (s *SQLStore) BulkInsertPages(pages []Page) error {
 		return errors.Wrap(err, "BulkInsertPages: begin transaction failed")
 	}
 
-	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
-	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return errors.Wrap(
-				rollbackErr,
-				"BulkInsertPages: set encoding, unable to rollback",
-			)
-		}
-		return errors.Wrap(err, "BulkInsertPages: set encoding failed")
-	}
+	// _, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+	// if err != nil {
+	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
+	// 		return errors.Wrap(
+	// 			rollbackErr,
+	// 			"BulkInsertPages: set encoding, unable to rollback",
+	// 		)
+	// 	}
+	// 	return errors.Wrap(err, "BulkInsertPages: set encoding failed")
+	// }
+
 	_, err = tx.Exec(stmt, valueArgs...)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -533,20 +534,20 @@ func (s *SQLStore) BulkInsertPages(pages []Page) error {
 			"BulkInsertPages: insert failed",
 		)
 	}
-	_, err = tx.Exec(`RESET CLIENT_ENCODING;`)
-	if err != nil {
+	// _, err = tx.Exec(`RESET CLIENT_ENCODING;`)
+	// if err != nil {
 
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return errors.Wrap(
-				err,
-				"BulkInsertPages: reset encoding, unable to rollback",
-			)
-		}
-		return errors.Wrap(
-			err,
-			"BulkInsertPages: reset encoding failed",
-		)
-	}
+	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
+	// 		return errors.Wrap(
+	// 			err,
+	// 			"BulkInsertPages: reset encoding, unable to rollback",
+	// 		)
+	// 	}
+	// 	return errors.Wrap(
+	// 		err,
+	// 		"BulkInsertPages: reset encoding failed",
+	// 	)
+	// }
 	if commitErr := tx.Commit(); commitErr != nil {
 		return errors.Wrap(err, "BulkInsertPages: commit failed")
 	}
@@ -563,7 +564,7 @@ func (s *SQLStore) BulkInsertAuthors(authors []Author) error {
 			valueStrings,
 			fmt.Sprintf(
 				"($%d, $%d, $%d)",
-				i*8+1, i*8+2, i*8+3,
+				i*3+1, i*3+2, i*3+3,
 			),
 		)
 		valueArgs = append(valueArgs, author.ID)
@@ -583,16 +584,16 @@ func (s *SQLStore) BulkInsertAuthors(authors []Author) error {
 		return errors.Wrap(err, "BulkInsertAuthors: begin transaction failed")
 	}
 
-	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
-	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return errors.Wrap(
-				rollbackErr,
-				"BulkInsertAuthors: set encoding, unable to rollback",
-			)
-		}
-		return errors.Wrap(err, "BulkInsertAuthors: set encoding failed")
-	}
+	// _, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+	// if err != nil {
+	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
+	// 		return errors.Wrap(
+	// 			rollbackErr,
+	// 			"BulkInsertAuthors: set encoding, unable to rollback",
+	// 		)
+	// 	}
+	// 	return errors.Wrap(err, "BulkInsertAuthors: set encoding failed")
+	// }
 	_, err = tx.Exec(stmt, valueArgs...)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -606,20 +607,20 @@ func (s *SQLStore) BulkInsertAuthors(authors []Author) error {
 			"BulkInsertAuthors: insert failed",
 		)
 	}
-	_, err = tx.Exec(`RESET CLIENT_ENCODING;`)
-	if err != nil {
+	// _, err = tx.Exec(`RESET CLIENT_ENCODING;`)
+	// if err != nil {
 
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return errors.Wrap(
-				err,
-				"BulkInsertAuthors: reset encoding, unable to rollback",
-			)
-		}
-		return errors.Wrap(
-			err,
-			"BulkInsertAuthors: reset encoding failed",
-		)
-	}
+	// 	if rollbackErr := tx.Rollback(); rollbackErr != nil {
+	// 		return errors.Wrap(
+	// 			err,
+	// 			"BulkInsertAuthors: reset encoding, unable to rollback",
+	// 		)
+	// 	}
+	// 	return errors.Wrap(
+	// 		err,
+	// 		"BulkInsertAuthors: reset encoding failed",
+	// 	)
+	// }
 	if commitErr := tx.Commit(); commitErr != nil {
 		return errors.Wrap(err, "BulkInsertAuthors: commit failed")
 	}

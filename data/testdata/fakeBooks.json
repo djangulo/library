@@ -3,54 +3,66 @@
     "id": "de0e4051-54b1-4f37-97f2-619b5b568d7f",
     "title": "Moby Dick",
     "slug": "moby-dick",
-    "author_id": "f32ad0c4-0c2e-4f4d-b0b8-f5ace440bd9d",
     "publication_year": 1851,
     "page_count": 20,
-    "pages": []
+    "file": "moby-dick.txt",
+    "source": "nltk-gutenberg",
+    "author_id": "f32ad0c4-0c2e-4f4d-b0b8-f5ace440bd9d",
+    "pages": null
   },
   {
     "id": "9c3e08f9-2a5b-4eed-8769-991a708fa036",
     "title": "The old man and the sea",
     "slug": "the-old-man-and-the-sea",
-    "author_id": "526efdde-c46e-4866-aadc-04d911deab94",
     "publication_year": 1952,
     "page_count": 20,
-    "pages": []
+    "file": "the-old-man-and-the-sea.txt",
+    "source": "nltk-gutenberg",
+    "author_id": "526efdde-c46e-4866-aadc-04d911deab94",
+    "pages": null
   },
   {
     "id": "62a01525-a3b1-49cb-919c-d83f0aa10d2f",
     "title": "Carrie",
     "slug": "carrie",
-    "author_id": "43376818-e402-47c0-b4b5-7e3e43973b40",
     "publication_year": 1974,
     "page_count": 20,
-    "pages": []
+    "file": "carrie.txt",
+    "source": "nltk-gutenberg",
+    "author_id": "43376818-e402-47c0-b4b5-7e3e43973b40",
+    "pages": null
   },
   {
     "id": "ae31188e-b343-4987-8842-c97afb5f0c6d",
     "title": "It",
     "slug": "it",
-    "author_id": "43376818-e402-47c0-b4b5-7e3e43973b40",
     "publication_year": 1986,
     "page_count": 20,
-    "pages": []
+    "file": "it.txt",
+    "source": "nltk-gutenberg",
+    "author_id": "43376818-e402-47c0-b4b5-7e3e43973b40",
+    "pages": null
   },
   {
     "id": "6cb80e34-0394-43ac-957d-7cefddb6e493",
     "title": "Pet Sematary",
     "slug": "pet-sematary",
-    "author_id": "43376818-e402-47c0-b4b5-7e3e43973b40",
     "publication_year": 1983,
     "page_count": 20,
-    "pages": []
+    "file": "pet-sematary.txt",
+    "source": "nltk-gutenberg",
+    "author_id": "43376818-e402-47c0-b4b5-7e3e43973b40",
+    "pages": null
   },
   {
     "id": "8c79ac56-39f2-4954-8a1f-cd3b058c169f",
     "title": "The call of Cthulu",
     "slug": "the-call-of-cthulu",
-    "author_id": "fc605a1e-6957-4a0d-b906-decc07b4b493",
     "publication_year": 1928,
     "page_count": 20,
-    "pages": []
+    "file": "the-call-of-cthulu.txt",
+    "source": "nltk-gutenberg",
+    "author_id": "fc605a1e-6957-4a0d-b906-decc07b4b493",
+    "pages": null
   }
 ]

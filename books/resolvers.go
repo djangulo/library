@@ -1,7 +1,6 @@
 package books
 
 import (
-	"fmt"
 	"github.com/gofrs/uuid"
 	"github.com/graphql-go/graphql"
 	"github.com/pkg/errors"
@@ -90,9 +89,8 @@ func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, erro
 	}
 	switch {
 	case authorOK:
-		cacheQueryKey := fmt.Sprintf("BooksByAuthor(%s)", author)
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			books, err := b.Cache.GetBookQuery(cacheQueryKey)
+			books, err := b.Cache.BooksByAuthor(author)
 			if err != nil {
 				log.Println(err)
 			}
@@ -105,16 +103,15 @@ func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, erro
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.SaveBookQuery(cacheQueryKey, books)
+			err = b.Cache.BulkInsertBooks(books)
 			if err != nil {
 				log.Println(err)
 			}
 		}
 		return books, nil
 	default:
-		cacheQueryKey := fmt.Sprintf("Books(%d,%d)", lim, off)
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			books, err := b.Cache.GetBookQuery(cacheQueryKey)
+			books, err := b.Cache.Books(lim, off)
 			if err != nil {
 				log.Println(err)
 			}
@@ -127,7 +124,7 @@ func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, erro
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.SaveBookQuery(cacheQueryKey, books)
+			err = b.Cache.BulkInsertBooks(books)
 			if err != nil {
 				log.Println(err)
 			}
@@ -221,9 +218,8 @@ func (b *BookServer) AllPageResolver(p graphql.ResolveParams) (interface{}, erro
 	}
 	switch {
 	default:
-		cacheQueryKey := fmt.Sprintf("Pages(%d,%d)", lim, off)
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			pages, err := b.Cache.GetPageQuery(cacheQueryKey)
+			pages, err := b.Cache.Pages(lim, off)
 			if err != nil {
 				log.Println(err)
 			}
@@ -236,7 +232,7 @@ func (b *BookServer) AllPageResolver(p graphql.ResolveParams) (interface{}, erro
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.SavePageQuery(cacheQueryKey, pages)
+			err = b.Cache.BulkInsertPages(pages)
 			if err != nil {
 				log.Println(err)
 			}
@@ -326,9 +322,8 @@ func (b *BookServer) AllAuthorResolver(p graphql.ResolveParams) (interface{}, er
 	}
 	switch {
 	default:
-		cacheQueryKey := fmt.Sprintf("Authors(%d,%d)", lim, off)
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			authors, err := b.Cache.GetAuthorQuery(cacheQueryKey)
+			authors, err := b.Cache.Authors(lim, off)
 			if err != nil {
 				log.Println(err)
 			}
@@ -341,7 +336,7 @@ func (b *BookServer) AllAuthorResolver(p graphql.ResolveParams) (interface{}, er
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.SaveAuthorQuery(cacheQueryKey, authors)
+			err = b.Cache.BulkInsertAuthors(authors)
 			if err != nil {
 				log.Println(err)
 			}

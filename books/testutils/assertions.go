@@ -107,21 +107,40 @@ func getVal(x interface{}) reflect.Value {
 // AssertEqual noqa
 func AssertEqual(t *testing.T, got, want interface{}) {
 	t.Helper()
-	gotVal := getVal(got)
-	wantVal := getVal(want)
-	if gotVal.Kind() != wantVal.Kind() {
-		t.Errorf("cannot compare type %T to %T", got, want)
-	}
-	switch gotVal.Kind() {
-	case reflect.Struct, reflect.Array:
-		if !reflect.DeepEqual(gotVal, wantVal) {
-			t.Errorf("got %v want %v", gotVal, wantVal)
+	switch v := got.(type) {
+	case int, string, bool:
+		if v != want {
+			t.Errorf("got %v want %v", got, want)
 		}
+		return
+	case books.Book, books.Page, books.Author:
+		gotVal := getVal(got)
+		wantVal := getVal(want)
+		if !reflect.DeepEqual(gotVal, wantVal) {
+			t.Errorf("\ngot \n\t%+v\nwant\n\t%+v", gotVal, wantVal)
+		}
+		return
 	default:
 		if got != want {
 			t.Errorf("got %v want %v", got, want)
 		}
+		return
 	}
+	// gotVal := getVal(got)
+	// wantVal := getVal(want)
+	// if gotVal.Kind() != wantVal.Kind() {
+	// 	t.Errorf("cannot compare type %T to %T", got, want)
+	// }
+	// switch gotVal.Kind() {
+	// case reflect.Struct, reflect.Array:
+	// 	if !reflect.DeepEqual(gotVal, wantVal) {
+	// 		t.Errorf("\ngot \n\t%+v\nwant\n\t%+v", gotVal, wantVal)
+	// 	}
+	// default:
+	// 	if got != want {
+	// 		t.Errorf("\ngot \n\t%v\nwant\n\t%v", got, want)
+	// 	}
+	// }
 }
 
 // AssertUUIDsEqual noqa

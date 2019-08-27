@@ -19,7 +19,7 @@ var (
 // BookServer GraphQL Server for book storage
 type BookServer struct {
 	Store        Store
-	Cache        Cache
+	Cache        Store
 	templatesDir string
 	http.Handler
 	rootQuery *RootQuery
@@ -69,7 +69,7 @@ type Cache interface {
 // NewBookServer returns a new server instance
 func NewBookServer(
 	store Store,
-	cache Cache,
+	cache Store,
 	middlewares []func(http.Handler) http.Handler,
 	developmentMode bool,
 ) (*BookServer, error) {
