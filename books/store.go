@@ -58,7 +58,10 @@ func NewSQLStore(config config.DatabaseConfig) (*SQLStore, func()) {
 		log.Fatalf("failed to prepare statements (prepareStatements) %v", err)
 	}
 	removeDatabase := func() {
-		db.Close()
+		err := db.Close()
+		if err != nil {
+			log.Fatalf("error closing connection to database: %v", err)
+		}
 	}
 
 	return &SQLStore{db}, removeDatabase

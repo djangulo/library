@@ -107,7 +107,7 @@ func GetAllAuthorFromGraphQLResponse(t *testing.T, body io.Reader) []books.Autho
 
 // NewTestSQLStore Creates and returns a test database. Intended for use with
 // integration tests.
-func NewTestSQLStore(config *config.Config, database string) (*books.SQLStore, func()) {
+func NewTestSQLStore(config *config.Config, database string) (*books.SQLStore, func(string)) {
 	db, err := sqlx.Open("postgres", config.Database["main"].ConnStr())
 	if err != nil {
 		log.Fatalf("failed to connect database %v", err)
@@ -128,8 +128,7 @@ func NewTestSQLStore(config *config.Config, database string) (*books.SQLStore, f
 		defer migrateConn.Close()
 		driver, err := postgres.WithInstance(migrateConn, &postgres.Config{})
 		m, err := migrate.NewWithDatabaseInstance(
-			// "file://"+config.Project.Dirs.Migrations,
-			"file://../migrations",
+			"file://"+config.Project.Dirs.Migrations,
 			"postgres",
 			driver,
 		)
@@ -144,10 +143,17 @@ func NewTestSQLStore(config *config.Config, database string) (*books.SQLStore, f
 	if err != nil {
 		log.Fatalf("failed to connect to '%s' database %v", database, err)
 	}
-	removeDatabase := func(database) {
-		testDB.Close()
-		stmt := fmt.Sprintf(`DROP DATABASE %s;`, config.Database[database].Name)
-		db.Exec(stmt)
+	removeDatabase := func(database string) {
+		err := testDB.Close()
+		dbName := config.Database[database].Name
+		if err != nil {
+			log.Fatalf("error closing connection to database '%s': %v", dbName, err)
+		}
+		stmt := fmt.Sprintf(`DROP DATABASE %s;`, dbName)
+		_, err = db.Exec(stmt)
+		if err != nil {
+			log.Fatalf("error dropping database %s: %v", dbName, err)
+		}
 		db.Close()
 	}
 

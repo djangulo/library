@@ -132,11 +132,17 @@ func Get() *Config {
 		Password: mainCacheConfig.Password,
 		DB:       1,
 	}
-	benchCacheConfig := CacheConfig{
+	redigoBenchCacheConfig := CacheConfig{
 		Host:     mainCacheConfig.Host,
 		Port:     mainCacheConfig.Port,
 		Password: mainCacheConfig.Password,
 		DB:       2,
+	}
+	goredisBenchCacheConfig := CacheConfig{
+		Host:     mainCacheConfig.Host,
+		Port:     mainCacheConfig.Port,
+		Password: mainCacheConfig.Password,
+		DB:       3,
 	}
 
 	dbConfig := DatabaseConfig{
@@ -173,9 +179,10 @@ func Get() *Config {
 			"bench": benchDbConfig,
 		},
 		Cache: map[string]CacheConfig{
-			"main":  mainCacheConfig,
-			"test":  testCacheConfig,
-			"bench": benchCacheConfig,
+			"main":          mainCacheConfig,
+			"test":          testCacheConfig,
+			"redigo_bench":  redigoBenchCacheConfig,
+			"goredis_bench": goredisBenchCacheConfig,
 		},
 		Project: pConf,
 	}

@@ -21,12 +21,16 @@ func NewInMemoryStore(available bool) (*SQLiteInMemoryStore, func()) {
 		db.Close()
 	}
 
-	return &SQLiteInMemoryStore{db, Available: available}, removeDatabase
+	s := SQLiteInMemoryStore{}
+	s.DB = db
+	s.Available = available
+
+	return &s, removeDatabase
 }
 
 func (s *SQLiteInMemoryStore) IsAvailable() error {
 	if !s.Available {
-		return ErrSQLStoreNotAvailable
+		return ErrSQLStoreUnavailable
 	}
 	return nil
 }

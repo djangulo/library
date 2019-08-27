@@ -1046,9 +1046,9 @@ func TestDatabaseIntegration(t *testing.T) {
 
 }
 
-func BenchmarkServerWithNoCache(b *testing.B) {
+func BenchmarkServer(b *testing.B) {
 	store, remove := testutils.NewTestSQLStore(cnf, "bench")
-	defer remove()
+	defer remove("bench")
 	books.AcquireGutenberg(cnf, false)
 	err := books.SaveJSON(cnf, false)
 	if err != nil {
@@ -1058,574 +1058,541 @@ func BenchmarkServerWithNoCache(b *testing.B) {
 	if err != nil {
 		log.Fatalf("Error seeding database: %v", err)
 	}
-	cache := new(books.RedisCache)
-	// cache, err := books.NewRedisCache(cnf.Cache["test"])
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	cache.Available = false
-
-	// testPages, _ := books.PageSeedData(cnf)
-	testAuthors, _ := books.AuthorSeedData(cnf)
-	testBooks, _ := books.BookSeedData(cnf)
-
-	server, _ := books.NewBookServer(store, cache, middlewares, true)
-
-	offset := 1000
-	pageQueries := make([]string, 0)
-	for i := range []int{0, 1, 2, 3, 4} {
-		str := fmt.Sprintf(`{
-			"query": "{
-				allPage(limit: 1000, offset: %d) {
-					id,
-					page_number,
-					book_id
-				}
-			}"
-		}`, int(i*offset))
-		pageQueries = append(pageQueries, str)
-	}
-	b.Run("benchmark allPage queries", func(b *testing.B) {
-		for i, q := range pageQueries {
-			b.Run(fmt.Sprintf("query pages lim:1000 offset: %d", i*offset), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					jsonStream := []byte(q)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-		}
-	})
-	b.Run("benchmark allBook query", func(b *testing.B) {
-		for k := 0; k < b.N; k++ {
-			str := `{
-				"query": "{
-					allBook {
-						id,
-						title,
-						slug,
-						author_id,
-						file,
-						source,
-						publication_year,
-						page_count
-					}
-				}"
-			}`
-			jsonStream := []byte(str)
-			jsonStream = testutils.FlattenJSON(jsonStream)
-			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-			response := httptest.NewRecorder()
-			server.ServeHTTP(response, request)
-		}
-	})
-	b.Run("benchmark allAuthor queries", func(b *testing.B) {
-		for k := 0; k < b.N; k++ {
-			str := `{
-				"query": "{
-					allAuthor {
-						id,
-						name,
-						slug
-					}
-				}"
-			}`
-			jsonStream := []byte(str)
-			jsonStream = testutils.FlattenJSON(jsonStream)
-			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-			response := httptest.NewRecorder()
-			server.ServeHTTP(response, request)
-		}
-	})
-	b.Run("benchmark individual book queries", func(b *testing.B) {
-		for _, book := range testBooks[:2] {
-			b.Run(fmt.Sprintf("BookByID(%s)", book.ID.String()), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							book(id:\"%s\") {
-								id,
-								title,
-								slug,
-								author_id,
-								file,
-								source,
-								publication_year,
-								page_count
-							}
-						}"
-					}`, book.ID.String())
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-			b.Run(fmt.Sprintf("BookBySlug(%s)", book.Slug), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							book(slug:\"%s\") {
-								id,
-								title,
-								slug,
-								author_id,
-								file,
-								source,
-								publication_year,
-								page_count
-							}
-						}"
-					}`, book.Slug)
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-		}
-	})
-	b.Run("benchmark individual author queries", func(b *testing.B) {
-		for _, author := range testAuthors[:2] {
-			b.Run(fmt.Sprintf("AuthorByID(%s)", author.ID.String()), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							author(id:\"%s\") {
-								id,
-								slug,
-								name
-							}
-						}"
-					}`, author.ID.String())
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-			b.Run(fmt.Sprintf("AuthorBySlug(%s)", author.Slug), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							author(name:\"%s\") {
-								id,
-								slug,
-								name
-							}
-						}"
-					}`, author.Slug)
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-		}
-	})
-}
-
-func BenchmarkServerWithRedigoCache(b *testing.B) {
-	store, remove := testutils.NewTestSQLStore(cnf, "bench")
-	defer remove()
-	books.AcquireGutenberg(cnf, false)
-	err := books.SaveJSON(cnf, false)
-	if err != nil {
-		log.Fatalf("Error creating json files: %v", err)
-	}
-	err = books.SeedFromGutenberg(cnf, "bench", false)
-	if err != nil {
-		log.Fatalf("Error seeding database: %v", err)
-	}
-	cache, err := books.NewRedigoCache(cnf.Cache["bench"])
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// prepopulate cache queries
 	offset := 1000
 	testPages, _ := books.PageSeedData(cnf)
 	testAuthors, _ := books.AuthorSeedData(cnf)
 	testBooks, _ := books.BookSeedData(cnf)
-	for i := 0; i < 5; i++ {
-		key := fmt.Sprintf("Pages(%d,%d)", offset, i*offset)
-		cache.SavePageQuery(key, testPages[(i*offset):(i*offset+offset)])
-	}
-	for i := 0; i < len(testPages); i++ {
-		cache.InsertPage(testPages[i])
-	}
-	cache.SaveBookQuery("Books(1000,0)", testBooks)
-	for i := 0; i < len(testBooks[:2]); i++ {
-		cache.InsertBook(testBooks[i])
-	}
-	cache.SaveAuthorQuery("Authors(1000,0)", testAuthors)
-	for i := 0; i < len(testAuthors[:2]); i++ {
-		cache.InsertAuthor(testAuthors[i])
-	}
 
-	server, _ := books.NewBookServer(store, cache, middlewares, true)
+	b.Run("without cache", func(b *testing.B) {
+		cache := new(books.RedisCache)
+		cache.Available = false
+		server, _ := books.NewBookServer(store, cache, middlewares, true)
 
-	pageQueries := make([]string, 0)
-	for i := range []int{0, 1, 2, 3, 4} {
-		str := fmt.Sprintf(`{
-			"query": "{
-				allPage(limit: 1000, offset: %d) {
-					id,
-					page_number,
-					book_id
-				}
-			}"
-		}`, int(i*offset))
-		pageQueries = append(pageQueries, str)
-	}
-	b.Run("benchmark allPage queries", func(b *testing.B) {
-		for i, q := range pageQueries {
-			b.Run(fmt.Sprintf("query pages lim:1000 offset: %d", i*offset), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					jsonStream := []byte(q)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-		}
-	})
-	b.Run("benchmark allBook query", func(b *testing.B) {
-		for k := 0; k < b.N; k++ {
-			str := `{
+		pageQueries := make([]string, 0)
+		for i := range []int{0, 1, 2, 3, 4} {
+			str := fmt.Sprintf(`{
 				"query": "{
-					allBook {
+					allPage(limit: 1000, offset: %d) {
 						id,
-						title,
-						slug,
-						author_id,
-						file,
-						source,
-						publication_year,
-						page_count
+						page_number,
+						book_id
 					}
 				}"
-			}`
-			jsonStream := []byte(str)
-			jsonStream = testutils.FlattenJSON(jsonStream)
-			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-			response := httptest.NewRecorder()
-			server.ServeHTTP(response, request)
+			}`, int(i*offset))
+			pageQueries = append(pageQueries, str)
 		}
+		b.Run("benchmark allPage queries", func(b *testing.B) {
+			for i, q := range pageQueries {
+				b.Run(fmt.Sprintf("query pages lim:1000 offset: %d", i*offset), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						jsonStream := []byte(q)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+			}
+		})
+		b.Run("benchmark allBook query", func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				str := `{
+					"query": "{
+						allBook {
+							id,
+							title,
+							slug,
+							author_id,
+							file,
+							source,
+							publication_year,
+							page_count
+						}
+					}"
+				}`
+				jsonStream := []byte(str)
+				jsonStream = testutils.FlattenJSON(jsonStream)
+				request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+				response := httptest.NewRecorder()
+				server.ServeHTTP(response, request)
+			}
+		})
+		b.Run("benchmark allAuthor queries", func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				str := `{
+					"query": "{
+						allAuthor {
+							id,
+							name,
+							slug
+						}
+					}"
+				}`
+				jsonStream := []byte(str)
+				jsonStream = testutils.FlattenJSON(jsonStream)
+				request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+				response := httptest.NewRecorder()
+				server.ServeHTTP(response, request)
+			}
+		})
+		b.Run("benchmark individual book queries", func(b *testing.B) {
+			for _, book := range testBooks[:2] {
+				b.Run(fmt.Sprintf("BookByID(%s)", book.ID.String()), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								book(id:\"%s\") {
+									id,
+									title,
+									slug,
+									author_id,
+									file,
+									source,
+									publication_year,
+									page_count
+								}
+							}"
+						}`, book.ID.String())
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+				b.Run(fmt.Sprintf("BookBySlug(%s)", book.Slug), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								book(slug:\"%s\") {
+									id,
+									title,
+									slug,
+									author_id,
+									file,
+									source,
+									publication_year,
+									page_count
+								}
+							}"
+						}`, book.Slug)
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+			}
+		})
+		b.Run("benchmark individual author queries", func(b *testing.B) {
+			for _, author := range testAuthors[:2] {
+				b.Run(fmt.Sprintf("AuthorByID(%s)", author.ID.String()), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								author(id:\"%s\") {
+									id,
+									slug,
+									name
+								}
+							}"
+						}`, author.ID.String())
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+				b.Run(fmt.Sprintf("AuthorBySlug(%s)", author.Slug), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								author(name:\"%s\") {
+									id,
+									slug,
+									name
+								}
+							}"
+						}`, author.Slug)
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+			}
+		})
 	})
-	b.Run("benchmark allAuthor queries", func(b *testing.B) {
-		for k := 0; k < b.N; k++ {
-			str := `{
+
+	b.Run("with redigo cache", func(b *testing.B) {
+		cache, err := books.NewRedigoCache(cnf.Cache["redigo_bench"])
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// prepopulate cache queries
+		for i := 0; i < 5; i++ {
+			key := fmt.Sprintf("Pages(%d,%d)", offset, i*offset)
+			cache.SavePageQuery(key, testPages[(i*offset):(i*offset+offset)])
+		}
+		for i := 0; i < len(testPages); i++ {
+			cache.InsertPage(testPages[i])
+		}
+		cache.SaveBookQuery("Books(1000,0)", testBooks)
+		for i := 0; i < len(testBooks[:2]); i++ {
+			cache.InsertBook(testBooks[i])
+		}
+		cache.SaveAuthorQuery("Authors(1000,0)", testAuthors)
+		for i := 0; i < len(testAuthors[:2]); i++ {
+			cache.InsertAuthor(testAuthors[i])
+		}
+
+		server, _ := books.NewBookServer(store, cache, middlewares, true)
+
+		pageQueries := make([]string, 0)
+		for i := range []int{0, 1, 2, 3, 4} {
+			str := fmt.Sprintf(`{
 				"query": "{
-					allAuthor {
+					allPage(limit: 1000, offset: %d) {
 						id,
-						name,
-						slug
+						page_number,
+						book_id
 					}
 				}"
-			}`
-			jsonStream := []byte(str)
-			jsonStream = testutils.FlattenJSON(jsonStream)
-			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-			response := httptest.NewRecorder()
-			server.ServeHTTP(response, request)
+			}`, int(i*offset))
+			pageQueries = append(pageQueries, str)
 		}
+		b.Run("benchmark allPage queries", func(b *testing.B) {
+			for i, q := range pageQueries {
+				b.Run(fmt.Sprintf("query pages lim:1000 offset: %d", i*offset), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						jsonStream := []byte(q)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+			}
+		})
+		b.Run("benchmark allBook query", func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				str := `{
+					"query": "{
+						allBook {
+							id,
+							title,
+							slug,
+							author_id,
+							file,
+							source,
+							publication_year,
+							page_count
+						}
+					}"
+				}`
+				jsonStream := []byte(str)
+				jsonStream = testutils.FlattenJSON(jsonStream)
+				request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+				response := httptest.NewRecorder()
+				server.ServeHTTP(response, request)
+			}
+		})
+		b.Run("benchmark allAuthor queries", func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				str := `{
+					"query": "{
+						allAuthor {
+							id,
+							name,
+							slug
+						}
+					}"
+				}`
+				jsonStream := []byte(str)
+				jsonStream = testutils.FlattenJSON(jsonStream)
+				request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+				response := httptest.NewRecorder()
+				server.ServeHTTP(response, request)
+			}
+		})
+		b.Run("benchmark individual book queries", func(b *testing.B) {
+			for _, book := range testBooks[:2] {
+				b.Run(fmt.Sprintf("BookByID(%s)", book.ID.String()), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								book(id:\"%s\") {
+									id,
+									title,
+									slug,
+									author_id,
+									file,
+									source,
+									publication_year,
+									page_count
+								}
+							}"
+						}`, book.ID.String())
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+				b.Run(fmt.Sprintf("BookBySlug(%s)", book.Slug), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								book(slug:\"%s\") {
+									id,
+									title,
+									slug,
+									author_id,
+									file,
+									source,
+									publication_year,
+									page_count
+								}
+							}"
+						}`, book.Slug)
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+			}
+		})
+		b.Run("benchmark individual author queries", func(b *testing.B) {
+			for _, author := range testAuthors[:2] {
+				b.Run(fmt.Sprintf("AuthorByID(%s)", author.ID.String()), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								author(id:\"%s\") {
+									id,
+									slug,
+									name
+								}
+							}"
+						}`, author.ID.String())
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+				b.Run(fmt.Sprintf("AuthorBySlug(%s)", author.Slug), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								author(name:\"%s\") {
+									id,
+									slug,
+									name
+								}
+							}"
+						}`, author.Slug)
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+			}
+		})
 	})
-	b.Run("benchmark individual book queries", func(b *testing.B) {
-		for _, book := range testBooks[:2] {
-			b.Run(fmt.Sprintf("BookByID(%s)", book.ID.String()), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							book(id:\"%s\") {
-								id,
-								title,
-								slug,
-								author_id,
-								file,
-								source,
-								publication_year,
-								page_count
-							}
-						}"
-					}`, book.ID.String())
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-			b.Run(fmt.Sprintf("BookBySlug(%s)", book.Slug), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							book(slug:\"%s\") {
-								id,
-								title,
-								slug,
-								author_id,
-								file,
-								source,
-								publication_year,
-								page_count
-							}
-						}"
-					}`, book.Slug)
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
+
+	b.Run("with go-redis cache", func(b *testing.B) {
+		cache, err := books.NewRedisCache(cnf.Cache["goredis_bench"])
+		if err != nil {
+			log.Fatal(err)
 		}
-	})
-	b.Run("benchmark individual author queries", func(b *testing.B) {
-		for _, author := range testAuthors[:2] {
-			b.Run(fmt.Sprintf("AuthorByID(%s)", author.ID.String()), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							author(id:\"%s\") {
-								id,
-								slug,
-								name
-							}
-						}"
-					}`, author.ID.String())
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-			b.Run(fmt.Sprintf("AuthorBySlug(%s)", author.Slug), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							author(name:\"%s\") {
-								id,
-								slug,
-								name
-							}
-						}"
-					}`, author.Slug)
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
+
+		// prepopulate cache queries
+		for i := 0; i < 5; i++ {
+			key := fmt.Sprintf("Pages(%d,%d)", offset, i*offset)
+			cache.SavePageQuery(key, testPages[(i*offset):(i*offset+offset)])
 		}
-	})
-}
-
-func BenchmarkServerWithGoRedisCache(b *testing.B) {
-	store, remove := testutils.NewTestSQLStore(cnf, "bench")
-	defer remove()
-	books.AcquireGutenberg(cnf, false)
-	err := books.SaveJSON(cnf, false)
-	if err != nil {
-		log.Fatalf("Error creating json files: %v", err)
-	}
-	err = books.SeedFromGutenberg(cnf, "bench", false)
-	if err != nil {
-		log.Fatalf("Error seeding database: %v", err)
-	}
-	cache, err := books.NewRedisCache(cnf.Cache["bench"])
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// prepopulate cache queries
-	offset := 1000
-	testPages, _ := books.PageSeedData(cnf)
-	testAuthors, _ := books.AuthorSeedData(cnf)
-	testBooks, _ := books.BookSeedData(cnf)
-	for i := 0; i < 5; i++ {
-		key := fmt.Sprintf("Pages(%d,%d)", offset, i*offset)
-		cache.SavePageQuery(key, testPages[(i*offset):(i*offset+offset)])
-	}
-	for i := 0; i < len(testPages); i++ {
-		cache.InsertPage(testPages[i])
-	}
-	cache.SaveBookQuery("Books(1000,0)", testBooks)
-	for i := 0; i < len(testBooks[:2]); i++ {
-		cache.InsertBook(testBooks[i])
-	}
-	cache.SaveAuthorQuery("Authors(1000,0)", testAuthors)
-	for i := 0; i < len(testAuthors[:2]); i++ {
-		cache.InsertAuthor(testAuthors[i])
-	}
-
-	server, _ := books.NewBookServer(store, cache, middlewares, true)
-
-	pageQueries := make([]string, 0)
-	for i := range []int{0, 1, 2, 3, 4} {
-		str := fmt.Sprintf(`{
-			"query": "{
-				allPage(limit: 1000, offset: %d) {
-					id,
-					page_number,
-					book_id
-				}
-			}"
-		}`, int(i*offset))
-		pageQueries = append(pageQueries, str)
-	}
-	b.Run("benchmark allPage queries", func(b *testing.B) {
-		for i, q := range pageQueries {
-			b.Run(fmt.Sprintf("query pages lim:1000 offset: %d", i*offset), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					jsonStream := []byte(q)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
+		for i := 0; i < len(testPages); i++ {
+			cache.InsertPage(testPages[i])
 		}
-	})
-	b.Run("benchmark allBook query", func(b *testing.B) {
-		for k := 0; k < b.N; k++ {
-			str := `{
+		cache.SaveBookQuery("Books(1000,0)", testBooks)
+		for i := 0; i < len(testBooks[:2]); i++ {
+			cache.InsertBook(testBooks[i])
+		}
+		cache.SaveAuthorQuery("Authors(1000,0)", testAuthors)
+		for i := 0; i < len(testAuthors[:2]); i++ {
+			cache.InsertAuthor(testAuthors[i])
+		}
+
+		server, _ := books.NewBookServer(store, cache, middlewares, true)
+
+		pageQueries := make([]string, 0)
+		for i := range []int{0, 1, 2, 3, 4} {
+			str := fmt.Sprintf(`{
 				"query": "{
-					allBook {
+					allPage(limit: 1000, offset: %d) {
 						id,
-						title,
-						slug,
-						author_id,
-						file,
-						source,
-						publication_year,
-						page_count
+						page_number,
+						book_id
 					}
 				}"
-			}`
-			jsonStream := []byte(str)
-			jsonStream = testutils.FlattenJSON(jsonStream)
-			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-			response := httptest.NewRecorder()
-			server.ServeHTTP(response, request)
+			}`, int(i*offset))
+			pageQueries = append(pageQueries, str)
 		}
-	})
-	b.Run("benchmark allAuthor queries", func(b *testing.B) {
-		for k := 0; k < b.N; k++ {
-			str := `{
-				"query": "{
-					allAuthor {
-						id,
-						name,
-						slug
+		b.Run("benchmark allPage queries", func(b *testing.B) {
+			for i, q := range pageQueries {
+				b.Run(fmt.Sprintf("query pages lim:1000 offset: %d", i*offset), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						jsonStream := []byte(q)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
 					}
-				}"
-			}`
-			jsonStream := []byte(str)
-			jsonStream = testutils.FlattenJSON(jsonStream)
-			request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-			response := httptest.NewRecorder()
-			server.ServeHTTP(response, request)
-		}
-	})
-	b.Run("benchmark individual book queries", func(b *testing.B) {
-		for _, book := range testBooks[:2] {
-			b.Run(fmt.Sprintf("BookByID(%s)", book.ID.String()), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							book(id:\"%s\") {
-								id,
-								title,
-								slug,
-								author_id,
-								file,
-								source,
-								publication_year,
-								page_count
-							}
-						}"
-					}`, book.ID.String())
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-			b.Run(fmt.Sprintf("BookBySlug(%s)", book.Slug), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							book(slug:\"%s\") {
-								id,
-								title,
-								slug,
-								author_id,
-								file,
-								source,
-								publication_year,
-								page_count
-							}
-						}"
-					}`, book.Slug)
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-		}
-	})
-	b.Run("benchmark individual author queries", func(b *testing.B) {
-		for _, author := range testAuthors[:2] {
-			b.Run(fmt.Sprintf("AuthorByID(%s)", author.ID.String()), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							author(id:\"%s\") {
-								id,
-								slug,
-								name
-							}
-						}"
-					}`, author.ID.String())
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-			b.Run(fmt.Sprintf("AuthorBySlug(%s)", author.Slug), func(b *testing.B) {
-				for k := 0; k < b.N; k++ {
-					str := fmt.Sprintf(`{
-						"query": "{
-							author(name:\"%s\") {
-								id,
-								slug,
-								name
-							}
-						}"
-					}`, author.Slug)
-					jsonStream := []byte(str)
-					jsonStream = testutils.FlattenJSON(jsonStream)
-					request := testutils.NewJSONPostRequest("/graphql", jsonStream)
-					response := httptest.NewRecorder()
-					server.ServeHTTP(response, request)
-				}
-			})
-		}
+				})
+			}
+		})
+		b.Run("benchmark allBook query", func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				str := `{
+					"query": "{
+						allBook {
+							id,
+							title,
+							slug,
+							author_id,
+							file,
+							source,
+							publication_year,
+							page_count
+						}
+					}"
+				}`
+				jsonStream := []byte(str)
+				jsonStream = testutils.FlattenJSON(jsonStream)
+				request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+				response := httptest.NewRecorder()
+				server.ServeHTTP(response, request)
+			}
+		})
+		b.Run("benchmark allAuthor queries", func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				str := `{
+					"query": "{
+						allAuthor {
+							id,
+							name,
+							slug
+						}
+					}"
+				}`
+				jsonStream := []byte(str)
+				jsonStream = testutils.FlattenJSON(jsonStream)
+				request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+				response := httptest.NewRecorder()
+				server.ServeHTTP(response, request)
+			}
+		})
+		b.Run("benchmark individual book queries", func(b *testing.B) {
+			for _, book := range testBooks[:2] {
+				b.Run(fmt.Sprintf("BookByID(%s)", book.ID.String()), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								book(id:\"%s\") {
+									id,
+									title,
+									slug,
+									author_id,
+									file,
+									source,
+									publication_year,
+									page_count
+								}
+							}"
+						}`, book.ID.String())
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+				b.Run(fmt.Sprintf("BookBySlug(%s)", book.Slug), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								book(slug:\"%s\") {
+									id,
+									title,
+									slug,
+									author_id,
+									file,
+									source,
+									publication_year,
+									page_count
+								}
+							}"
+						}`, book.Slug)
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+			}
+		})
+		b.Run("benchmark individual author queries", func(b *testing.B) {
+			for _, author := range testAuthors[:2] {
+				b.Run(fmt.Sprintf("AuthorByID(%s)", author.ID.String()), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								author(id:\"%s\") {
+									id,
+									slug,
+									name
+								}
+							}"
+						}`, author.ID.String())
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+				b.Run(fmt.Sprintf("AuthorBySlug(%s)", author.Slug), func(b *testing.B) {
+					for k := 0; k < b.N; k++ {
+						str := fmt.Sprintf(`{
+							"query": "{
+								author(name:\"%s\") {
+									id,
+									slug,
+									name
+								}
+							}"
+						}`, author.Slug)
+						jsonStream := []byte(str)
+						jsonStream = testutils.FlattenJSON(jsonStream)
+						request := testutils.NewJSONPostRequest("/graphql", jsonStream)
+						response := httptest.NewRecorder()
+						server.ServeHTTP(response, request)
+					}
+				})
+			}
+		})
 	})
 }
 
