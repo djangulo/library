@@ -6,13 +6,14 @@ import (
 )
 
 // NewStubStore noqa
-func NewStubStore() *StubStore {
+func NewStubStore(available bool) *StubStore {
 
 	testBooks := TestBookData()
 	testPages := TestPageData()
 	testAuthors := TestAuthorData()
 
 	return &StubStore{
+		Available:   available,
 		books:       testBooks,
 		pages:       testPages,
 		authors:     testAuthors,
@@ -24,12 +25,20 @@ func NewStubStore() *StubStore {
 
 // StubStore for testing
 type StubStore struct {
+	Available   bool
 	books       []books.Book
 	pages       []books.Page
 	authors     []books.Author
 	BookCalls   map[string]int
 	PageCalls   map[string]int
 	AuthorCalls map[string]int
+}
+
+func (s *StubStore) IsAvailable() error {
+	if !s.Available {
+		return books.ErrSQLStoreUnavailable
+	}
+	return nil
 }
 
 // Books noqa
@@ -176,4 +185,34 @@ func (s *StubStore) AuthorBySlug(slug string) (books.Author, error) {
 		}
 	}
 	return books.Author{}, nil
+}
+
+func (s *StubStore) InsertBook(book books.Book) error {
+	s.books = append(s.books, book)
+	return nil
+}
+
+func (s *StubStore) InsertPage(page books.Page) error {
+	s.pages = append(s.pages, page)
+	return nil
+}
+
+func (s *StubStore) InsertAuthor(author books.Author) error {
+	s.authors = append(s.authors, author)
+	return nil
+}
+
+func (s *StubStore) BulkInsertBooks(books []books.Book) error {
+	s.books = append(s.books, books...)
+	return nil
+}
+
+func (s *StubStore) BulkInsertPages(pages []books.Page) error {
+	s.pages = append(s.pages, pages...)
+	return nil
+}
+
+func (s *StubStore) BulkInsertAuthors(authors []books.Author) error {
+	s.authors = append(s.authors, authors...)
+	return nil
 }

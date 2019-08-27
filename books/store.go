@@ -54,6 +54,9 @@ func NewSQLStore(config config.DatabaseConfig) (*SQLStore, func()) {
 	if err != nil {
 		log.Fatalf("failed to connect database %v", err)
 	}
+	if err != nil {
+		log.Fatalf("failed to prepare statements (prepareStatements) %v", err)
+	}
 	removeDatabase := func() {
 		db.Close()
 	}
@@ -81,17 +84,29 @@ func (s *SQLStore) Books(limit, offset int) ([]Book, error) {
 	} else {
 		off = offset
 	}
-	stmt := `SELECT * FROM books ORDER BY title LIMIT $1 OFFSET $2;`
+
+	stmt := `
+	SELECT
+		id,
+		title,
+		slug,
+		publication_year,
+		page_count,
+		file,
+		author_id,
+		source
+	FROM books ORDER BY title LIMIT $1 OFFSET $2;`
 	rows, err := s.DB.Queryx(stmt, lim, off)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "database query failed")
+		return nil, errors.Wrap(err, "Books: query failed")
 	}
 
 	for rows.Next() {
 		var book Book
 		if err = rows.StructScan(&book); err != nil {
-			return nil, errors.Wrap(err, "error scanning database rows")
+			log.Printf("Books: error scanning row, %v\n", err)
+			continue
 		}
 		books = append(books, book)
 	}
@@ -102,14 +117,20 @@ func (s *SQLStore) Books(limit, offset int) ([]Book, error) {
 // BookByID fetches a book by ID
 func (s *SQLStore) BookByID(ID uuid.UUID) (Book, error) {
 	var book Book
-	stmt := `
-	SELECT * FROM books
-	WHERE id = $1
-	LIMIT 1;
-	`
 
+	stmt := `
+	SELECT
+		id,
+		title,
+		slug,
+		publication_year,
+		page_count,
+		file,
+		author_id,
+		source
+	FROM books WHERE id = $1 LIMIT 1;`
 	if err := s.DB.Get(&book, stmt, ID); err != nil {
-		return book, errors.Wrap(err, "error querying database")
+		return book, errors.Wrap(err, "BookByID: query failed")
 	}
 	return book, nil
 }
@@ -118,13 +139,18 @@ func (s *SQLStore) BookByID(ID uuid.UUID) (Book, error) {
 func (s *SQLStore) BookBySlug(slug string) (Book, error) {
 	var book Book
 	stmt := `
-	SELECT * FROM books
-	WHERE slug = $1
-	LIMIT 1;
-	`
-	err := s.DB.Get(&book, stmt, slug)
-	if err != nil {
-		return book, errors.Wrap(err, "error querying database")
+	SELECT
+		id,
+		title,
+		slug,
+		publication_year,
+		page_count,
+		file,
+		author_id,
+		source
+	FROM books WHERE slug = $1 LIMIT 1;`
+	if err := s.DB.Get(&book, stmt, slug); err != nil {
+		return book, errors.Wrap(err, "BookBySlug: query failed")
 	}
 	return book, nil
 }
@@ -132,7 +158,8 @@ func (s *SQLStore) BookBySlug(slug string) (Book, error) {
 // BooksByAuthor returns books by a given author
 func (s *SQLStore) BooksByAuthor(author string) ([]Book, error) {
 	books := make([]Book, 0)
-	lowercased := strings.ToLower(author)
+	author = strings.ToLower(author)
+
 	stmt := `
 	SELECT
 		id, title, book_slug AS slug, publication_year, page_count, file,
@@ -148,16 +175,16 @@ func (s *SQLStore) BooksByAuthor(author string) ([]Book, error) {
 	) AS books_authors
 	WHERE lower(name) = $1 OR author_slug = $2;
 	`
-	rows, err := s.DB.Queryx(stmt, lowercased, lowercased)
-
+	rows, err := s.DB.Queryx(stmt, author, author)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("database query failed\n\t%s", stmt))
+		return nil, errors.Wrap(err, "BooksByAuthor: query failed")
 	}
 
 	for rows.Next() {
 		var book Book
 		if err = rows.StructScan(&book); err != nil {
-			return nil, errors.Wrap(err, "error scanning database rows")
+			log.Printf("BooksByAuthor: error scanning row, %v\n", err)
+			continue
 		}
 		books = append(books, book)
 	}
@@ -180,21 +207,18 @@ func (s *SQLStore) Pages(limit, offset int) ([]Page, error) {
 	} else {
 		off = offset
 	}
-	stmt := `
-	SELECT
-		id, page_number, book_id, body
-	FROM pages
-	LIMIT $1 OFFSET $2;`
-	rows, err := s.DB.Queryx(stmt, lim, off)
 
+	stmt := `SELECT id, page_number, book_id, body FROM pages LIMIT $1 OFFSET $2;`
+	rows, err := s.DB.Queryx(stmt, lim, off)
 	if err != nil {
-		return nil, errors.Wrap(err, "database query failed")
+		return nil, errors.Wrap(err, "Pages: query failed")
 	}
 
 	for rows.Next() {
 		var page Page
 		if err = rows.StructScan(&page); err != nil {
-			return nil, errors.Wrap(err, "error scanning database rows")
+			log.Printf("Pages: error scanning row, %v\n", err)
+			continue
 		}
 		pages = append(pages, page)
 	}
@@ -205,13 +229,9 @@ func (s *SQLStore) Pages(limit, offset int) ([]Page, error) {
 // PageByID fetches a page by ID
 func (s *SQLStore) PageByID(ID uuid.UUID) (Page, error) {
 	var page Page
-	stmt := `
-	SELECT * FROM pages
-	WHERE id = $1
-	LIMIT 1;
-	`
+	stmt := `SELECT id, page_number, book_id, body FROM pages WHERE id = $1 LIMIT 1;`
 	if err := s.DB.Get(&page, stmt, ID); err != nil {
-		return page, errors.Wrap(err, "error querying database")
+		return page, errors.Wrap(err, "PageByID: query failed")
 	}
 	return page, nil
 }
@@ -219,6 +239,7 @@ func (s *SQLStore) PageByID(ID uuid.UUID) (Page, error) {
 // PageByBookAndNumber returns a page by book id and number
 func (s *SQLStore) PageByBookAndNumber(bookID uuid.UUID, number int) (Page, error) {
 	var page Page
+
 	stmt := `
 	SELECT
 		id, page_number, book_id, body
@@ -233,7 +254,7 @@ func (s *SQLStore) PageByBookAndNumber(bookID uuid.UUID, number int) (Page, erro
 	WHERE book_id = $1 AND page_number = $2;
 	`
 	if err := s.DB.Get(&page, stmt, bookID, number); err != nil {
-		return page, errors.Wrap(err, "error querying database")
+		return page, errors.Wrap(err, "PageByBookAndNumber: query failed")
 	}
 	return page, nil
 }
@@ -253,17 +274,18 @@ func (s *SQLStore) Authors(limit, offset int) ([]Author, error) {
 	} else {
 		off = offset
 	}
-	stmt := `SELECT * FROM authors ORDER BY name LIMIT $1 OFFSET $2;`
-	rows, err := s.DB.Queryx(stmt, lim, off)
 
+	stmt := `SELECT id, name, slug FROM authors ORDER BY name LIMIT $1 OFFSET $2;`
+	rows, err := s.DB.Queryx(stmt, lim, off)
 	if err != nil {
-		return nil, errors.Wrap(err, "database query failed")
+		return nil, errors.Wrap(err, "Authors: query failed")
 	}
 
 	for rows.Next() {
 		var author Author
 		if err = rows.StructScan(&author); err != nil {
-			return nil, errors.Wrap(err, "error scanning database rows")
+			log.Printf("Authors: error scanning row, %v\n", err)
+			continue
 		}
 		authors = append(authors, author)
 	}
@@ -274,16 +296,10 @@ func (s *SQLStore) Authors(limit, offset int) ([]Author, error) {
 // AuthorByID fetches an auhtor by ID
 func (s *SQLStore) AuthorByID(ID uuid.UUID) (Author, error) {
 	var author Author
-	stmt := `
-	SELECT
-		id, name, slug
-	FROM authors
-	WHERE id = $1
-	LIMIT 1;
-	`
 
+	stmt := `SELECT id, name, slug FROM authors WHERE id = $1 LIMIT 1;`
 	if err := s.DB.Get(&author, stmt, ID); err != nil {
-		return author, errors.Wrap(err, "error querying database")
+		return author, errors.Wrap(err, "AuthorByID: query failed")
 	}
 	return author, nil
 }
@@ -292,72 +308,318 @@ func (s *SQLStore) AuthorByID(ID uuid.UUID) (Author, error) {
 func (s *SQLStore) AuthorBySlug(slug string) (Author, error) {
 	slug = Slugify(slug, "-")
 	var author Author
-	stmt := `
-	SELECT
-		id, name, slug
-	FROM authors
-	WHERE slug = $1
-	LIMIT 1;
-	`
-	err := s.DB.Get(&author, stmt, slug)
-	if err != nil {
-		return author, errors.Wrap(err, "error querying database")
+
+	stmt := `SELECT id, name, slug FROM authors WHERE slug = $1 LIMIT 1;`
+	if err := s.DB.Get(&author, stmt, slug); err != nil {
+		return author, errors.Wrap(err, "AuthorByID: query failed")
 	}
 	return author, nil
 }
 
 func (s *SQLStore) InsertBook(book Book) error {
-	_, err := s.DB.Exec(
-		`INSERT INTO books (
-				id,
-				title,
-				slug,
-				publication_year,
-				page_count,
-				file,
-				author_id,
-				source
-			)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;`,
-		b.ID,
-		b.Title,
-		b.Slug,
-		b.PublicationYear,
-		b.PageCount,
-		b.File,
-		b.AuthorID,
-		b.Source,
+
+	stmt := `
+	INSERT INTO books (
+		id,
+		title,
+		slug,
+		publication_year,
+		page_count,
+		file,
+		author_id,
+		source
+	)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+	`
+	_, err := s.DB.Queryx(
+		stmt,
+		book.ID,
+		book.Title,
+		book.Slug,
+		book.PublicationYear,
+		book.PageCount,
+		book.File,
+		book.AuthorID,
+		book.Source,
 	)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("could not insert author %v", b))
+		return errors.Wrap(err, fmt.Sprintf("InsertBook: failed on book %v", book))
 	}
 	return nil
 }
 
-func (s *SQLStore) BulkInsertBook(books []Book) error {
-	_, err := s.DB.Exec(
-		`INSERT INTO books (
-				id,
-				title,
-				slug,
-				publication_year,
-				page_count,
-				file,
-				author_id,
-				source
-			)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-		b.ID,
-		b.Title,
-		b.Slug,
-		b.PublicationYear,
-		b.PageCount,
-		b.File,
-		b.AuthorID,
-		b.Source,
+func (s *SQLStore) InsertPage(page Page) error {
+
+	stmt := `
+	INSERT INTO pages (
+		id,
+		book_id,
+		page_number,
+		body
+	)
+	VALUES ($1, $2, $3, $4);
+	`
+	_, err := s.DB.Queryx(
+		stmt,
+		page.ID,
+		page.BookID,
+		page.PageNumber,
+		page.Body,
 	)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("could not insert author %v", b))
+		return errors.Wrap(err, fmt.Sprintf("InsertPage: failed on page %v", page))
 	}
+	return nil
+}
+
+func (s *SQLStore) InsertAuthor(author Author) error {
+	stmt := `
+	INSERT INTO authors (
+		id,
+		slug,
+		name
+	)
+	VALUES ($1, $2, $3, $4);
+	`
+	_, err := s.DB.Queryx(
+		stmt,
+		author.ID,
+		author.Slug,
+		author.Name,
+	)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("InsertAuthor: failed on author %v", author))
+	}
+	return nil
+}
+
+func (s *SQLStore) BulkInsertBooks(books []Book) error {
+
+	valueStrings := make([]string, 0)
+	valueArgs := make([]interface{}, 0)
+	for i, book := range books {
+		valueStrings = append(
+			valueStrings,
+			fmt.Sprintf(
+				"($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+				i*8+1, i*8+2, i*8+3, i*8+4, i*8+5, i*8+6, i*8+7, i*8+8,
+			),
+		)
+		valueArgs = append(valueArgs, book.ID)
+		valueArgs = append(valueArgs, book.Title)
+		valueArgs = append(valueArgs, book.Slug)
+		valueArgs = append(valueArgs, book.PublicationYear)
+		valueArgs = append(valueArgs, book.PageCount)
+		valueArgs = append(valueArgs, book.File)
+		valueArgs = append(valueArgs, book.AuthorID)
+		valueArgs = append(valueArgs, book.Source)
+	}
+
+	stmt := fmt.Sprintf(`
+	INSERT INTO books (
+		id,
+		title,
+		slug,
+		publication_year,
+		page_count,
+		file,
+		author_id,
+		source
+	) VALUES %s;`, strings.Join(valueStrings, ","))
+
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return errors.Wrap(err, "BulkInsertBooks: begin transaction failed")
+	}
+
+	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				rollbackErr,
+				"BulkInsertBooks: set encoding, unable to rollback",
+			)
+		}
+		return errors.Wrap(err, "BulkInsertBooks: set encoding failed")
+	}
+	_, err = tx.Exec(stmt, valueArgs...)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"BulkInsertBooks: insert, unable to rollback",
+			)
+		}
+		return errors.Wrap(
+			err,
+			"BulkInsertBooks: insert failed",
+		)
+	}
+	_, err = tx.Exec(`RESET CLIENT_ENCODING;`)
+	if err != nil {
+
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"BulkInsertBooks: reset encoding, unable to rollback",
+			)
+		}
+		return errors.Wrap(
+			err,
+			"BulkInsertBooks: reset encoding failed",
+		)
+	}
+	if commitErr := tx.Commit(); commitErr != nil {
+		return errors.Wrap(err, "BulkInsertBooks: commit failed")
+	}
+
+	return nil
+}
+
+func (s *SQLStore) BulkInsertPages(pages []Page) error {
+
+	valueStrings := make([]string, 0)
+	valueArgs := make([]interface{}, 0)
+	for i, page := range pages {
+		valueStrings = append(
+			valueStrings,
+			fmt.Sprintf(
+				"($%d, $%d, $%d, $%d)",
+				i*8+1, i*8+2, i*8+3, i*8+4,
+			),
+		)
+		valueArgs = append(valueArgs, page.ID)
+		valueArgs = append(valueArgs, page.BookID)
+		valueArgs = append(valueArgs, page.PageNumber)
+		valueArgs = append(valueArgs, page.Body)
+	}
+
+	stmt := fmt.Sprintf(`
+	INSERT INTO pages (
+		id,
+		book_id,
+		page_number,
+		body
+	) VALUES %s;`, strings.Join(valueStrings, ","))
+
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return errors.Wrap(err, "BulkInsertPages: begin transaction failed")
+	}
+
+	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				rollbackErr,
+				"BulkInsertPages: set encoding, unable to rollback",
+			)
+		}
+		return errors.Wrap(err, "BulkInsertPages: set encoding failed")
+	}
+	_, err = tx.Exec(stmt, valueArgs...)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"BulkInsertPages: insert, unable to rollback",
+			)
+		}
+		return errors.Wrap(
+			err,
+			"BulkInsertPages: insert failed",
+		)
+	}
+	_, err = tx.Exec(`RESET CLIENT_ENCODING;`)
+	if err != nil {
+
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"BulkInsertPages: reset encoding, unable to rollback",
+			)
+		}
+		return errors.Wrap(
+			err,
+			"BulkInsertPages: reset encoding failed",
+		)
+	}
+	if commitErr := tx.Commit(); commitErr != nil {
+		return errors.Wrap(err, "BulkInsertPages: commit failed")
+	}
+
+	return nil
+}
+
+func (s *SQLStore) BulkInsertAuthors(authors []Author) error {
+
+	valueStrings := make([]string, 0)
+	valueArgs := make([]interface{}, 0)
+	for i, author := range authors {
+		valueStrings = append(
+			valueStrings,
+			fmt.Sprintf(
+				"($%d, $%d, $%d)",
+				i*8+1, i*8+2, i*8+3,
+			),
+		)
+		valueArgs = append(valueArgs, author.ID)
+		valueArgs = append(valueArgs, author.Slug)
+		valueArgs = append(valueArgs, author.Name)
+	}
+
+	stmt := fmt.Sprintf(`
+	INSERT INTO authors (
+		id,
+		slug,
+		name
+	) VALUES %s;`, strings.Join(valueStrings, ","))
+
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return errors.Wrap(err, "BulkInsertAuthors: begin transaction failed")
+	}
+
+	_, err = tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				rollbackErr,
+				"BulkInsertAuthors: set encoding, unable to rollback",
+			)
+		}
+		return errors.Wrap(err, "BulkInsertAuthors: set encoding failed")
+	}
+	_, err = tx.Exec(stmt, valueArgs...)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"BulkInsertAuthors: insert, unable to rollback",
+			)
+		}
+		return errors.Wrap(
+			err,
+			"BulkInsertAuthors: insert failed",
+		)
+	}
+	_, err = tx.Exec(`RESET CLIENT_ENCODING;`)
+	if err != nil {
+
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Wrap(
+				err,
+				"BulkInsertAuthors: reset encoding, unable to rollback",
+			)
+		}
+		return errors.Wrap(
+			err,
+			"BulkInsertAuthors: reset encoding failed",
+		)
+	}
+	if commitErr := tx.Commit(); commitErr != nil {
+		return errors.Wrap(err, "BulkInsertAuthors: commit failed")
+	}
+
 	return nil
 }

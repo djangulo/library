@@ -10,7 +10,7 @@ import (
 )
 
 func TestGetRoot(t *testing.T) {
-	store := testutils.NewStubStore()
+	store := testutils.NewStubStore(true)
 	cache := testutils.NewStubCache(nil)
 	server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 	t.Run("redirects to /en on /", func(t *testing.T) {
@@ -51,7 +51,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 	t.Run("with cache", func(t *testing.T) {
 
 		t.Run("can query all books", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -85,7 +85,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 		})
 
 		t.Run("can query all books with a limit", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -118,7 +118,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 		})
 
 		t.Run("can query all books with an offset", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -152,7 +152,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 		})
 
 		t.Run("can query allBook filtered by author", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -185,7 +185,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 		})
 
 		t.Run("can query a book by id", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -219,7 +219,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 			testutils.AssertBookCacheCalls(t, cache, got.String(), 1)
 		})
 		t.Run("can query a book by slug", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -257,7 +257,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 
 	t.Run("without cache", func(t *testing.T) {
 		t.Run("can query all books", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -291,7 +291,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 		})
 
 		t.Run("can query all books with a limit", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -324,7 +324,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 		})
 
 		t.Run("can query all books with an offset", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -358,7 +358,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 		})
 
 		t.Run("can query allBook filtered by author", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -391,7 +391,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 		})
 
 		t.Run("can query a book by id", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -425,7 +425,7 @@ func TestGraphQLBookQueries(t *testing.T) {
 			testutils.AssertBookStoreCalls(t, store, got.String(), 1)
 		})
 		t.Run("can query a book by slug", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -467,7 +467,7 @@ func TestGraphQLPageQueries(t *testing.T) {
 	t.Run("with cache", func(t *testing.T) {
 
 		t.Run("can query all pages", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -497,7 +497,7 @@ func TestGraphQLPageQueries(t *testing.T) {
 		})
 
 		t.Run("can query all pages with a limit", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -526,7 +526,7 @@ func TestGraphQLPageQueries(t *testing.T) {
 		})
 
 		t.Run("can query all pages with an offset", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -556,7 +556,7 @@ func TestGraphQLPageQueries(t *testing.T) {
 		})
 
 		t.Run("can query a page by id", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -586,7 +586,7 @@ func TestGraphQLPageQueries(t *testing.T) {
 			testutils.AssertPageCacheCalls(t, cache, got.String(), 1)
 		})
 		t.Run("can query a page by book id and page number", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -623,7 +623,7 @@ func TestGraphQLPageQueries(t *testing.T) {
 
 	t.Run("test with cache unavailable", func(t *testing.T) {
 		t.Run("can query all pages", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -653,7 +653,7 @@ func TestGraphQLPageQueries(t *testing.T) {
 		})
 
 		t.Run("can query all pages with a limit", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -682,7 +682,7 @@ func TestGraphQLPageQueries(t *testing.T) {
 		})
 
 		t.Run("can query all pages with an offset", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -712,7 +712,7 @@ func TestGraphQLPageQueries(t *testing.T) {
 		})
 
 		t.Run("can query a page by id", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -742,7 +742,7 @@ func TestGraphQLPageQueries(t *testing.T) {
 			testutils.AssertPageStoreCalls(t, store, got.String(), 1)
 		})
 		t.Run("can query a page by book id and page number", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -783,7 +783,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 	t.Run("with cache", func(t *testing.T) {
 
 		t.Run("can query all authors", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -812,7 +812,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 		})
 
 		t.Run("can query all authors with a limit", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -840,7 +840,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 		})
 
 		t.Run("can query all authors with an offset", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -869,7 +869,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 		})
 
 		t.Run("can query an author by id", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -898,7 +898,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 			testutils.AssertAuthorCacheCalls(t, cache, got.String(), 1)
 		})
 		t.Run("can query an author by name using name", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -928,7 +928,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 			testutils.AssertAuthorCacheCalls(t, cache, got.String(), 1)
 		})
 		t.Run("can query an author by name using slug", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(nil)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -961,7 +961,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 
 	t.Run("without cache", func(t *testing.T) {
 		t.Run("can query all authors", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -990,7 +990,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 		})
 
 		t.Run("can query all auhtors with a limit", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -1018,7 +1018,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 		})
 
 		t.Run("can query all authors with an offset", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -1047,7 +1047,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 		})
 
 		t.Run("can query an author by id", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -1076,7 +1076,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 			testutils.AssertAuthorStoreCalls(t, store, got.String(), 1)
 		})
 		t.Run("can query an author by name using name", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 
@@ -1106,7 +1106,7 @@ func TestGraphQLAuthorQueries(t *testing.T) {
 			testutils.AssertAuthorStoreCalls(t, store, got.String(), 1)
 		})
 		t.Run("can query an author by name using slug", func(t *testing.T) {
-			store := testutils.NewStubStore()
+			store := testutils.NewStubStore(true)
 			cache := testutils.NewStubCache(books.ErrCacheUnavailable)
 			server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 

@@ -41,18 +41,16 @@ type Store interface {
 	InsertBook(Book) error
 	InsertPage(Page) error
 	InsertAuthor(Author) error
-	BulkInsertBook([]Book) error
-	BulkInsertPage([]Page) error
-	BulkInsertAuthor([]Author) error
+	BulkInsertBooks([]Book) error
+	BulkInsertPages([]Page) error
+	BulkInsertAuthors([]Author) error
 }
 
 // Cache noqa
 type Cache interface {
 	IsAvailable() error
-	Books(int, int) ([]Book, error)
 	BookByID(uuid.UUID) (Book, error)
 	BookBySlug(string) (Book, error)
-	BooksByAuthor(string) ([]Book, error)
 	GetBookQuery(string) ([]Book, error)
 	SaveBookQuery(string, []Book) error
 	GetPageQuery(string) ([]Page, error)
@@ -62,10 +60,8 @@ type Cache interface {
 	InsertBook(Book) error
 	InsertPage(Page) error
 	InsertAuthor(Author) error
-	Pages(int, int) ([]Page, error)
 	PageByID(uuid.UUID) (Page, error)
 	PageByBookAndNumber(uuid.UUID, int) (Page, error)
-	Authors(int, int) ([]Author, error)
 	AuthorByID(uuid.UUID) (Author, error)
 	AuthorBySlug(string) (Author, error)
 }

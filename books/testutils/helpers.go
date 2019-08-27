@@ -128,7 +128,8 @@ func NewTestSQLStore(config *config.Config, database string) (*books.SQLStore, f
 		defer migrateConn.Close()
 		driver, err := postgres.WithInstance(migrateConn, &postgres.Config{})
 		m, err := migrate.NewWithDatabaseInstance(
-			"file://"+config.Project.Dirs.Migrations,
+			// "file://"+config.Project.Dirs.Migrations,
+			"file://../migrations",
 			"postgres",
 			driver,
 		)
@@ -143,7 +144,7 @@ func NewTestSQLStore(config *config.Config, database string) (*books.SQLStore, f
 	if err != nil {
 		log.Fatalf("failed to connect to '%s' database %v", database, err)
 	}
-	removeDatabase := func() {
+	removeDatabase := func(database) {
 		testDB.Close()
 		stmt := fmt.Sprintf(`DROP DATABASE %s;`, config.Database[database].Name)
 		db.Exec(stmt)

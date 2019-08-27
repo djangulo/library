@@ -6,8 +6,13 @@ import (
 	"log"
 )
 
+type SQLiteInMemoryStore struct {
+	SQLStore
+	Available bool
+}
+
 // NewInMemoryStore Returns a new SQLite in-memory database connection.
-func NewInMemoryStore() (*SQLStore, func()) {
+func NewInMemoryStore(available bool) (*SQLiteInMemoryStore, func()) {
 	db, err := sqlx.Open("sqlite3", "file::memory:?cache=shared")
 	if err != nil {
 		log.Fatalf("failed to connect database %v", err)
@@ -16,5 +21,12 @@ func NewInMemoryStore() (*SQLStore, func()) {
 		db.Close()
 	}
 
-	return &SQLStore{db}, removeDatabase
+	return &SQLiteInMemoryStore{db, Available: available}, removeDatabase
+}
+
+func (s *SQLiteInMemoryStore) IsAvailable() error {
+	if !s.Available {
+		return ErrSQLStoreNotAvailable
+	}
+	return nil
 }

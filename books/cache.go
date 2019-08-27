@@ -56,56 +56,8 @@ func NewRedisCache(config config.CacheConfig) (*RedisCache, error) {
 	}, nil
 }
 
-// Books fetches a list of books from the cache, offset is ignored
-func (r *RedisCache) Books(limit, offset int) ([]Book, error) {
-	var lim int
-	if limit == -1 {
-		lim = 1000
-	} else {
-		lim = limit
-	}
-	books := make([]Book, 0)
-	keys := r.Client.Scan(0, "book:*", int64(lim)).Iterator()
-	for keys.Next() {
-		strBytes, err := r.Client.Get(keys.Val()).Result()
-		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("could not scan key '%v'", keys.Val()))
-		}
-
-		var book Book
-		err = json.Unmarshal([]byte(strBytes), &book)
-		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal key '%v'", keys.Val()))
-		}
-		books = append(books, book)
-	}
-	return books, nil
-}
-
 // BookByID fetches a book by ID
 func (r *RedisCache) BookByID(ID uuid.UUID) (Book, error) {
-	// match := fmt.Sprintf("book:*:%s", ID.String())
-	// keys := r.Client.Scan(0, match, 0).Iterator()
-	// for keys.Next() {
-	// 	_, id, err := parseBookID(keys.Val())
-	// 	if err != nil {
-	// 		return Book{}, errors.Wrap(err, fmt.Sprintf("could not parse book cache ID: %v", keys.Val()))
-	// 	}
-	// 	if id == ID {
-	// 		strBytes, err := r.Client.Get(keys.Val()).Result()
-	// 		if err != nil {
-	// 			return Book{}, errors.Wrap(err, fmt.Sprintf("could not GET id: %v", keys.Val()))
-	// 		}
-	// 		var book Book
-	// 		err = json.Unmarshal([]byte(strBytes), &book)
-	// 		if err != nil {
-	// 			return Book{}, errors.Wrap(err, fmt.Sprintf("could not unmarshal json into instance of Book, json: %v", strBytes))
-	// 		}
-	// 		return book, nil
-	// 	}
-
-	// }
-	// return Book{}, nil
 	match := fmt.Sprintf("book:*:%s", ID.String())
 
 	fields := []string{"id", "title", "slug", "file", "source", "publication_year", "page_count", "author_id"}
@@ -129,29 +81,6 @@ func (r *RedisCache) BookByID(ID uuid.UUID) (Book, error) {
 
 // BookBySlug fetches a book by slug
 func (r *RedisCache) BookBySlug(slug string) (Book, error) {
-	// slug = Slugify(slug, "-")
-	// match := fmt.Sprintf("book:%s:*", slug)
-	// keys := r.Client.Scan(0, match, 0).Iterator()
-	// for keys.Next() {
-	// 	bookSlug, _, err := parseBookID(keys.Val())
-	// 	if err != nil {
-	// 		return Book{}, errors.Wrap(err, fmt.Sprintf("could not parse book cache ID: %v", keys.Val()))
-	// 	}
-	// 	if bookSlug == slug {
-	// 		strBytes, err := r.Client.Get(keys.Val()).Result()
-	// 		if err != nil {
-	// 			return Book{}, errors.Wrap(err, fmt.Sprintf("could not GET id: %v", keys.Val()))
-	// 		}
-	// 		var book Book
-	// 		err = json.Unmarshal([]byte(strBytes), &book)
-	// 		if err != nil {
-	// 			return Book{}, errors.Wrap(err, fmt.Sprintf("could not unmarshal json into instance of Book, json: %v", strBytes))
-	// 		}
-	// 		return book, nil
-	// 	}
-
-	// }
-	// return Book{}, nil
 
 	slug = Slugify(slug, "-")
 	match := fmt.Sprintf("book:%s:*", slug)
@@ -172,59 +101,6 @@ func (r *RedisCache) BookBySlug(slug string) (Book, error) {
 		return book, nil
 	}
 	return Book{}, nil
-}
-
-// BooksByAuthor returns books by a given author
-func (r *RedisCache) BooksByAuthor(name string) ([]Book, error) {
-	name = Slugify(name, "-")
-
-	var author Author
-	authorKeyMatch := fmt.Sprintf("author:%s:*", name)
-	authorKeys := r.Client.Scan(0, authorKeyMatch, 0).Iterator()
-	for authorKeys.Next() {
-		key := authorKeys.Val()
-		slug, _, err := parseAuthorID(key)
-		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("could not parse author cache ID: %v", key))
-		}
-		if strings.Contains(slug, name) {
-			strBytes, err := r.Client.Get(key).Result()
-			if err != nil {
-				return nil, errors.Wrap(err, fmt.Sprintf("could not scan key '%v'", authorKeys.Val()))
-			}
-			auteur := new(Author)
-			err = json.Unmarshal([]byte(strBytes), &auteur)
-			if err != nil {
-				return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal key '%v'", authorKeys.Val()))
-			}
-			author = *auteur
-		}
-	}
-	if author.ID == uuid.Nil {
-		// Author not in cache, let the store handle it
-		return nil, ErrNotFoundInCache
-	}
-
-	books := make([]Book, 0)
-	bookKeys := r.Client.Scan(0, "book:*", 0).Iterator()
-	for bookKeys.Next() {
-		strBytes, err := r.Client.Get(bookKeys.Val()).Result()
-		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("could not scan key '%v'", bookKeys.Val()))
-		}
-
-		book := new(Book)
-		err = json.Unmarshal([]byte(strBytes), &book)
-		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal key '%v'", bookKeys.Val()))
-		}
-		if book.AuthorID.Valid {
-			if book.AuthorID.UUID == author.ID {
-				books = append(books, *book)
-			}
-		}
-	}
-	return books, nil
 }
 
 // Pages fetches a list of pages, offset is ignored
@@ -293,33 +169,6 @@ func (r *RedisCache) PageByBookAndNumber(bookID uuid.UUID, number int) (Page, er
 	return Page{}, ErrNotFoundInCache
 }
 
-// Authors fetches a list of authors from the cache, offset is ignored
-func (r *RedisCache) Authors(limit, offset int) ([]Author, error) {
-	var lim int
-	if limit == -1 {
-		lim = 1000
-	} else {
-		lim = limit
-	}
-	authors := make([]Author, 0)
-
-	keys := r.Client.Scan(0, "author:*", int64(lim)).Iterator()
-	for keys.Next() {
-		strBytes, err := r.Client.Get(keys.Val()).Result()
-		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("could not scan key '%v'", keys.Val()))
-		}
-
-		var author Author
-		err = json.Unmarshal([]byte(strBytes), &author)
-		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal key '%v'", keys.Val()))
-		}
-		authors = append(authors, author)
-	}
-	return authors, nil
-}
-
 // AuthorByID fetches an auhtor by ID
 func (r *RedisCache) AuthorByID(ID uuid.UUID) (Author, error) {
 	match := fmt.Sprintf("author:*:%s", ID.String())
@@ -379,22 +228,6 @@ func (r *RedisCache) AuthorBySlug(slug string) (Author, error) {
 
 // InsertBook inserts book into the cache
 func (r *RedisCache) InsertBook(book Book) error {
-
-	// b, err := json.Marshal(&book)
-	// if err != nil {
-	// 	return errors.Wrap(err, "could not marshal book")
-	// }
-	// bookCacheID, err := serializeBookID(book)
-	// if err != nil {
-	// 	return errors.Wrap(err, "could not serialize book cache ID")
-	// }
-
-	// err = r.Client.Set(bookCacheID, string(b), 1*time.Hour).Err()
-	// if err != nil {
-	// 	return errors.Wrap(err, "could not SET book")
-	// }
-
-	// return nil
 
 	hash, _ := stringMapOfBook(book)
 	cacheID, err := serializeBookID(book)
