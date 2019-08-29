@@ -98,7 +98,7 @@ func (s *SQLStore) Books(limit, offset int) ([]Book, error) {
 		file,
 		author_id,
 		source
-	FROM books ORDER BY title LIMIT $1 OFFSET $2;`
+	FROM books LIMIT $1 OFFSET $2;`
 	rows, err := s.DB.Queryx(stmt, lim, off)
 
 	if err != nil {
@@ -278,7 +278,7 @@ func (s *SQLStore) Authors(limit, offset int) ([]Author, error) {
 		off = offset
 	}
 
-	stmt := `SELECT id, name, slug FROM authors ORDER BY name LIMIT $1 OFFSET $2;`
+	stmt := `SELECT id, name, slug FROM authors LIMIT $1 OFFSET $2;`
 	rows, err := s.DB.Queryx(stmt, lim, off)
 	if err != nil {
 		return nil, errors.Wrap(err, "Authors: query failed")
@@ -495,6 +495,7 @@ func (s *SQLStore) BulkInsertPages(pages []Page) error {
 		valueArgs = append(valueArgs, page.PageNumber)
 		valueArgs = append(valueArgs, page.Body)
 		valueArgs = append(valueArgs, page.BookID)
+		// fmt.Printf("id: %v\n", page.ID)
 	}
 
 	stmt := fmt.Sprintf(`

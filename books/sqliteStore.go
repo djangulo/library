@@ -28,11 +28,11 @@ func migrate(db *sqlx.DB) {
 		id BLOB PRIMARY KEY,
 		title TEXT NOT NULL,
 		slug TEXT UNIQUE,
-		publication_year INTEGER,
+		publication_year INTEGER NULL,
 		page_count INTEGER,
 		file TEXT,
 		source TEXT CHECK( source IN (  'nltk-gutenberg','open-library','manual-insert') )  DEFAULT 'nltk-gutenberg',
-		author_id TEXT REFERENCES authors (id)
+		author_id TEXT REFERENCES authors (id) NULL
 	);
 	`)
 	db.Exec(`CREATE TABLE IF NOT EXISTS pages (
@@ -49,6 +49,7 @@ func NewInMemoryStore(addressID string, available bool) (*SQLiteInMemoryStore, f
 	// cnf := config.Get()
 	connStr := fmt.Sprintf("file:%s?mode=memory&cache=shared", addressID)
 	// connStr := "file::memory:?cache=shared"
+	// connStr := fmt.Sprintf("%s.sqlite3", addressID)
 	db, err := sqlx.Open("sqlite3", connStr)
 	if err != nil {
 		log.Fatalf("failed to connect database %v", err)

@@ -114,10 +114,8 @@ func AssertEqual(t *testing.T, got, want interface{}) {
 		}
 		return
 	case books.Book, books.Page, books.Author:
-		gotVal := getVal(got)
-		wantVal := getVal(want)
-		if !reflect.DeepEqual(gotVal, wantVal) {
-			t.Errorf("\ngot \n\t%+v\nwant\n\t%+v", gotVal, wantVal)
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("\ngot \n\t%+v\nwant\n\t%+v", got, want)
 		}
 		return
 	default:
@@ -143,10 +141,42 @@ func AssertEqual(t *testing.T, got, want interface{}) {
 	// }
 }
 
+// AssertIntsEqual noqa
+func AssertIntsEqual(t *testing.T, got, want int) {
+	t.Helper()
+	if got != want {
+		t.Errorf("got '%d' want '%d'", got, want)
+	}
+}
+
 // AssertUUIDsEqual noqa
 func AssertUUIDsEqual(t *testing.T, got, want uuid.UUID) {
 	t.Helper()
 	if got != want {
+		t.Errorf("got %v want %v", got, want)
+	}
+}
+
+// AssertBooksEqual noqa
+func AssertBooksEqual(t *testing.T, got, want books.Book) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v want %v", got, want)
+	}
+}
+
+// AssertAuthorsEqual noqa
+func AssertAuthorsEqual(t *testing.T, got, want books.Author) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v want %v", got, want)
+	}
+}
+
+// AssertPagesEqual noqa
+func AssertPagesEqual(t *testing.T, got, want books.Page) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v want %v", got, want)
 	}
 }
