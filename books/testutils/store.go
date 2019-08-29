@@ -5,35 +5,58 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-// NewStubStore noqa
-func NewStubStore(available bool) *StubStore {
+const (
+	// Available to use in tests for legibility
+	Available = true
+	// Unavailable to use in tests for legibility
+	Unavailable = false
+	// PrepopulateStore to use in tests for legibility
+	PrepopulateStore = true
+	// NOPrepopulateStore to use in tests for legibility
+	NOPrepopulateStore = false
+)
 
-	testBooks := TestBookData()
-	testPages := TestPageData()
-	testAuthors := TestAuthorData()
+// NewStubStore noqa
+func NewStubStore(available bool, prepopulate bool) *StubStore {
+
+	var tAuthors []books.Author
+	var tBooks []books.Book
+	var tPages []books.Page
+	if prepopulate {
+		tAuthors = TestAuthorData()
+		tBooks = TestBookData()
+		tPages = TestPageData()
+	}
 
 	return &StubStore{
-		Available:   available,
-		books:       testBooks,
-		pages:       testPages,
-		authors:     testAuthors,
-		BookCalls:   map[string]int{},
-		PageCalls:   map[string]int{},
-		AuthorCalls: map[string]int{},
+		Available:         available,
+		authors:           tAuthors,
+		books:             tBooks,
+		pages:             tPages,
+		BookCalls:         map[string]int{},
+		PageCalls:         map[string]int{},
+		AuthorCalls:       map[string]int{},
+		InsertBookCalls:   map[string]int{},
+		InsertPageCalls:   map[string]int{},
+		InsertAuthorCalls: map[string]int{},
 	}
 }
 
 // StubStore for testing
 type StubStore struct {
-	Available   bool
-	books       []books.Book
-	pages       []books.Page
-	authors     []books.Author
-	BookCalls   map[string]int
-	PageCalls   map[string]int
-	AuthorCalls map[string]int
+	Available         bool
+	books             []books.Book
+	pages             []books.Page
+	authors           []books.Author
+	BookCalls         map[string]int
+	PageCalls         map[string]int
+	AuthorCalls       map[string]int
+	InsertBookCalls   map[string]int
+	InsertPageCalls   map[string]int
+	InsertAuthorCalls map[string]int
 }
 
+// IsAvailable noqa
 func (s *StubStore) IsAvailable() error {
 	if !s.Available {
 		return books.ErrSQLStoreUnavailable
@@ -43,6 +66,9 @@ func (s *StubStore) IsAvailable() error {
 
 // Books noqa
 func (s *StubStore) Books(limit, offset int) ([]books.Book, error) {
+	if len(s.books) == 0 {
+		return nil, books.ErrNoResults
+	}
 	s.BookCalls["list"]++
 	items := s.books
 	length := len(items)
@@ -84,6 +110,9 @@ func (s *StubStore) BookBySlug(slug string) (books.Book, error) {
 
 // BooksByAuthor noqa
 func (s *StubStore) BooksByAuthor(name string) ([]books.Book, error) {
+	if len(s.books) == 0 {
+		return nil, books.ErrNoResults
+	}
 	s.BookCalls["list"]++
 	var id *uuid.UUID
 	for _, a := range s.authors {
@@ -106,6 +135,9 @@ func (s *StubStore) BooksByAuthor(name string) ([]books.Book, error) {
 
 // Pages noqa
 func (s *StubStore) Pages(limit, offset int) ([]books.Page, error) {
+	if len(s.pages) == 0 {
+		return nil, books.ErrNoResults
+	}
 	s.PageCalls["list"]++
 	items := s.pages
 	length := len(items)
@@ -147,6 +179,9 @@ func (s *StubStore) PageByBookAndNumber(bookID uuid.UUID, number int) (books.Pag
 
 // Authors noqa
 func (s *StubStore) Authors(limit, offset int) ([]books.Author, error) {
+	if len(s.authors) == 0 {
+		return nil, books.ErrNoResults
+	}
 	s.AuthorCalls["list"]++
 	items := s.authors
 	length := len(items)
@@ -187,32 +222,50 @@ func (s *StubStore) AuthorBySlug(slug string) (books.Author, error) {
 	return books.Author{}, nil
 }
 
+// InsertBook noqa
 func (s *StubStore) InsertBook(book books.Book) error {
+	s.InsertBookCalls[book.ID.String()]++
 	s.books = append(s.books, book)
 	return nil
 }
 
+// InsertPage noqa
 func (s *StubStore) InsertPage(page books.Page) error {
+	s.InsertPageCalls[page.ID.String()]++
 	s.pages = append(s.pages, page)
 	return nil
 }
 
+// InsertAuthor noqa
 func (s *StubStore) InsertAuthor(author books.Author) error {
+	s.InsertAuthorCalls[author.ID.String()]++
 	s.authors = append(s.authors, author)
 	return nil
 }
 
+// BulkInsertBooks noqa
 func (s *StubStore) BulkInsertBooks(books []books.Book) error {
+	for range books {
+		s.InsertBookCalls["bulk"]++
+	}
 	s.books = append(s.books, books...)
 	return nil
 }
 
+// BulkInsertPages noqa
 func (s *StubStore) BulkInsertPages(pages []books.Page) error {
+	for range pages {
+		s.InsertPageCalls["bulk"]++
+	}
 	s.pages = append(s.pages, pages...)
 	return nil
 }
 
+// BulkInsertAuthors noqa
 func (s *StubStore) BulkInsertAuthors(authors []books.Author) error {
+	for range authors {
+		s.InsertAuthorCalls["bulk"]++
+	}
 	s.authors = append(s.authors, authors...)
 	return nil
 }

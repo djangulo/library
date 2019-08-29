@@ -2,13 +2,9 @@ package books
 
 import (
 	"fmt"
-	// "database/sql"
-	// config "github.com/djangulo/library/config/books"
-	// "github.com/golang-migrate/migrate/v4"
-	// "github.com/golang-migrate/migrate/v4/database/sqlite3"
-	// _ "github.com/golang-migrate/migrate/v4/source/file" // unneeded namespace
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // unneded namespace
+	"github.com/pkg/errors"
 	"log"
 )
 
@@ -85,6 +81,30 @@ func NewInMemoryStore(addressID string, available bool) (*SQLiteInMemoryStore, f
 func (s *SQLiteInMemoryStore) IsAvailable() error {
 	if !s.Available {
 		return ErrSQLStoreUnavailable
+	}
+	return nil
+}
+
+func SeedSQLite(db *SQLiteInMemoryStore, authors []Author, books []Book, pages []Page) error {
+	err := db.BulkInsertAuthors(authors)
+	if err != nil {
+		return errors.Wrap(err, "failed to bulk insert authors")
+	}
+	err = db.BulkInsertBooks(books)
+	if err != nil {
+		return errors.Wrap(err, "failed to bulk insert books")
+	}
+	nPages := len(pages)
+	for i := 0; i < nPages; i += 200 {
+		var err error
+		if diff := nPages - i; diff < 200 {
+			err = db.BulkInsertPages(pages[i:(i + diff)])
+		} else {
+			err = db.BulkInsertPages(pages[i:(i + 200)])
+		}
+		if err != nil {
+			return errors.Wrap(err, "failed to bulk insert pages")
+		}
 	}
 	return nil
 }

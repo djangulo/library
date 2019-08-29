@@ -51,6 +51,33 @@ func AssertAuthorStoreCalls(t *testing.T, store *StubStore, id string, want int)
 	}
 }
 
+// AssertBookInsertCalls noqa
+func AssertBookInsertCalls(t *testing.T, store *StubStore, key string, want int) {
+	t.Helper()
+	got := store.InsertBookCalls[key]
+	if got != want {
+		t.Errorf("got %d want %d calls", got, want)
+	}
+}
+
+// AssertPageInsertCalls noqa
+func AssertPageInsertCalls(t *testing.T, store *StubStore, key string, want int) {
+	t.Helper()
+	got := store.InsertPageCalls[key]
+	if got != want {
+		t.Errorf("got %d want %d calls", got, want)
+	}
+}
+
+// AssertAuthorInsertCalls noqa
+func AssertAuthorInsertCalls(t *testing.T, store *StubStore, key string, want int) {
+	t.Helper()
+	got := store.InsertAuthorCalls[key]
+	if got != want {
+		t.Errorf("got %d want %d calls", got, want)
+	}
+}
+
 // AssertBookCacheCalls noqa
 func AssertBookCacheCalls(t *testing.T, store *StubCache, id string, want int) {
 	t.Helper()

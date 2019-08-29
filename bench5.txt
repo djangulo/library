@@ -1,0 +1,59 @@
+2019/08/29 00:47:32 No results from query
+2019/08/29 00:47:32 No results from query
+2019/08/29 00:47:32 No results from query
+2019/08/29 00:47:32 No results from query
+2019/08/29 00:47:32 No results from query
+2019/08/29 00:47:32 No results from query
+2019/08/29 00:47:32 No results from query
+2019/08/29 00:47:32 No results from query
+2019/08/29 00:47:32 No results from query
+2019/08/29 00:47:32 No results from query
+goos: linux
+goarch: amd64
+pkg: github.com/djangulo/library/books
+BenchmarkServer/with_cache/book_by_id-8         	    5000	    335808 ns/op
+BenchmarkServer/with_cache/book_by_slug-8       	    5000	    339220 ns/op
+BenchmarkServer/with_cache/page_by_id-8         	    5000	    262945 ns/op
+BenchmarkServer/with_cache/page_by_book+number-8         	    5000	    302866 ns/op
+BenchmarkServer/with_cache/author_by_id-8                	   10000	    225542 ns/op
+BenchmarkServer/with_cache/author_by_name_w_name-8       	    5000	    248032 ns/op
+BenchmarkServer/with_cache/author_by_name_w_slug-8       	    5000	    247070 ns/op
+BenchmarkServer/with_cache/allBook-8                     	    2000	    873978 ns/op
+BenchmarkServer/with_cache/allBook_w_limit-8             	    3000	    412081 ns/op
+BenchmarkServer/with_cache/allBook_w_offset-8            	    2000	    795789 ns/op
+BenchmarkServer/with_cache/allBook_by_author-8           	    3000	    448392 ns/op
+BenchmarkServer/with_cache/allPage_1-8                   	      50	  25606265 ns/op
+BenchmarkServer/with_cache/allPage_2-8                   	      50	  24483505 ns/op
+BenchmarkServer/with_cache/allPage_3-8                   	      50	  25705087 ns/op
+BenchmarkServer/with_cache/allPage_4-8                   	      50	  25833534 ns/op
+BenchmarkServer/with_cache/allPage_5-8                   	     200	   9423994 ns/op
+BenchmarkServer/with_cache/allPage_limit_override-8      	      50	  27835418 ns/op
+BenchmarkServer/with_cache/allPage_w_limit-8             	    5000	    327027 ns/op
+BenchmarkServer/with_cache/allPage_w_offset-8            	      50	  25483430 ns/op
+BenchmarkServer/with_cache/allAuthor-8                   	    5000	    324395 ns/op
+BenchmarkServer/with_cache/allAuthor_w_limit-8           	    5000	    253717 ns/op
+BenchmarkServer/with_cache/allAuthor_w_offset-8          	    5000	    315749 ns/op
+BenchmarkServer/no_cache/book_by_id-8                    	    2000	   1096689 ns/op
+BenchmarkServer/no_cache/book_by_slug-8                  	    2000	   1066623 ns/op
+BenchmarkServer/no_cache/page_by_id-8                    	    2000	    983153 ns/op
+BenchmarkServer/no_cache/page_by_book+number-8           	    1000	   1382139 ns/op
+BenchmarkServer/no_cache/author_by_id-8                  	    2000	    843275 ns/op
+BenchmarkServer/no_cache/author_by_name_w_name-8         	    2000	    890793 ns/op
+BenchmarkServer/no_cache/author_by_name_w_slug-8         	    2000	    917198 ns/op
+BenchmarkServer/no_cache/allBook-8                       	    1000	   1778540 ns/op
+BenchmarkServer/no_cache/allBook_w_limit-8               	    2000	   1133881 ns/op
+BenchmarkServer/no_cache/allBook_w_offset-8              	    1000	   1686746 ns/op
+BenchmarkServer/no_cache/allBook_by_author-8             	    1000	   1442770 ns/op
+BenchmarkServer/no_cache/allPage_1-8                     	      30	  38792848 ns/op
+BenchmarkServer/no_cache/allPage_2-8                     	      50	  34908558 ns/op
+BenchmarkServer/no_cache/allPage_3-8                     	      50	  38393192 ns/op
+BenchmarkServer/no_cache/allPage_4-8                     	      50	  38107469 ns/op
+BenchmarkServer/no_cache/allPage_5-8                     	     100	  14854653 ns/op
+BenchmarkServer/no_cache/allPage_limit_override-8        	      30	  41670161 ns/op
+BenchmarkServer/no_cache/allPage_w_limit-8               	    2000	   1018021 ns/op
+BenchmarkServer/no_cache/allPage_w_offset-8              	      30	  39199171 ns/op
+BenchmarkServer/no_cache/allAuthor-8                     	    2000	    746172 ns/op
+BenchmarkServer/no_cache/allAuthor_w_limit-8             	    3000	    613896 ns/op
+BenchmarkServer/no_cache/allAuthor_w_offset-8            	    2000	    835187 ns/op
+PASS
+ok  	github.com/djangulo/library/books	82.731s

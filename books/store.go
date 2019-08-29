@@ -14,6 +14,8 @@ import (
 var (
 	// ErrSQLStoreUnavailable returned if SQL store is unavailable
 	ErrSQLStoreUnavailable = errors.New("Attempted to access unavailable SQL connection")
+	// ErrNoResults If a query returns empty
+	ErrNoResults = errors.New("No results from query")
 )
 
 // SQLStore houses the PostgreSQL connection

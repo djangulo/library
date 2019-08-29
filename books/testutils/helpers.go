@@ -9,7 +9,7 @@ import (
 	config "github.com/djangulo/library/config/books"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/golang-migrate/migrate/v4/source/file" // noqa
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // unneded namespace
 	"io"

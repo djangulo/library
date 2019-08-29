@@ -17,8 +17,8 @@ const (
 )
 
 func TestGetRoot(t *testing.T) {
-	store := testutils.NewStubStore(true)
-	cache := testutils.NewStubStore(true)
+	store := testutils.NewStubStore(testutils.Available, testutils.PrepopulateStore)
+	cache := testutils.NewStubStore(testutils.Available, testutils.PrepopulateStore)
 	server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
 	t.Run("redirects to /en on /", func(t *testing.T) {
 
@@ -87,14 +87,20 @@ func TestGraphQLQueries(t *testing.T) {
 		{"allAuthor w offset", fmt.Sprintf(`{"query":"{allAuthor(offset:3){%s}}"}`, authorFields), tAuthors[3]},
 	}
 
-	t.Run("with cache", func(t *testing.T) {
-		store := testutils.NewStubStore(true)
-		cache := testutils.NewStubStore(true)
-
-		server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
+	t.Run("with prepopulated cache", func(t *testing.T) {
+		// Cache is  available and prepopulated:
+		// 		assert store is not called (cache takes over)
+		// 		assert cache is called
+		// 		assert no insertions are run
+		// 		assert correctness
 
 		for _, c := range cases {
 			t.Run(c.name, func(t *testing.T) {
+				store := testutils.NewStubStore(testutils.Available, testutils.PrepopulateStore)
+				cache := testutils.NewStubStore(testutils.Available, testutils.PrepopulateStore)
+
+				server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
+
 				stream := []byte(c.query)
 				request := testutils.NewJSONPostRequest("/graphql", stream)
 				response := httptest.NewRecorder()
@@ -107,40 +113,162 @@ func TestGraphQLQueries(t *testing.T) {
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
+						testutils.AssertBookStoreCalls(t, store, "list", 0)
+						testutils.AssertBookStoreCalls(t, cache, "list", 1)
+						testutils.AssertBookInsertCalls(t, cache, "bulk", 0)
 					} else {
 						got := testutils.GetBookFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got.ID, want.ID)
+						testutils.AssertBookStoreCalls(t, store, want.ID.String(), 0)
+						testutils.AssertBookStoreCalls(t, cache, want.ID.String(), 1)
+						testutils.AssertBookInsertCalls(t, cache, want.ID.String(), 0)
 					}
 				case books.Page:
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllPageFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
+						testutils.AssertPageStoreCalls(t, store, "list", 0)
+						testutils.AssertPageStoreCalls(t, cache, "list", 1)
+						testutils.AssertPageInsertCalls(t, cache, "bulk", 0)
 					} else {
 						got := testutils.GetPageFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got.ID, want.ID)
+						testutils.AssertPageStoreCalls(t, store, want.ID.String(), 0)
+						testutils.AssertPageStoreCalls(t, cache, want.ID.String(), 1)
+						testutils.AssertPageInsertCalls(t, cache, want.ID.String(), 0)
 					}
 				case books.Author:
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllAuthorFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
+						testutils.AssertAuthorStoreCalls(t, store, "list", 0)
+						testutils.AssertAuthorStoreCalls(t, cache, "list", 1)
+						testutils.AssertAuthorInsertCalls(t, cache, "bulk", 0)
 					} else {
 						got := testutils.GetAuthorFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got.ID, want.ID)
+						testutils.AssertAuthorStoreCalls(t, store, want.ID.String(), 0)
+						testutils.AssertAuthorStoreCalls(t, cache, want.ID.String(), 1)
+						testutils.AssertAuthorInsertCalls(t, cache, want.ID.String(), 0)
 					}
 				case int:
 					if strings.Contains(strings.ToLower(c.name), "book") {
 						if got := testutils.GetAllBookFromGraphQLResponse(t, response.Body); len(got) > 0 {
 							testutils.AssertIntsEqual(t, len(got), want)
+							testutils.AssertBookStoreCalls(t, store, "list", 0)
+							testutils.AssertBookStoreCalls(t, cache, "list", 1)
+							testutils.AssertBookInsertCalls(t, cache, "bulk", 0)
 						}
 					}
 					if strings.Contains(strings.ToLower(c.name), "page") {
 						if got := testutils.GetAllPageFromGraphQLResponse(t, response.Body); len(got) > 0 {
 							testutils.AssertIntsEqual(t, len(got), want)
+							testutils.AssertPageStoreCalls(t, store, "list", 0)
+							testutils.AssertPageStoreCalls(t, cache, "list", 1)
+							testutils.AssertPageInsertCalls(t, cache, "bulk", 0)
 						}
 					}
 					if strings.Contains(strings.ToLower(c.name), "Author") {
 						if got := testutils.GetAllAuthorFromGraphQLResponse(t, response.Body); len(got) > 0 {
 							testutils.AssertIntsEqual(t, len(got), want)
+							testutils.AssertAuthorStoreCalls(t, store, "list", 0)
+							testutils.AssertAuthorStoreCalls(t, cache, "list", 1)
+							testutils.AssertAuthorInsertCalls(t, cache, "bulk", 0)
+						}
+					}
+				}
+
+			})
+		}
+	})
+
+	t.Run("with non-prepopulated cache", func(t *testing.T) {
+		// Cache is available but unpopulated:
+		// 		assert store is called
+		// 		assert cache is NOT called
+		// 		assert cache insertions are run
+		// 		assert correctness
+
+		for _, c := range cases {
+			t.Run(c.name, func(t *testing.T) {
+				store := testutils.NewStubStore(testutils.Available, testutils.PrepopulateStore)
+				cache := testutils.NewStubStore(testutils.Available, testutils.NOPrepopulateStore)
+
+				server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
+
+				stream := []byte(c.query)
+				request := testutils.NewJSONPostRequest("/graphql", stream)
+				response := httptest.NewRecorder()
+				server.ServeHTTP(response, request)
+
+				testutils.AssertStatus(t, response, http.StatusOK)
+
+				switch want := c.want.(type) {
+				case books.Book:
+					if strings.Contains(strings.ToLower(c.name), "offset") {
+						got := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
+						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
+						testutils.AssertBookStoreCalls(t, store, "list", 1)
+						testutils.AssertBookStoreCalls(t, cache, "list", 0)
+						testutils.AssertBookInsertCalls(t, cache, "bulk", len(got))
+					} else {
+						got := testutils.GetBookFromGraphQLResponse(t, response.Body)
+						testutils.AssertUUIDsEqual(t, got.ID, want.ID)
+						testutils.AssertBookStoreCalls(t, store, want.ID.String(), 1)
+						testutils.AssertBookStoreCalls(t, cache, want.ID.String(), 0)
+						testutils.AssertBookInsertCalls(t, cache, want.ID.String(), 1)
+					}
+				case books.Page:
+					if strings.Contains(strings.ToLower(c.name), "offset") {
+						got := testutils.GetAllPageFromGraphQLResponse(t, response.Body)
+						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
+						testutils.AssertPageStoreCalls(t, store, "list", 1)
+						testutils.AssertPageStoreCalls(t, cache, "list", 0)
+						testutils.AssertPageInsertCalls(t, cache, "bulk", len(got))
+					} else {
+						got := testutils.GetPageFromGraphQLResponse(t, response.Body)
+						testutils.AssertUUIDsEqual(t, got.ID, want.ID)
+						testutils.AssertPageStoreCalls(t, store, want.ID.String(), 1)
+						testutils.AssertPageStoreCalls(t, cache, want.ID.String(), 0)
+						testutils.AssertPageInsertCalls(t, cache, want.ID.String(), 1)
+					}
+				case books.Author:
+					if strings.Contains(strings.ToLower(c.name), "offset") {
+						got := testutils.GetAllAuthorFromGraphQLResponse(t, response.Body)
+						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
+						testutils.AssertAuthorStoreCalls(t, store, "list", 1)
+						testutils.AssertAuthorStoreCalls(t, cache, "list", 0)
+						testutils.AssertAuthorInsertCalls(t, cache, "bulk", len(got))
+					} else {
+						got := testutils.GetAuthorFromGraphQLResponse(t, response.Body)
+						testutils.AssertUUIDsEqual(t, got.ID, want.ID)
+						testutils.AssertAuthorStoreCalls(t, store, want.ID.String(), 1)
+						testutils.AssertAuthorStoreCalls(t, cache, want.ID.String(), 0)
+						testutils.AssertAuthorInsertCalls(t, cache, want.ID.String(), 1)
+					}
+				case int:
+					if strings.Contains(strings.ToLower(c.name), "book") {
+						if got := testutils.GetAllBookFromGraphQLResponse(t, response.Body); len(got) > 0 {
+							testutils.AssertIntsEqual(t, len(got), want)
+							testutils.AssertBookStoreCalls(t, store, "list", 1)
+							testutils.AssertBookStoreCalls(t, cache, "list", 0)
+							testutils.AssertBookInsertCalls(t, cache, "bulk", len(got))
+						}
+					}
+					if strings.Contains(strings.ToLower(c.name), "page") {
+						if got := testutils.GetAllPageFromGraphQLResponse(t, response.Body); len(got) > 0 {
+							testutils.AssertIntsEqual(t, len(got), want)
+							testutils.AssertPageStoreCalls(t, store, "list", 1)
+							testutils.AssertPageStoreCalls(t, cache, "list", 0)
+							testutils.AssertPageInsertCalls(t, cache, "bulk", len(got))
+						}
+					}
+					if strings.Contains(strings.ToLower(c.name), "Author") {
+						if got := testutils.GetAllAuthorFromGraphQLResponse(t, response.Body); len(got) > 0 {
+							testutils.AssertIntsEqual(t, len(got), want)
+							testutils.AssertAuthorStoreCalls(t, store, "list", 1)
+							testutils.AssertAuthorStoreCalls(t, cache, "list", 0)
+							testutils.AssertAuthorInsertCalls(t, cache, "bulk", len(got))
 						}
 					}
 				}
@@ -150,13 +278,19 @@ func TestGraphQLQueries(t *testing.T) {
 	})
 
 	t.Run("no cache", func(t *testing.T) {
-		store := testutils.NewStubStore(true)
-		cache := testutils.NewStubStore(false)
-
-		server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
+		// Cache is unavailable:
+		// 		assert store is called
+		// 		assert cache is NOT called
+		// 		assert NO cache insertions are run
+		// 		assert correctness
 
 		for _, c := range cases {
 			t.Run(c.name, func(t *testing.T) {
+				store := testutils.NewStubStore(testutils.Available, testutils.PrepopulateStore)
+				cache := testutils.NewStubStore(testutils.Unavailable, testutils.NOPrepopulateStore)
+
+				server, _ := books.NewBookServer(store, cache, testutils.DummyMiddlewares, true)
+
 				stream := []byte(c.query)
 				request := testutils.NewJSONPostRequest("/graphql", stream)
 				response := httptest.NewRecorder()
@@ -169,43 +303,71 @@ func TestGraphQLQueries(t *testing.T) {
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
+						testutils.AssertBookStoreCalls(t, store, "list", 1)
+						testutils.AssertBookStoreCalls(t, cache, "list", 0)
+						testutils.AssertBookInsertCalls(t, cache, "bulk", 0)
 					} else {
 						got := testutils.GetBookFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got.ID, want.ID)
+						testutils.AssertBookStoreCalls(t, store, want.ID.String(), 1)
+						testutils.AssertBookStoreCalls(t, cache, want.ID.String(), 0)
+						testutils.AssertBookInsertCalls(t, cache, want.ID.String(), 0)
 					}
 				case books.Page:
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllPageFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
+						testutils.AssertPageStoreCalls(t, store, "list", 1)
+						testutils.AssertPageStoreCalls(t, cache, "list", 0)
+						testutils.AssertPageInsertCalls(t, cache, "bulk", 0)
 					} else {
 						got := testutils.GetPageFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got.ID, want.ID)
+						testutils.AssertPageStoreCalls(t, store, want.ID.String(), 1)
+						testutils.AssertPageStoreCalls(t, cache, want.ID.String(), 0)
+						testutils.AssertPageInsertCalls(t, cache, want.ID.String(), 0)
 					}
 				case books.Author:
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllAuthorFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
+						testutils.AssertAuthorStoreCalls(t, store, "list", 1)
+						testutils.AssertAuthorStoreCalls(t, cache, "list", 0)
+						testutils.AssertAuthorInsertCalls(t, cache, "bulk", 0)
 					} else {
 						got := testutils.GetAuthorFromGraphQLResponse(t, response.Body)
 						testutils.AssertUUIDsEqual(t, got.ID, want.ID)
+						testutils.AssertAuthorStoreCalls(t, store, want.ID.String(), 1)
+						testutils.AssertAuthorStoreCalls(t, cache, want.ID.String(), 0)
+						testutils.AssertAuthorInsertCalls(t, cache, want.ID.String(), 0)
 					}
 				case int:
 					if strings.Contains(strings.ToLower(c.name), "book") {
 						if got := testutils.GetAllBookFromGraphQLResponse(t, response.Body); len(got) > 0 {
 							testutils.AssertIntsEqual(t, len(got), want)
+							testutils.AssertBookStoreCalls(t, store, "list", 1)
+							testutils.AssertBookStoreCalls(t, cache, "list", 0)
+							testutils.AssertBookInsertCalls(t, cache, "bulk", 0)
 						}
 					}
 					if strings.Contains(strings.ToLower(c.name), "page") {
 						if got := testutils.GetAllPageFromGraphQLResponse(t, response.Body); len(got) > 0 {
 							testutils.AssertIntsEqual(t, len(got), want)
+							testutils.AssertPageStoreCalls(t, store, "list", 1)
+							testutils.AssertPageStoreCalls(t, cache, "list", 0)
+							testutils.AssertPageInsertCalls(t, cache, "bulk", 0)
 						}
 					}
 					if strings.Contains(strings.ToLower(c.name), "Author") {
 						if got := testutils.GetAllAuthorFromGraphQLResponse(t, response.Body); len(got) > 0 {
 							testutils.AssertIntsEqual(t, len(got), want)
+							testutils.AssertAuthorStoreCalls(t, store, "list", 1)
+							testutils.AssertAuthorStoreCalls(t, cache, "list", 0)
+							testutils.AssertAuthorInsertCalls(t, cache, "bulk", 0)
 						}
 					}
 				}
+
 			})
 		}
 	})

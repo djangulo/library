@@ -43,6 +43,7 @@ type StubCache struct {
 	AuthorQueries map[string][]books.Author
 }
 
+// IsAvailable noqa
 func (s *StubCache) IsAvailable() error {
 	return s.Available
 }
@@ -232,6 +233,7 @@ func (s *StubCache) GetAuthorQuery(key string) ([]books.Author, error) {
 	return s.AuthorQueries[key], nil
 }
 
+// InsertBook noqa
 func (s *StubCache) InsertBook(book books.Book) error {
 	if book.ID != uuid.Nil {
 		s.books = append(s.books, book)
@@ -240,6 +242,7 @@ func (s *StubCache) InsertBook(book books.Book) error {
 	return errors.New("Invalid book")
 }
 
+// InsertPage noqa
 func (s *StubCache) InsertPage(page books.Page) error {
 	if page.ID != uuid.Nil {
 		s.pages = append(s.pages, page)
@@ -248,6 +251,7 @@ func (s *StubCache) InsertPage(page books.Page) error {
 	return errors.New("Invalid page")
 }
 
+// InsertAuthor noqa
 func (s *StubCache) InsertAuthor(author books.Author) error {
 	if author.ID != uuid.Nil {
 		s.authors = append(s.authors, author)
