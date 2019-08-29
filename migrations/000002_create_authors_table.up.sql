@@ -1,5 +1,0 @@
-CREATE TABLE IF NOT EXISTS authors (
-    id UUID PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    slug VARCHAR(100) UNIQUE
-)

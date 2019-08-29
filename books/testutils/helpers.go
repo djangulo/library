@@ -128,7 +128,8 @@ func NewTestSQLStore(config *config.Config, database string) (*books.SQLStore, f
 		defer migrateConn.Close()
 		driver, err := postgres.WithInstance(migrateConn, &postgres.Config{})
 		m, err := migrate.NewWithDatabaseInstance(
-			"file://"+config.Project.Dirs.Migrations,
+			// "file://"+config.Project.Dirs.Migrations,
+			"file://../migrations",
 			"postgres",
 			driver,
 		)

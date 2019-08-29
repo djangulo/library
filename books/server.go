@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"net/http"
 	"path/filepath"
+	"time"
 )
 
 var (
@@ -28,16 +29,16 @@ type BookServer struct {
 // Store noqa
 type Store interface {
 	IsAvailable() error
-	Books(int, int) ([]Book, error)
-	BookByID(uuid.UUID) (Book, error)
-	BookBySlug(string) (Book, error)
-	BooksByAuthor(string) ([]Book, error)
-	Pages(int, int) ([]Page, error)
-	PageByID(uuid.UUID) (Page, error)
-	PageByBookAndNumber(uuid.UUID, int) (Page, error)
-	Authors(int, int) ([]Author, error)
-	AuthorByID(uuid.UUID) (Author, error)
-	AuthorBySlug(string) (Author, error)
+	Books(int, int, uuid.UUID, time.Time, []string) ([]Book, error)
+	BookByID(uuid.UUID, []string) (Book, error)
+	BookBySlug(string, []string) (Book, error)
+	BooksByAuthor(string, int, int, uuid.UUID, time.Time, []string) ([]Book, error)
+	Pages(int, int, uuid.UUID, time.Time, []string) ([]Page, error)
+	PageByID(uuid.UUID, []string) (Page, error)
+	PageByBookAndNumber(uuid.UUID, int, []string) (Page, error)
+	Authors(int, int, uuid.UUID, time.Time, []string) ([]Author, error)
+	AuthorByID(uuid.UUID, []string) (Author, error)
+	AuthorBySlug(string, []string) (Author, error)
 	InsertBook(Book) error
 	InsertPage(Page) error
 	InsertAuthor(Author) error
@@ -146,14 +147,24 @@ func (b *BookServer) serveIndex(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, fmt.Sprintf("problem opening %s %v", templatePath, err), 400)
 	}
-	sampleBook, _ := b.Store.Books(1, 0)
-	samplePage, _ := b.Store.Pages(1, 0)
-	sampleAuthor, _ := b.Store.Authors(1, 0)
+
+	var sampleBooks []Book
+	var sampleAuthors []Author
+	var samplePages []Page
+	if err := b.Cache.IsAvailable(); err != nil {
+		sampleBooks, _ = b.Cache.Books(1, 0, uuid.Nil, time.Time{}, []string{"id"})
+		samplePages, _ = b.Cache.Pages(1, 0, uuid.Nil, time.Time{}, []string{"id"})
+		sampleAuthors, _ = b.Cache.Authors(1, 0, uuid.Nil, time.Time{}, []string{"id"})
+	} else {
+		sampleBooks, _ = b.Store.Books(1, 0, uuid.Nil, time.Time{}, []string{"id"})
+		samplePages, _ = b.Store.Pages(1, 0, uuid.Nil, time.Time{}, []string{"id"})
+		sampleAuthors, _ = b.Store.Authors(1, 0, uuid.Nil, time.Time{}, []string{"id"})
+	}
 
 	data := IndexData(
-		sampleBook[0].ID.String(),
-		samplePage[0].ID.String(),
-		sampleAuthor[0].ID.String(),
+		sampleBooks[0].ID.String(),
+		samplePages[0].ID.String(),
+		sampleAuthors[0].ID.String(),
 	)
 	tmpl.Execute(w, data[langCode])
 

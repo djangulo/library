@@ -57,6 +57,15 @@ var authorType = graphql.NewObject(
 			"slug": &graphql.Field{
 				Type: graphql.String,
 			},
+			"created_at": &graphql.Field{
+				Type: graphql.DateTime,
+			},
+			"updated_at": &graphql.Field{
+				Type: graphql.DateTime,
+			},
+			"deleted_at": &graphql.Field{
+				Type: graphql.DateTime,
+			},
 		},
 	},
 )
@@ -89,6 +98,15 @@ var bookType = graphql.NewObject(
 			"page_count": &graphql.Field{
 				Type: graphql.Int,
 			},
+			"created_at": &graphql.Field{
+				Type: graphql.DateTime,
+			},
+			"updated_at": &graphql.Field{
+				Type: graphql.DateTime,
+			},
+			"deleted_at": &graphql.Field{
+				Type: graphql.DateTime,
+			},
 		},
 	},
 )
@@ -108,6 +126,15 @@ var pageType = graphql.NewObject(
 			},
 			"book_id": &graphql.Field{
 				Type: graphql.String,
+			},
+			"created_at": &graphql.Field{
+				Type: graphql.DateTime,
+			},
+			"updated_at": &graphql.Field{
+				Type: graphql.DateTime,
+			},
+			"deleted_at": &graphql.Field{
+				Type: graphql.DateTime,
 			},
 		},
 	},
@@ -160,6 +187,16 @@ func (b *BookServer) NewRootQuery() *RootQuery {
 								Type:        graphql.String,
 								Description: "Filter by author",
 							},
+							"last_created_at": &graphql.ArgumentConfig{
+								Type: graphql.String,
+								Description: "Last 'created_at' field of the " +
+									"previous query (to be used with 'id' in pagination)",
+							},
+							"last_id": &graphql.ArgumentConfig{
+								Type: graphql.String,
+								Description: "Last 'id' field of the previous" +
+									" query (to be used with 'created_at' in pagination)",
+							},
 						},
 					},
 					"page": &graphql.Field{
@@ -197,6 +234,16 @@ func (b *BookServer) NewRootQuery() *RootQuery {
 								DefaultValue: 0,
 								Description:  "Offset query",
 							},
+							"last_created_at": &graphql.ArgumentConfig{
+								Type: graphql.String,
+								Description: "Last 'created_at' field of the " +
+									"previous query (to be used with 'id' in pagination)",
+							},
+							"last_id": &graphql.ArgumentConfig{
+								Type: graphql.String,
+								Description: "Last 'id' field of the previous" +
+									" query (to be used with 'created_at' in pagination)",
+							},
 						},
 					},
 					"author": &graphql.Field{
@@ -228,6 +275,16 @@ func (b *BookServer) NewRootQuery() *RootQuery {
 								Type:         graphql.Int,
 								DefaultValue: 0,
 								Description:  "Offset query",
+							},
+							"last_created_at": &graphql.ArgumentConfig{
+								Type: graphql.String,
+								Description: "Last 'created_at' field of the " +
+									"previous query (to be used with 'id' in pagination)",
+							},
+							"last_id": &graphql.ArgumentConfig{
+								Type: graphql.String,
+								Description: "Last 'id' field of the previous" +
+									" query (to be used with 'created_at' in pagination)",
 							},
 						},
 					},

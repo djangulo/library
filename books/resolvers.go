@@ -1,16 +1,48 @@
 package books
 
 import (
+	"fmt"
 	"github.com/gofrs/uuid"
 	"github.com/graphql-go/graphql"
+	"github.com/graphql-go/graphql/language/ast"
 	"github.com/pkg/errors"
 	"log"
+	"time"
 )
+
+func getSelectedFields(selectionPath []string,
+	resolveParams graphql.ResolveParams) []string {
+	fields := resolveParams.Info.FieldASTs
+	for _, propName := range selectionPath {
+		found := false
+		for _, field := range fields {
+			if field.Name.Value == propName {
+				selections := field.SelectionSet.Selections
+				fields = make([]*ast.Field, 0)
+				for _, selection := range selections {
+					fields = append(fields, selection.(*ast.Field))
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			return []string{}
+		}
+	}
+	collect := make([]string, 0)
+	for _, field := range fields {
+		collect = append(collect, field.Name.Value)
+	}
+	return collect
+}
 
 // BookResolver GraphqlResolver for `book` queries
 func (b *BookServer) BookResolver(p graphql.ResolveParams) (interface{}, error) {
 	id, idOK := p.Args["id"].(string)
 	slug, slugOK := p.Args["slug"].(string)
+
+	fields := getSelectedFields([]string{"book"}, p)
 
 	switch {
 	case idOK:
@@ -20,7 +52,7 @@ func (b *BookServer) BookResolver(p graphql.ResolveParams) (interface{}, error) 
 		}
 
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			book, err := b.Cache.BookByID(uid)
+			book, err := b.Cache.BookByID(uid, fields)
 			if err != nil {
 				log.Println(err)
 			}
@@ -28,7 +60,7 @@ func (b *BookServer) BookResolver(p graphql.ResolveParams) (interface{}, error) 
 				return book, nil
 			}
 		}
-		book, err := b.Store.BookByID(uid)
+		book, err := b.Store.BookByID(uid, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
@@ -43,7 +75,7 @@ func (b *BookServer) BookResolver(p graphql.ResolveParams) (interface{}, error) 
 	case slugOK:
 
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			book, err := b.Cache.BookBySlug(slug)
+			book, err := b.Cache.BookBySlug(slug, fields)
 			if err != nil {
 				log.Println(err)
 			}
@@ -51,7 +83,7 @@ func (b *BookServer) BookResolver(p graphql.ResolveParams) (interface{}, error) 
 				return book, nil
 			}
 		}
-		book, err := b.Store.BookBySlug(slug)
+		book, err := b.Store.BookBySlug(slug, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
@@ -73,6 +105,10 @@ func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, erro
 	limit, limitOK := p.Args["limit"].(int)
 	offset, offsetOK := p.Args["offset"].(int)
 	author, authorOK := p.Args["author"].(string)
+	lastID, lastIDOK := p.Args["last_id"].(string)
+	lastCreated, lastCreatedOK := p.Args["last_created_at"].(string)
+
+	fields := getSelectedFields([]string{"allBook"}, p)
 
 	var lim int
 	if limitOK {
@@ -87,10 +123,46 @@ func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, erro
 	} else {
 		off = 0
 	}
+
+	var err error
+
+	var uid uuid.UUID
+	if lastIDOK {
+		uid, err = uuid.FromString(lastID)
+		if err != nil {
+			return nil, errors.Wrap(
+				err,
+				fmt.Sprintf("error parsing UUID (last_id): %v", lastID),
+			)
+		}
+	}
+
+	var timestamp time.Time
+	if lastCreatedOK {
+		timestamp, err = time.Parse(time.RFC3339, lastCreated)
+		if err != nil {
+			return nil, errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"error parsing datetime (last_created_at): %v",
+					lastCreated,
+				),
+			)
+		}
+	}
+
 	switch {
 	case authorOK:
+		var books []Book
+		var err error
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			books, err := b.Cache.BooksByAuthor(author)
+			if lastIDOK && lastCreatedOK {
+				books, err = b.Cache.BooksByAuthor(
+					author, lim, 0, uid, timestamp, fields)
+			} else {
+				books, err = b.Cache.BooksByAuthor(author,
+					lim, off, uuid.Nil, time.Time{}, fields)
+			}
 			if err != nil {
 				log.Println(err)
 			}
@@ -98,7 +170,13 @@ func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, erro
 				return books, nil
 			}
 		}
-		books, err := b.Store.BooksByAuthor(author)
+		if lastIDOK && lastCreatedOK {
+			books, err = b.Store.BooksByAuthor(
+				author, lim, 0, uid, timestamp, fields)
+		} else {
+			books, err = b.Store.BooksByAuthor(author,
+				lim, off, uuid.Nil, time.Time{}, fields)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
@@ -110,8 +188,14 @@ func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, erro
 		}
 		return books, nil
 	default:
+		var books []Book
+		var err error
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			books, err := b.Cache.Books(lim, off)
+			if lastIDOK && lastCreatedOK {
+				books, err = b.Cache.Books(lim, 0, uid, timestamp, fields)
+			} else {
+				books, err = b.Cache.Books(lim, off, uuid.Nil, time.Time{}, fields)
+			}
 			if err != nil {
 				log.Println(err)
 			}
@@ -119,7 +203,11 @@ func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, erro
 				return books, nil
 			}
 		}
-		books, err := b.Store.Books(lim, off)
+		if lastIDOK && lastCreatedOK {
+			books, err = b.Store.Books(lim, 0, uid, timestamp, fields)
+		} else {
+			books, err = b.Store.Books(lim, off, uuid.Nil, time.Time{}, fields)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
@@ -139,6 +227,8 @@ func (b *BookServer) PageResolver(p graphql.ResolveParams) (interface{}, error) 
 	bookID, bookIDOK := p.Args["book_id"].(string)
 	number, numberOK := p.Args["number"].(int)
 
+	fields := getSelectedFields([]string{"page"}, p)
+
 	switch {
 	case idOK:
 		uid, err := uuid.FromString(id)
@@ -147,7 +237,7 @@ func (b *BookServer) PageResolver(p graphql.ResolveParams) (interface{}, error) 
 		}
 
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			page, err := b.Cache.PageByID(uid)
+			page, err := b.Cache.PageByID(uid, fields)
 			if err != nil {
 				log.Println(err)
 			}
@@ -155,7 +245,7 @@ func (b *BookServer) PageResolver(p graphql.ResolveParams) (interface{}, error) 
 				return page, nil
 			}
 		}
-		page, err := b.Store.PageByID(uid)
+		page, err := b.Store.PageByID(uid, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
@@ -173,7 +263,7 @@ func (b *BookServer) PageResolver(p graphql.ResolveParams) (interface{}, error) 
 			return nil, errors.Wrap(err, "error parsing UUID")
 		}
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			page, err := b.Cache.PageByBookAndNumber(bookUUID, number)
+			page, err := b.Cache.PageByBookAndNumber(bookUUID, number, fields)
 			if err != nil {
 				log.Println(err)
 			}
@@ -181,7 +271,7 @@ func (b *BookServer) PageResolver(p graphql.ResolveParams) (interface{}, error) 
 				return page, nil
 			}
 		}
-		page, err := b.Store.PageByBookAndNumber(bookUUID, number)
+		page, err := b.Store.PageByBookAndNumber(bookUUID, number, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
@@ -202,6 +292,10 @@ func (b *BookServer) PageResolver(p graphql.ResolveParams) (interface{}, error) 
 func (b *BookServer) AllPageResolver(p graphql.ResolveParams) (interface{}, error) {
 	limit, limitOK := p.Args["limit"].(int)
 	offset, offsetOK := p.Args["offset"].(int)
+	lastID, lastIDOK := p.Args["last_id"].(string)
+	lastCreated, lastCreatedOK := p.Args["last_created_at"].(string)
+
+	fields := getSelectedFields([]string{"allPage"}, p)
 
 	var lim int
 	if limitOK {
@@ -216,10 +310,44 @@ func (b *BookServer) AllPageResolver(p graphql.ResolveParams) (interface{}, erro
 	} else {
 		off = 0
 	}
+
+	var err error
+
+	var uid uuid.UUID
+	if lastIDOK {
+		uid, err = uuid.FromString(lastID)
+		if err != nil {
+			return nil, errors.Wrap(
+				err,
+				fmt.Sprintf("error parsing UUID (last_id): %v", lastID),
+			)
+		}
+	}
+
+	var timestamp time.Time
+	if lastCreatedOK {
+		timestamp, err = time.Parse(time.RFC3339, lastCreated)
+		if err != nil {
+			return nil, errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"error parsing datetime (last_created_at): %v",
+					lastCreated,
+				),
+			)
+		}
+	}
+
 	switch {
 	default:
+		var pages []Page
+		var err error
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			pages, err := b.Cache.Pages(lim, off)
+			if lastIDOK && lastCreatedOK {
+				pages, err = b.Cache.Pages(lim, 0, uid, timestamp, fields)
+			} else {
+				pages, err = b.Cache.Pages(lim, off, uuid.Nil, time.Time{}, fields)
+			}
 			if err != nil {
 				log.Println(err)
 			}
@@ -227,7 +355,11 @@ func (b *BookServer) AllPageResolver(p graphql.ResolveParams) (interface{}, erro
 				return pages, nil
 			}
 		}
-		pages, err := b.Store.Pages(lim, off)
+		if lastIDOK && lastCreatedOK {
+			pages, err = b.Store.Pages(lim, 0, uid, timestamp, fields)
+		} else {
+			pages, err = b.Store.Pages(lim, off, uuid.Nil, time.Time{}, fields)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
@@ -246,6 +378,8 @@ func (b *BookServer) AuthorResolver(p graphql.ResolveParams) (interface{}, error
 	id, idOK := p.Args["id"].(string)
 	name, nameOK := p.Args["name"].(string)
 
+	fields := getSelectedFields([]string{"author"}, p)
+
 	switch {
 	case idOK:
 		uid, err := uuid.FromString(id)
@@ -254,7 +388,7 @@ func (b *BookServer) AuthorResolver(p graphql.ResolveParams) (interface{}, error
 		}
 
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			author, err := b.Cache.AuthorByID(uid)
+			author, err := b.Cache.AuthorByID(uid, fields)
 			if err != nil {
 				log.Println(err)
 			}
@@ -262,7 +396,7 @@ func (b *BookServer) AuthorResolver(p graphql.ResolveParams) (interface{}, error
 				return author, nil
 			}
 		}
-		author, err := b.Store.AuthorByID(uid)
+		author, err := b.Store.AuthorByID(uid, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
@@ -277,7 +411,7 @@ func (b *BookServer) AuthorResolver(p graphql.ResolveParams) (interface{}, error
 	case nameOK:
 
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			author, err := b.Cache.AuthorBySlug(name)
+			author, err := b.Cache.AuthorBySlug(name, fields)
 			if err != nil {
 				log.Println(err)
 			}
@@ -285,7 +419,7 @@ func (b *BookServer) AuthorResolver(p graphql.ResolveParams) (interface{}, error
 				return author, nil
 			}
 		}
-		author, err := b.Store.AuthorBySlug(name)
+		author, err := b.Store.AuthorBySlug(name, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
@@ -306,6 +440,10 @@ func (b *BookServer) AuthorResolver(p graphql.ResolveParams) (interface{}, error
 func (b *BookServer) AllAuthorResolver(p graphql.ResolveParams) (interface{}, error) {
 	limit, limitOK := p.Args["limit"].(int)
 	offset, offsetOK := p.Args["offset"].(int)
+	lastID, lastIDOK := p.Args["last_id"].(string)
+	lastCreated, lastCreatedOK := p.Args["last_created_at"].(string)
+
+	fields := getSelectedFields([]string{"allPage"}, p)
 
 	var lim int
 	if limitOK {
@@ -320,10 +458,44 @@ func (b *BookServer) AllAuthorResolver(p graphql.ResolveParams) (interface{}, er
 	} else {
 		off = 0
 	}
+
+	var err error
+
+	var uid uuid.UUID
+	if lastIDOK {
+		uid, err = uuid.FromString(lastID)
+		if err != nil {
+			return nil, errors.Wrap(
+				err,
+				fmt.Sprintf("error parsing UUID (last_id): %v", lastID),
+			)
+		}
+	}
+
+	var timestamp time.Time
+	if lastCreatedOK {
+		timestamp, err = time.Parse(time.RFC3339, lastCreated)
+		if err != nil {
+			return nil, errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"error parsing datetime (last_created_at): %v",
+					lastCreated,
+				),
+			)
+		}
+	}
+
 	switch {
 	default:
+		var authors []Author
+		var err error
 		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			authors, err := b.Cache.Authors(lim, off)
+			if lastIDOK && lastCreatedOK {
+				authors, err = b.Cache.Authors(lim, 0, uid, timestamp, fields)
+			} else {
+				authors, err = b.Cache.Authors(lim, off, uuid.Nil, time.Time{}, fields)
+			}
 			if err != nil {
 				log.Println(err)
 			}
@@ -331,7 +503,11 @@ func (b *BookServer) AllAuthorResolver(p graphql.ResolveParams) (interface{}, er
 				return authors, nil
 			}
 		}
-		authors, err := b.Store.Authors(lim, off)
+		if lastIDOK && lastCreatedOK {
+			authors, err = b.Store.Authors(lim, 0, uid, timestamp, fields)
+		} else {
+			authors, err = b.Store.Authors(lim, off, uuid.Nil, time.Time{}, fields)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}

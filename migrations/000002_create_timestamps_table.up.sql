@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS stamps (
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NULL,
+    deleted_at TIMESTAMPTZ NULL
+)

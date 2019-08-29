@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -48,6 +49,9 @@ func GutenbergMeta(line string, assignID bool) (Author, Book) {
 	var author Author
 	loc := metadataRegex.FindAllSubmatch([]byte(line), -1)
 	book.Source = NewNullString("nltk-gutenberg")
+	now := time.Now()
+	book.CreatedAt = now
+	book.UpdatedAt = now
 	if assignID {
 		book.ID = uuid.Must(uuid.NewV4())
 	}
@@ -61,6 +65,8 @@ func GutenbergMeta(line string, assignID bool) (Author, Book) {
 			author.Name = strings.Trim(auth, " ")
 			author.Slug = Slugify(auth, "-")
 			author.ID = uuid.Must(uuid.NewV4())
+			author.CreatedAt = now
+			author.UpdatedAt = now
 			book.AuthorID = NewNullUUID(author.ID.String())
 		} else {
 			book.AuthorID = NewNullUUID("")
@@ -223,10 +229,13 @@ func ParseFile(path string, linesPerPage int, verbose bool) (Author, Book, []Pag
 			counter++
 		}
 		if counter == (linesPerPage - 1) {
+			now := time.Now()
 			page.Body = body
 			page.PageNumber = pageNumber
 			page.BookID = &book.ID
 			page.ID = uuid.Must(uuid.NewV4())
+			page.CreatedAt = now
+			page.UpdatedAt = now
 
 			pages = append(pages, page)
 
@@ -465,6 +474,7 @@ func TxError(tx *sql.Tx, err error, wrapMsg string) error {
 	return nil
 }
 
+// AuthorSeedData noqa
 func AuthorSeedData(config *config.Config) ([]Author, error) {
 	path := fp.Join(
 		config.Project.Dirs.Seed,
@@ -494,6 +504,7 @@ func AuthorSeedData(config *config.Config) ([]Author, error) {
 	return authors, nil
 }
 
+// BookSeedData noqa
 func BookSeedData(config *config.Config) ([]Book, error) {
 	path := fp.Join(
 		config.Project.Dirs.Seed,
@@ -523,6 +534,7 @@ func BookSeedData(config *config.Config) ([]Book, error) {
 	return books, nil
 }
 
+// PageSeedData noqa
 func PageSeedData(config *config.Config) ([]Page, error) {
 	path := fp.Join(
 		config.Project.Dirs.Seed,
@@ -565,12 +577,14 @@ func seedAuthors(tx *sql.Tx, authors []Author) error {
 	}
 	for _, a := range authors {
 		_, err = tx.Exec(
-			`INSERT INTO authors (id, name, slug)
-			VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
+			`INSERT INTO authors (id, name, slug, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING;
 			`,
 			a.ID,
 			a.Name,
 			a.Slug,
+			a.CreatedAt,
+			a.UpdatedAt,
 		)
 		if err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -620,9 +634,11 @@ func seedBooks(tx *sql.Tx, books []Book) error {
 				page_count,
 				file,
 				author_id,
-				source
+				source,
+				created_at,
+				updated_at
 			)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;`,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT DO NOTHING;`,
 			b.ID,
 			b.Title,
 			b.Slug,
@@ -631,6 +647,8 @@ func seedBooks(tx *sql.Tx, books []Book) error {
 			b.File,
 			b.AuthorID,
 			b.Source,
+			b.CreatedAt,
+			b.UpdatedAt,
 		)
 		if err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -676,14 +694,18 @@ func seedPages(tx *sql.Tx, pages []Page) error {
 				id,
 				page_number,
 				body,
-				book_id
+				book_id,
+				created_at,
+				updated_at
 			)
-			VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;
+			VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING;
 			`,
 			p.ID,
 			p.PageNumber,
 			p.Body,
 			p.BookID,
+			p.CreatedAt,
+			p.UpdatedAt,
 		)
 		if err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
