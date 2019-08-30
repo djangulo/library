@@ -46,26 +46,25 @@ func (b *BookServer) BookResolver(p graphql.ResolveParams) (interface{}, error) 
 
 	switch {
 	case idOK:
+		var book Book
 		uid, err := uuid.FromString(id)
 		if err != nil {
 			return nil, errors.Wrap(err, "error parsing UUID")
 		}
 
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			book, err := b.Cache.BookByID(uid, fields)
-			if err != nil {
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			if err := b.Cache.BookByID(&book, &uid, fields); err != nil {
 				log.Println(err)
-			}
-			if book.ID != uuid.Nil {
+			} else {
 				return book, nil
 			}
 		}
-		book, err := b.Store.BookByID(uid, fields)
+		err = b.Store.BookByID(&book, &uid, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.InsertBook(book)
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			err = b.Cache.InsertBook(&book)
 			if err != nil {
 				log.Println(err)
 			}
@@ -73,22 +72,21 @@ func (b *BookServer) BookResolver(p graphql.ResolveParams) (interface{}, error) 
 		return book, nil
 
 	case slugOK:
+		var book Book
 
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			book, err := b.Cache.BookBySlug(slug, fields)
-			if err != nil {
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			if err := b.Cache.BookBySlug(&book, &slug, fields); err != nil {
 				log.Println(err)
-			}
-			if book.ID != uuid.Nil {
+			} else {
 				return book, nil
 			}
 		}
-		book, err := b.Store.BookBySlug(slug, fields)
+		err := b.Store.BookBySlug(&book, &slug, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.InsertBook(book)
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			err = b.Cache.InsertBook(&book)
 			if err != nil {
 				log.Println(err)
 			}
@@ -153,69 +151,94 @@ func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, erro
 
 	switch {
 	case authorOK:
-		var books []Book
+		books := make([]*Book, 0)
 		var err error
+		var key string
 
-		// query cache disabled
-		// if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-		// 	if lastIDOK && lastCreatedOK {
-		// 		books, err = b.Cache.BooksByAuthor(
-		// 			author, lim, 0, uid, timestamp, fields)
-		// 	} else {
-		// 		books, err = b.Cache.BooksByAuthor(author,
-		// 			lim, off, uuid.Nil, time.Time{}, fields)
-		// 	}
-		// 	if err != nil {
-		// 		log.Println(err)
-		// 	}
-		// 	// cache return only if it meets expectations
-		// 	if len(books) == lim {
-		// 		return books, nil
-		// 	}
-		// }
 		if lastIDOK && lastCreatedOK {
-			books, err = b.Store.BooksByAuthor(
-				author, lim, 0, uid, timestamp, fields)
+			if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+				key = fmt.Sprintf(
+					"BooksByAuthor(%s,%d,%d,%v,%v,%v)",
+					author, lim, 0, uid, timestamp, fields,
+				)
+				if err := b.Cache.BookQuery(&books, key); err != nil {
+					log.Println(err)
+				}
+				if len(books) > 0 {
+					return books, nil
+				}
+			}
+			var zero int
+			err = b.Store.BooksByAuthor(books,
+				&author, &lim, &zero, &uid, &timestamp, fields)
 		} else {
-			books, err = b.Store.BooksByAuthor(author,
-				lim, off, uuid.Nil, time.Time{}, fields)
+			if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+				key = fmt.Sprintf(
+					"BooksByAuthor(%s,%d,%d,%v,%v,%v)",
+					author, lim, off, uuid.Nil, timestamp, fields,
+				)
+				if err := b.Cache.BookQuery(&books, key); err != nil {
+					log.Println(err)
+				}
+				if len(books) > 0 {
+					return books, nil
+				}
+			}
+			err = b.Store.BooksByAuthor(books,
+				&author, &lim, &off, &uuid.UUID{}, &time.Time{}, fields)
 		}
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.BulkInsertBooks(books)
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			err = b.Cache.SaveBookQuery(key, books)
 			if err != nil {
 				log.Println(err)
 			}
 		}
 		return books, nil
 	default:
-		var books []Book
+		books := make([]*Book, 0)
 		var err error
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			if lastIDOK && lastCreatedOK {
-				books, err = b.Cache.Books(lim, 0, uid, timestamp, fields)
-			} else {
-				books, err = b.Cache.Books(lim, off, uuid.Nil, time.Time{}, fields)
-			}
-			if err != nil {
-				log.Println(err)
-			}
-			if books != nil {
-				return books, nil
-			}
-		}
+		var key string
+
 		if lastIDOK && lastCreatedOK {
-			books, err = b.Store.Books(lim, 0, uid, timestamp, fields)
+			if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+				key = fmt.Sprintf(
+					"Books(%d,%d,%v,%v,%v)",
+					lim, 0, uid, timestamp, fields,
+				)
+				if err := b.Cache.BookQuery(&books, key); err != nil {
+					log.Println(err)
+				}
+				if len(books) > 0 {
+					return books, nil
+				}
+			}
+			var zero int
+			err = b.Store.Books(books,
+				&lim, &zero, &uid, &timestamp, fields)
 		} else {
-			books, err = b.Store.Books(lim, off, uuid.Nil, time.Time{}, fields)
+			if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+				key = fmt.Sprintf(
+					"Books(%d,%d,%v,%v,%v)",
+					lim, off, uuid.Nil, timestamp, fields,
+				)
+				if err := b.Cache.BookQuery(&books, key); err != nil {
+					log.Println(err)
+				}
+				if len(books) > 0 {
+					return books, nil
+				}
+			}
+			err = b.Store.Books(books,
+				&lim, &off, &uuid.UUID{}, &time.Time{}, fields)
 		}
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.BulkInsertBooks(books)
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			err = b.Cache.SaveBookQuery(key, books)
 			if err != nil {
 				log.Println(err)
 			}
@@ -234,26 +257,25 @@ func (b *BookServer) PageResolver(p graphql.ResolveParams) (interface{}, error) 
 
 	switch {
 	case idOK:
+		var page Page
 		uid, err := uuid.FromString(id)
 		if err != nil {
 			return nil, errors.Wrap(err, "error parsing UUID")
 		}
 
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			page, err := b.Cache.PageByID(uid, fields)
-			if err != nil {
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			if err := b.Cache.PageByID(&page, &uid, fields); err != nil {
 				log.Println(err)
-			}
-			if page.ID != uuid.Nil {
+			} else {
 				return page, nil
 			}
 		}
-		page, err := b.Store.PageByID(uid, fields)
+		err = b.Store.PageByID(&page, &uid, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.InsertPage(page)
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			err = b.Cache.InsertPage(&page)
 			if err != nil {
 				log.Println(err)
 			}
@@ -261,25 +283,29 @@ func (b *BookServer) PageResolver(p graphql.ResolveParams) (interface{}, error) 
 		return page, nil
 
 	case bookIDOK && numberOK:
-		bookUUID, err := uuid.FromString(bookID)
+		var page Page
+		uid, err := uuid.FromString(bookID)
 		if err != nil {
 			return nil, errors.Wrap(err, "error parsing UUID")
 		}
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			page, err := b.Cache.PageByBookAndNumber(bookUUID, number, fields)
-			if err != nil {
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			if err := b.Cache.PageByBookAndNumber(
+				&page,
+				&uid,
+				&number,
+				fields,
+			); err != nil {
 				log.Println(err)
-			}
-			if page.ID != uuid.Nil {
+			} else {
 				return page, nil
 			}
 		}
-		page, err := b.Store.PageByBookAndNumber(bookUUID, number, fields)
+		err = b.Store.PageByBookAndNumber(&page, &uid, &number, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.InsertPage(page)
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			err = b.Cache.InsertPage(&page)
 			if err != nil {
 				log.Println(err)
 			}
@@ -343,31 +369,47 @@ func (b *BookServer) AllPageResolver(p graphql.ResolveParams) (interface{}, erro
 
 	switch {
 	default:
-		var pages []Page
+		pages := make([]*Page, 0)
 		var err error
-		// if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-		// 	if lastIDOK && lastCreatedOK {
-		// 		pages, err = b.Cache.Pages(lim, 0, uid, timestamp, fields)
-		// 	} else {
-		// 		pages, err = b.Cache.Pages(lim, off, uuid.Nil, time.Time{}, fields)
-		// 	}
-		// 	if err != nil {
-		// 		log.Println(err)
-		// 	}
-		// 	if pages != nil {
-		// 		return pages, nil
-		// 	}
-		// }
+		var key string
+
 		if lastIDOK && lastCreatedOK {
-			pages, err = b.Store.Pages(lim, 0, uid, timestamp, fields)
+			if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+				key = fmt.Sprintf(
+					"Pages(%d,%d,%v,%v,%v)",
+					lim, 0, uid, timestamp, fields,
+				)
+				if err := b.Cache.PageQuery(&pages, key); err != nil {
+					log.Println(err)
+				}
+				if len(pages) > 0 {
+					return pages, nil
+				}
+			}
+			var zero int
+			err = b.Store.Pages(pages,
+				&lim, &zero, &uid, &timestamp, fields)
 		} else {
-			pages, err = b.Store.Pages(lim, off, uuid.Nil, time.Time{}, fields)
+			if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+				key = fmt.Sprintf(
+					"Pages(%d,%d,%v,%v,%v)",
+					lim, off, uuid.Nil, timestamp, fields,
+				)
+				if err := b.Cache.PageQuery(&pages, key); err != nil {
+					log.Println(err)
+				}
+				if len(pages) > 0 {
+					return pages, nil
+				}
+			}
+			err = b.Store.Pages(pages,
+				&lim, &off, &uuid.UUID{}, &time.Time{}, fields)
 		}
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.BulkInsertPages(pages)
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			err = b.Cache.SavePageQuery(key, pages)
 			if err != nil {
 				log.Println(err)
 			}
@@ -385,26 +427,25 @@ func (b *BookServer) AuthorResolver(p graphql.ResolveParams) (interface{}, error
 
 	switch {
 	case idOK:
+		var author Author
 		uid, err := uuid.FromString(id)
 		if err != nil {
 			return nil, errors.Wrap(err, "error parsing UUID")
 		}
 
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			author, err := b.Cache.AuthorByID(uid, fields)
-			if err != nil {
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			if err := b.Cache.AuthorByID(&author, &uid, fields); err != nil {
 				log.Println(err)
-			}
-			if author.ID != uuid.Nil {
+			} else {
 				return author, nil
 			}
 		}
-		author, err := b.Store.AuthorByID(uid, fields)
+		err = b.Store.AuthorByID(&author, &uid, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.InsertAuthor(author)
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			err = b.Cache.InsertAuthor(&author)
 			if err != nil {
 				log.Println(err)
 			}
@@ -413,21 +454,21 @@ func (b *BookServer) AuthorResolver(p graphql.ResolveParams) (interface{}, error
 
 	case nameOK:
 
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			author, err := b.Cache.AuthorBySlug(name, fields)
-			if err != nil {
+		var author Author
+
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			if err := b.Cache.AuthorBySlug(&author, &name, fields); err != nil {
 				log.Println(err)
-			}
-			if author.ID != uuid.Nil {
+			} else {
 				return author, nil
 			}
 		}
-		author, err := b.Store.AuthorBySlug(name, fields)
+		err := b.Store.AuthorBySlug(&author, &name, fields)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.InsertAuthor(author)
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			err = b.Cache.InsertAuthor(&author)
 			if err != nil {
 				log.Println(err)
 			}
@@ -446,7 +487,7 @@ func (b *BookServer) AllAuthorResolver(p graphql.ResolveParams) (interface{}, er
 	lastID, lastIDOK := p.Args["last_id"].(string)
 	lastCreated, lastCreatedOK := p.Args["last_created_at"].(string)
 
-	fields := getSelectedFields([]string{"allPage"}, p)
+	fields := getSelectedFields([]string{"allAuthor"}, p)
 
 	var lim int
 	if limitOK {
@@ -491,31 +532,47 @@ func (b *BookServer) AllAuthorResolver(p graphql.ResolveParams) (interface{}, er
 
 	switch {
 	default:
-		var authors []Author
+		authors := make([]*Author, 0)
 		var err error
-		// if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-		// 	if lastIDOK && lastCreatedOK {
-		// 		authors, err = b.Cache.Authors(lim, 0, uid, timestamp, fields)
-		// 	} else {
-		// 		authors, err = b.Cache.Authors(lim, off, uuid.Nil, time.Time{}, fields)
-		// 	}
-		// 	if err != nil {
-		// 		log.Println(err)
-		// 	}
-		// 	if authors != nil {
-		// 		return authors, nil
-		// 	}
-		// }
+		var key string
+
 		if lastIDOK && lastCreatedOK {
-			authors, err = b.Store.Authors(lim, 0, uid, timestamp, fields)
+			if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+				key = fmt.Sprintf(
+					"Authors(%d,%d,%v,%v,%v)",
+					lim, 0, uid, timestamp, fields,
+				)
+				if err := b.Cache.AuthorQuery(&authors, key); err != nil {
+					log.Println(err)
+				}
+				if len(authors) > 0 {
+					return authors, nil
+				}
+			}
+			var zero int
+			err = b.Store.Authors(authors,
+				&lim, &zero, &uid, &timestamp, fields)
 		} else {
-			authors, err = b.Store.Authors(lim, off, uuid.Nil, time.Time{}, fields)
+			if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+				key = fmt.Sprintf(
+					"Authors(%d,%d,%v,%v,%v)",
+					lim, off, uuid.Nil, timestamp, fields,
+				)
+				if err := b.Cache.AuthorQuery(&authors, key); err != nil {
+					log.Println(err)
+				}
+				if len(authors) > 0 {
+					return authors, nil
+				}
+			}
+			err = b.Store.Authors(authors,
+				&lim, &off, &uuid.UUID{}, &time.Time{}, fields)
 		}
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get from db")
 		}
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			err = b.Cache.BulkInsertAuthors(authors)
+		if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+			err = b.Cache.SaveAuthorQuery(key, authors)
 			if err != nil {
 				log.Println(err)
 			}

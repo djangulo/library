@@ -52,11 +52,10 @@ func main() {
 	store, removeStore := books.NewSQLStore(cnf.Database["main"])
 	defer removeStore()
 
-	cache, dropCache := books.NewInMemoryStore("main", true)
-	defer dropCache()
-	// if err != nil {
-	// 	log.Fatalf("could not create cache %v", err)
-	// }
+	cache, err := books.NewRedisCache(cnf.Cache["main"])
+	if err != nil {
+		log.Println("could not create cache %v, initalizing as unavailable", err)
+	}
 
 	server, err := books.NewBookServer(store, cache, middlewares, devMode)
 	if err != nil {

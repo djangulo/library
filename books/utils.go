@@ -25,6 +25,7 @@ import (
 var (
 	firstLineRegex = regexp.MustCompile(`^\[.*(\] ?)$`)
 	metadataRegex  = regexp.MustCompile(`^\[([a-zA-Z\s'-]+)\,? (by|By)? ([\s.a-zA-Z]+)?\s?([\d]+)?(\] ?)$`)
+	ErrNotASubset  = errors.New("B is not a subset of A")
 )
 
 // Slugify returns a slug-compatible version, separated by slugChar
@@ -41,6 +42,22 @@ func Slugify(str string, slugChar string) string {
 	result = edge2.ReplaceAll(result, []byte(""))
 	result = multiple.ReplaceAll(result, []byte(slugChar))
 	return string(result)
+}
+
+// IsSubset determines if B is a subset of A
+func IsSubset(A, B []string) error {
+	set := make(map[string]struct{})
+	for _, value := range A {
+		set[value] = struct{}{}
+	}
+
+	for _, value := range B {
+		if _, ok := set[value]; !ok {
+			return ErrNotASubset
+		}
+	}
+
+	return nil
 }
 
 // GutenbergMeta extract metadata from the gutenberg format

@@ -19,58 +19,57 @@ var (
 
 // BookServer GraphQL Server for book storage
 type BookServer struct {
-	Store        Store
-	Cache        Store
+	Store        Storer
+	Cache        Cacher
 	templatesDir string
 	http.Handler
 	rootQuery *RootQuery
 }
 
-// Store noqa
-type Store interface {
-	IsAvailable() error
-	Books(int, int, uuid.UUID, time.Time, []string) ([]Book, error)
-	BookByID(uuid.UUID, []string) (Book, error)
-	BookBySlug(string, []string) (Book, error)
-	BooksByAuthor(string, int, int, uuid.UUID, time.Time, []string) ([]Book, error)
-	Pages(int, int, uuid.UUID, time.Time, []string) ([]Page, error)
-	PageByID(uuid.UUID, []string) (Page, error)
-	PageByBookAndNumber(uuid.UUID, int, []string) (Page, error)
-	Authors(int, int, uuid.UUID, time.Time, []string) ([]Author, error)
-	AuthorByID(uuid.UUID, []string) (Author, error)
-	AuthorBySlug(string, []string) (Author, error)
-	InsertBook(Book) error
-	InsertPage(Page) error
-	InsertAuthor(Author) error
-	BulkInsertBooks([]Book) error
-	BulkInsertPages([]Page) error
-	BulkInsertAuthors([]Author) error
+// Storer noqa
+type Storer interface {
+	AuthorByID(*Author, *uuid.UUID, []string) error
+	AuthorBySlug(*Author, *string, []string) error
+	Authors([]*Author, *int, *int, *uuid.UUID, *time.Time, []string) error
+	BookByID(*Book, *uuid.UUID, []string) error
+	BookBySlug(*Book, *string, []string) error
+	Books([]*Book, *int, *int, *uuid.UUID, *time.Time, []string) error
+	BooksByAuthor([]*Book, *string, *int, *int, *uuid.UUID, *time.Time, []string) error
+	BulkInsertAuthors([]*Author) error
+	BulkInsertBooks([]*Book) error
+	BulkInsertPages([]*Page) error
+	InsertAuthor(*Author) error
+	InsertBook(*Book) error
+	InsertPage(*Page) error
+	PageByBookAndNumber(*Page, *uuid.UUID, *int, []string) error
+	PageByID(*Page, *uuid.UUID, []string) error
+	Pages([]*Page, *int, *int, *uuid.UUID, *time.Time, []string) error
 }
 
-// Cache noqa
-type Cache interface {
+// Cacher noqa
+type Cacher interface {
+	AuthorByID(*Author, *uuid.UUID, []string) error
+	AuthorBySlug(*Author, *string, []string) error
+	AuthorQuery(*[]*Author, string) error
+	BookByID(*Book, *uuid.UUID, []string) error
+	BookBySlug(*Book, *string, []string) error
+	BookQuery(*[]*Book, string) error
+	InsertAuthor(*Author) error
+	InsertBook(*Book) error
+	InsertPage(*Page) error
 	IsAvailable() error
-	BookByID(uuid.UUID) (Book, error)
-	BookBySlug(string) (Book, error)
-	GetBookQuery(string) ([]Book, error)
-	SaveBookQuery(string, []Book) error
-	GetPageQuery(string) ([]Page, error)
-	SavePageQuery(string, []Page) error
-	GetAuthorQuery(string) ([]Author, error)
-	SaveAuthorQuery(string, []Author) error
-	InsertBook(Book) error
-	InsertPage(Page) error
-	InsertAuthor(Author) error
-	PageByID(uuid.UUID) (Page, error)
-	PageByBookAndNumber(uuid.UUID, int) (Page, error)
-	AuthorByID(uuid.UUID) (Author, error)
-	AuthorBySlug(string) (Author, error)
+	PageByBookAndNumber(*Page, *uuid.UUID, *int, []string) error
+	PageByID(*Page, *uuid.UUID, []string) error
+	PageQuery(*[]*Page, string) error
+	SaveAuthorQuery(string, []*Author) error
+	SaveBookQuery(string, []*Book) error
+	SavePageQuery(string, []*Page) error
 }
 
 // NewBookServer returns a new server instance
 func NewBookServer(
-	store Store,
-	cache Store,
+	store Storer,
+	cache Cacher,
 	middlewares []func(http.Handler) http.Handler,
 	developmentMode bool,
 ) (*BookServer, error) {
@@ -109,14 +108,6 @@ func NewBookServer(
 	return b, nil
 }
 
-// type LanguageCode struct {
-// 	languageCode string `json:"languageCode"`
-// }
-
-// func (l LanguageCode) String() string {
-// 	return fmt.Sprintf("%v", string(l.languageCode))
-// }
-
 type languageKey int
 
 var langKey languageKey = 100000001
@@ -148,17 +139,27 @@ func (b *BookServer) serveIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("problem opening %s %v", templatePath, err), 400)
 	}
 
-	var sampleBooks []Book
-	var sampleAuthors []Author
-	var samplePages []Page
+	var sampleBooks []*Book
+	var sampleAuthors []*Author
+	var samplePages []*Page
 	if err := b.Cache.IsAvailable(); err != nil {
-		sampleBooks, _ = b.Cache.Books(1, 0, uuid.Nil, time.Time{}, []string{"id"})
-		samplePages, _ = b.Cache.Pages(1, 0, uuid.Nil, time.Time{}, []string{"id"})
-		sampleAuthors, _ = b.Cache.Authors(1, 0, uuid.Nil, time.Time{}, []string{"id"})
+		b.Cache.AuthorQuery(&sampleAuthors, fmt.Sprintf(
+			"Authors(%d,%d,%v,%v,%v)",
+			1, 0, uuid.Nil, time.Time{}, []string{"id"},
+		))
+		b.Cache.BookQuery(&sampleBooks, fmt.Sprintf(
+			"Books(%d,%d,%v,%v,%v)",
+			1, 0, uuid.Nil, time.Time{}, []string{"id"},
+		))
+		b.Cache.PageQuery(&samplePages, fmt.Sprintf(
+			"Pages(%d,%d,%v,%v,%v)",
+			1, 0, uuid.Nil, time.Time{}, []string{"id"},
+		))
 	} else {
-		sampleBooks, _ = b.Store.Books(1, 0, uuid.Nil, time.Time{}, []string{"id"})
-		samplePages, _ = b.Store.Pages(1, 0, uuid.Nil, time.Time{}, []string{"id"})
-		sampleAuthors, _ = b.Store.Authors(1, 0, uuid.Nil, time.Time{}, []string{"id"})
+		one, zero, nilUUID := new(int), new(int), uuid.Nil
+		b.Store.Authors(sampleAuthors, one, zero, &nilUUID, &time.Time{}, []string{"id"})
+		b.Store.Books(sampleBooks, one, zero, &nilUUID, &time.Time{}, []string{"id"})
+		b.Store.Pages(samplePages, one, zero, &nilUUID, &time.Time{}, []string{"id"})
 	}
 
 	data := IndexData(

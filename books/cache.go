@@ -57,179 +57,233 @@ func NewRedisCache(config config.CacheConfig) (*RedisCache, error) {
 }
 
 // BookByID fetches a book by ID
-func (r *RedisCache) BookByID(ID uuid.UUID) (Book, error) {
+func (r *RedisCache) BookByID(
+	book *Book,
+	ID *uuid.UUID,
+	fields []string,
+) error {
 	match := fmt.Sprintf("book:*:%s", ID.String())
-
-	fields := []string{"id", "title", "slug", "file", "source", "publication_year", "page_count", "author_id"}
 	keys := r.Client.Scan(0, match, 0).Iterator()
 	for keys.Next() {
 		key := keys.Val()
+		availableFields, err := r.Client.HKeys(key).Result()
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
+		}
+		if err := IsSubset(fields, availableFields); err != nil {
+			return errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"missing requested fields in key %v, has: %v, want %v",
+					key,
+					availableFields,
+					fields,
+				),
+			)
+		}
 		result, err := r.Client.HMGet(key, fields...).Result()
 		if err != nil {
-			return Book{}, errors.Wrap(err, fmt.Sprintf("could not HMGET id: %v", key))
+			return errors.Wrap(err, fmt.Sprintf("could not HMGET key: %v", key))
 		}
-		// fmt.Printf("\n\nresults: %+v\n\n", result)
-		book, err := unvectorizeBook(fields, result)
+		err = UnhashBook(book, fields, result)
 		if err != nil {
-			return Book{}, errors.Wrap(err, "could parse HMGet results")
+			return errors.Wrap(err, "could parse HMGet results")
 		}
-		return book, nil
 	}
-	return Book{}, nil
-
+	return nil
 }
 
-// BookBySlug fetches a book by slug
-func (r *RedisCache) BookBySlug(slug string) (Book, error) {
-
-	slug = Slugify(slug, "-")
-	match := fmt.Sprintf("book:%s:*", slug)
-
-	fields := []string{"id", "title", "slug", "file", "source", "publication_year", "page_count", "author_id"}
+// BookBySlug fetches a book by ID
+func (r *RedisCache) BookBySlug(
+	book *Book,
+	slug *string,
+	fields []string,
+) error {
+	*slug = Slugify(*slug, "-")
+	match := fmt.Sprintf("book:%s:*", *slug)
 	keys := r.Client.Scan(0, match, 0).Iterator()
 	for keys.Next() {
 		key := keys.Val()
+		availableFields, err := r.Client.HKeys(key).Result()
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
+		}
+		if err := IsSubset(fields, availableFields); err != nil {
+			return errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"missing requested fields in key %v, has: %v, want %v",
+					key,
+					availableFields,
+					fields,
+				),
+			)
+		}
 		result, err := r.Client.HMGet(key, fields...).Result()
 		if err != nil {
-			return Book{}, errors.Wrap(err, fmt.Sprintf("could not HMGET id: %v", key))
+			return errors.Wrap(err, fmt.Sprintf("could not HMGET key: %v", key))
 		}
-		// fmt.Printf("\n\nresults: %+v\n\n", result)
-		book, err := unvectorizeBook(fields, result)
+		err = UnhashBook(book, fields, result)
 		if err != nil {
-			return Book{}, errors.Wrap(err, "could parse HMGet results")
+			return errors.Wrap(err, "could parse HMGet results")
 		}
-		return book, nil
 	}
-	return Book{}, nil
-}
-
-// Pages fetches a list of pages, offset is ignored
-func (r *RedisCache) Pages(limit, offset int) ([]Page, error) {
-	var lim int
-	if limit == -1 {
-		lim = 1000
-	} else {
-		lim = limit
-	}
-	pages := make([]Page, 0)
-	keys := r.Client.Scan(0, "page:*", int64(lim)).Iterator()
-	for keys.Next() {
-		strBytes, err := r.Client.Get(keys.Val()).Result()
-		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("could not scan key '%v'", keys.Val()))
-		}
-
-		var page Page
-		err = json.Unmarshal([]byte(strBytes), &page)
-		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal key '%v'", keys.Val()))
-		}
-		pages = append(pages, page)
-	}
-	return pages, nil
+	return nil
 }
 
 // PageByID fetches a page by ID
-func (r *RedisCache) PageByID(ID uuid.UUID) (Page, error) {
-
-	str, err := r.Client.Get("page:" + ID.String()).Result()
-	if err != nil {
-		return Page{}, errors.Wrap(err, "could not GET page")
-	}
-
-	b := []byte(str)
-
-	var page Page
-	err = json.Unmarshal(b, &page)
-	if err != nil {
-		return Page{}, errors.Wrap(err, "could not unmarshal page JSON")
-	}
-
-	return page, nil
-}
-
-// PageByBookAndNumber returns a page by book id and number
-func (r *RedisCache) PageByBookAndNumber(bookID uuid.UUID, number int) (Page, error) {
-	pageKeys := r.Client.Scan(0, "page:*", 0).Iterator()
-	for pageKeys.Next() {
-		strBytes, err := r.Client.Get(pageKeys.Val()).Result()
-		if err != nil {
-			return Page{}, errors.Wrap(err, fmt.Sprintf("could not scan key '%v'", pageKeys.Val()))
-		}
-
-		var page Page
-		err = json.Unmarshal([]byte(strBytes), &page)
-		if err != nil {
-			return Page{}, errors.Wrap(err, fmt.Sprintf("failed to unmarshal key '%v'", pageKeys.Val()))
-		}
-		if page.BookID.String() == bookID.String() && page.PageNumber == number {
-			return page, nil
-		}
-	}
-	return Page{}, ErrNotFoundInCache
-}
-
-// AuthorByID fetches an auhtor by ID
-func (r *RedisCache) AuthorByID(ID uuid.UUID) (Author, error) {
-	match := fmt.Sprintf("author:*:%s", ID.String())
-	keys := r.Client.Scan(0, match, 0).Iterator()
-	for keys.Next() {
-		_, id, err := parseBookID(keys.Val())
-		if err != nil {
-			return Author{}, errors.Wrap(err, fmt.Sprintf("could not parse author cache ID: %v", keys.Val()))
-		}
-		if id == ID {
-			strBytes, err := r.Client.Get(keys.Val()).Result()
-			if err != nil {
-				return Author{}, errors.Wrap(err, fmt.Sprintf("could not GET id: %v", keys.Val()))
-			}
-			var author Author
-			err = json.Unmarshal([]byte(strBytes), &author)
-			if err != nil {
-				return Author{}, errors.Wrap(err, fmt.Sprintf("could not unmarshal json into instance of Author, json: %v", strBytes))
-			}
-			return author, nil
-		}
-
-	}
-	return Author{}, nil
-}
-
-// AuthorBySlug fetches an author by slug
-func (r *RedisCache) AuthorBySlug(slug string) (Author, error) {
-	slug = Slugify(slug, "-")
-
-	match := fmt.Sprintf("author%s:*", slug)
+func (r *RedisCache) PageByID(
+	page *Page,
+	ID *uuid.UUID,
+	fields []string,
+) error {
+	match := fmt.Sprintf("page:%s:*", ID.String())
 	keys := r.Client.Scan(0, match, 0).Iterator()
 	for keys.Next() {
 		key := keys.Val()
-		authorSlug, _, err := parseAuthorID(key)
+		availableFields, err := r.Client.HKeys(key).Result()
 		if err != nil {
-			log.Println(errors.Wrap(err, fmt.Sprintf("could not parse author cache ID: %v", key)))
-			continue
+			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
 		}
-		if strings.Contains(authorSlug, slug) {
-			strBytes, err := r.Client.Get(key).Result()
-			if err != nil {
-				log.Println(errors.Wrap(err, fmt.Sprintf("could not scan key: %v", key)))
-				return Author{}, errors.Wrap(err, fmt.Sprintf("could not scan key: %v", key))
-			}
-			var author Author
-			err = json.Unmarshal([]byte(strBytes), &author)
-			if err != nil {
-				log.Println(errors.Wrap(err, fmt.Sprintf("failed to unmarshal key '%v'", key)))
-				return Author{}, errors.Wrap(err, fmt.Sprintf("failed to unmarshal key '%v'", key))
-			}
-			return author, nil
+		if err := IsSubset(fields, availableFields); err != nil {
+			return errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"missing requested fields in key %v, has: %v, want %v",
+					key,
+					availableFields,
+					fields,
+				),
+			)
+		}
+		result, err := r.Client.HMGet(key, fields...).Result()
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("could not HMGET key: %v", key))
+		}
+		err = UnhashPage(page, fields, result)
+		if err != nil {
+			return errors.Wrap(err, "could parse HMGet results")
 		}
 	}
-	return Author{}, nil
+	return nil
+}
+
+// PageByBookAndNumber returns a page by book id and number
+func (r *RedisCache) PageByBookAndNumber(
+	page *Page,
+	bookID *uuid.UUID,
+	number *int,
+	fields []string,
+) error {
+	match := fmt.Sprintf("page:*:%s:%d", bookID.String(), *number)
+	keys := r.Client.Scan(0, match, 0).Iterator()
+	for keys.Next() {
+		key := keys.Val()
+		availableFields, err := r.Client.HKeys(key).Result()
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
+		}
+		if err := IsSubset(fields, availableFields); err != nil {
+			return errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"missing requested fields in key %v, has: %v, want %v",
+					key,
+					availableFields,
+					fields,
+				),
+			)
+		}
+		result, err := r.Client.HMGet(key, fields...).Result()
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("could not HMGET key: %v", key))
+		}
+		err = UnhashPage(page, fields, result)
+		if err != nil {
+			return errors.Wrap(err, "could parse HMGet results")
+		}
+	}
+	return nil
+}
+
+// AuthorByID fetches a book by ID
+func (r *RedisCache) AuthorByID(
+	author *Author,
+	ID *uuid.UUID,
+	fields []string,
+) error {
+	match := fmt.Sprintf("author:*:%s", ID.String())
+	keys := r.Client.Scan(0, match, 0).Iterator()
+	for keys.Next() {
+		key := keys.Val()
+		availableFields, err := r.Client.HKeys(key).Result()
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
+		}
+		if err := IsSubset(fields, availableFields); err != nil {
+			return errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"missing requested fields in key %v, has: %v, want %v",
+					key,
+					availableFields,
+					fields,
+				),
+			)
+		}
+		result, err := r.Client.HMGet(key, fields...).Result()
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("could not HMGET key: %v", key))
+		}
+		err = UnhashAuthor(author, fields, result)
+		if err != nil {
+			return errors.Wrap(err, "could parse HMGet results")
+		}
+	}
+	return nil
+}
+
+// AuthorBySlug fetches a book by ID
+func (r *RedisCache) AuthorBySlug(
+	author *Author,
+	slug *string,
+	fields []string,
+) error {
+	*slug = Slugify(*slug, "-")
+	match := fmt.Sprintf("author:%s:*", *slug)
+	keys := r.Client.Scan(0, match, 0).Iterator()
+	for keys.Next() {
+		key := keys.Val()
+		availableFields, err := r.Client.HKeys(key).Result()
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
+		}
+		if err := IsSubset(fields, availableFields); err != nil {
+			return errors.Wrap(
+				err,
+				fmt.Sprintf(
+					"missing requested fields in key %v, has: %v, want %v",
+					key,
+					availableFields,
+					fields,
+				),
+			)
+		}
+		result, err := r.Client.HMGet(key, fields...).Result()
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("could not HMGET key: %v", key))
+		}
+		err = UnhashAuthor(author, fields, result)
+		if err != nil {
+			return errors.Wrap(err, "could parse HMGet results")
+		}
+	}
+	return nil
 }
 
 // InsertBook inserts book into the cache
-func (r *RedisCache) InsertBook(book Book) error {
-
-	hash, _ := stringMapOfBook(book)
+func (r *RedisCache) InsertBook(book *Book) error {
+	hash, _ := HashBook(book)
 	cacheID, err := serializeBookID(book)
 	if err != nil {
 		return errors.Wrap(err, "could not serialize book cache ID")
@@ -238,56 +292,42 @@ func (r *RedisCache) InsertBook(book Book) error {
 	if err != nil {
 		return errors.Wrap(err, "could not HMSet book")
 	}
-
 	return nil
-
 }
 
 // InsertAuthor inserts author into the cache
-func (r *RedisCache) InsertAuthor(author Author) error {
-
-	b, err := json.Marshal(&author)
-	if err != nil {
-		return errors.Wrap(err, "could not marshal author")
-	}
-	authorCacheID, err := serializeAuthorID(author)
+func (r *RedisCache) InsertAuthor(author *Author) error {
+	hash, _ := HashAuthor(author)
+	cacheID, err := serializeAuthorID(author)
 	if err != nil {
 		return errors.Wrap(err, "could not serialize author cache ID")
 	}
-
-	err = r.Client.Set(authorCacheID, string(b), 1*time.Hour).Err()
+	err = r.Client.HMSet(cacheID, hash).Err()
 	if err != nil {
-		return errors.Wrap(err, "could not SET author")
+		return errors.Wrap(err, "could not HMSet author")
 	}
-
 	return nil
 }
 
-// InsertPage inserts book into the cache
-func (r *RedisCache) InsertPage(page Page) error {
-
-	b, err := json.Marshal(&page)
-	if err != nil {
-		return errors.Wrap(err, "could not marshal page")
-	}
-	pageCacheID, err := serializePageID(page)
+// InsertPage inserts page into the cache
+func (r *RedisCache) InsertPage(page *Page) error {
+	hash, _ := HashPage(page)
+	cacheID, err := serializePageID(page)
 	if err != nil {
 		return errors.Wrap(err, "could not serialize page cache ID")
 	}
-
-	err = r.Client.Set(pageCacheID, string(b), 1*time.Hour).Err()
+	err = r.Client.HMSet(cacheID, hash).Err()
 	if err != nil {
-		return errors.Wrap(err, "could not SET page")
+		return errors.Wrap(err, "could not HMSet page")
 	}
-
 	return nil
 }
 
 // SaveBookQuery saves a query onto the cache for easy retrieval
-func (r *RedisCache) SaveBookQuery(key string, books []Book) error {
+func (r *RedisCache) SaveBookQuery(key string, books []*Book) error {
 	b, err := json.Marshal(&books)
 	if err != nil {
-		return errors.Wrap(err, "could not marshal array of type Book")
+		return errors.Wrap(err, "could not marshal array of type []*Book")
 	}
 	err = r.Client.Set(key, string(b), 1*time.Hour).Err()
 	if err != nil {
@@ -296,28 +336,27 @@ func (r *RedisCache) SaveBookQuery(key string, books []Book) error {
 	return nil
 }
 
-// GetBookQuery retrieves a saved  query from the cache
-func (r *RedisCache) GetBookQuery(key string) ([]Book, error) {
+// BookQuery retrieves a saved  query from the cache
+func (r *RedisCache) BookQuery(books *[]*Book, key string) error {
 	str, err := r.Client.Get(key).Result()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not GET author")
+		return errors.Wrap(err, "could not GET book query")
 	}
 
 	b := []byte(str)
-	var books []Book
 	err = json.Unmarshal(b, &books)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal books JSON")
+		return errors.Wrap(err, "could not unmarshal books JSON")
 	}
 
-	return books, nil
+	return nil
 }
 
 // SavePageQuery saves a query onto the cache for easy retrieval
-func (r *RedisCache) SavePageQuery(key string, pages []Page) error {
+func (r *RedisCache) SavePageQuery(key string, pages []*Page) error {
 	b, err := json.Marshal(&pages)
 	if err != nil {
-		return errors.Wrap(err, "could not marshal array of type Page")
+		return errors.Wrap(err, "could not marshal array of type []*Page")
 	}
 	err = r.Client.Set(key, string(b), 1*time.Hour).Err()
 	if err != nil {
@@ -326,25 +365,24 @@ func (r *RedisCache) SavePageQuery(key string, pages []Page) error {
 	return nil
 }
 
-// GetPageQuery retrieves a saved  query from the cache
-func (r *RedisCache) GetPageQuery(key string) ([]Page, error) {
+// PageQuery retrieves a saved  query from the cache
+func (r *RedisCache) PageQuery(pages *[]*Page, key string) error {
 	str, err := r.Client.Get(key).Result()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not GET pages")
+		return errors.Wrap(err, "could not GET pages")
 	}
 
 	b := []byte(str)
-	var pages []Page
 	err = json.Unmarshal(b, &pages)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal pages JSON")
+		return errors.Wrap(err, "could not unmarshal pages JSON")
 	}
 
-	return pages, nil
+	return nil
 }
 
 // SaveAuthorQuery saves a query onto the cache for easy retrieval
-func (r *RedisCache) SaveAuthorQuery(key string, authors []Author) error {
+func (r *RedisCache) SaveAuthorQuery(key string, authors []*Author) error {
 	b, err := json.Marshal(&authors)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal array of type Author")
@@ -356,80 +394,32 @@ func (r *RedisCache) SaveAuthorQuery(key string, authors []Author) error {
 	return nil
 }
 
-// GetAuthorQuery retrieves a saved  query from the cache
-func (r *RedisCache) GetAuthorQuery(key string) ([]Author, error) {
+// AuthorQuery retrieves a saved  query from the cache
+func (r *RedisCache) AuthorQuery(authors *[]*Author, key string) error {
 	str, err := r.Client.Get(key).Result()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not GET Authors")
+		return errors.Wrap(err, "could not GET Authors")
 	}
 
 	b := []byte(str)
-	var authors []Author
 	err = json.Unmarshal(b, &authors)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal authors JSON")
+		return errors.Wrap(err, "could not unmarshal authors JSON")
 	}
 
-	return authors, nil
+	return nil
 }
 
-func serializeBookID(book Book) (string, error) {
-	if book.ID == uuid.Nil {
-		return "", errors.New(fmt.Sprintf("invalid book ID: %v", book.ID))
-	}
-	return fmt.Sprintf("book:%s:%s", book.Slug, book.ID.String()), nil
-}
-
-func parseBookID(bookCacheID string) (string, uuid.UUID, error) {
-	arr := strings.Split(bookCacheID, ":")
-	slug, idString := arr[1], arr[2]
-	uid, err := uuid.FromString(idString)
-	if err != nil {
-		return "", uuid.Nil, errors.Wrap(err, "could not parse uuid")
-	}
-	return slug, uid, nil
-}
-
-func serializeAuthorID(author Author) (string, error) {
-	if author.ID == uuid.Nil {
-		return "", errors.New(fmt.Sprintf("invalid author ID: %v", author.ID))
-	}
-	return fmt.Sprintf("author:%s:%s", author.Slug, author.ID.String()), nil
-}
-
-func parseAuthorID(authorCacheID string) (string, uuid.UUID, error) {
-	arr := strings.Split(authorCacheID, ":")
-	slug, idString := arr[1], arr[2]
-	uid, err := uuid.FromString(idString)
-	if err != nil {
-		return "", uuid.Nil, errors.Wrap(err, "could not parse uuid")
-	}
-	return slug, uid, nil
-}
-
-func serializePageID(page Page) (string, error) {
-	if page.ID == uuid.Nil {
-		return "", errors.New(fmt.Sprintf("invalid page ID: %v", page.ID))
-	}
-	return fmt.Sprintf("page:%s", page.ID.String()), nil
-}
-
-func parsePageID(pageCacheID string) (uuid.UUID, error) {
-	arr := strings.Split(pageCacheID, ":")
-	idString := arr[1]
-	uid, err := uuid.FromString(idString)
-	if err != nil {
-		return uuid.Nil, errors.Wrap(err, "could not parse uuid")
-	}
-	return uid, nil
-}
-
-func stringMapOfBook(book Book) (map[string]interface{}, error) {
+// HashBook safely hash a book into a Redis HMSet compatible map
+func HashBook(book *Book) (map[string]interface{}, error) {
 	b := map[string]interface{}{
 		"id":         book.ID.String(),
 		"title":      book.Title,
 		"slug":       book.Slug,
 		"page_count": strconv.Itoa(book.PageCount),
+		"created_at": book.CreatedAt.Format(time.RFC3339),
+		"updated_at": time.Now().Format(time.RFC3339),
+		"deleted_at": book.DeletedAt.Format(time.RFC3339),
 	}
 	if book.PublicationYear.Valid {
 		b["publication_year"] = strconv.Itoa(int(book.PublicationYear.Int64))
@@ -446,48 +436,37 @@ func stringMapOfBook(book Book) (map[string]interface{}, error) {
 	return b, nil
 }
 
-func unhashBook(hashmap map[string]interface{}) (Book, error) {
-	var book Book
-	for k, v := range hashmap {
-		switch v := v.(type) {
-		case string:
-			switch k {
-			case "title":
-				book.Title = v
-			case "slug":
-				book.Slug = v
-			case "page_count":
-				inty, err := strconv.Atoi(v)
-				if err != nil {
-					return Book{}, errors.Wrap(err, "could not convert page count to int")
-				}
-				book.PageCount = inty
-			case "id":
-				uid, err := uuid.FromString(v)
-				if err != nil {
-					return Book{}, errors.Wrap(err, "could not convert id to UUID")
-				}
-				book.ID = uid
-			case "publication_year":
-				inty, err := strconv.Atoi(v)
-				if err != nil {
-					return Book{}, errors.Wrap(err, "could not convert page count to int")
-				}
-				book.PublicationYear = NewNullInt64(int64(inty))
-			case "file":
-				book.File = NewNullString(v)
-			case "source":
-				book.Source = NewNullString(v)
-			case "author_id":
-				book.AuthorID = NewNullUUID(v)
-			}
-		}
-	}
-	return book, nil
+// HashPage safely hash a page into a Redis HMSet compatible map
+func HashPage(page *Page) (map[string]interface{}, error) {
+	return map[string]interface{}{
+		"id":          page.ID.String(),
+		"page_number": page.PageNumber,
+		"book_id":     page.BookID.String(),
+		"body":        page.Body,
+		"created_at":  page.CreatedAt.Format(time.RFC3339),
+		"updated_at":  time.Now().Format(time.RFC3339),
+		"deleted_at":  page.DeletedAt.Format(time.RFC3339),
+	}, nil
 }
 
-func unvectorizeBook(fields []string, results []interface{}) (Book, error) {
-	var book Book
+// HashAuthor safely hash an author into a Redis HMSet compatible map
+func HashAuthor(author *Author) (map[string]interface{}, error) {
+	return map[string]interface{}{
+		"id":         author.ID.String(),
+		"name":       author.Name,
+		"slug":       author.Slug,
+		"created_at": author.CreatedAt.Format(time.RFC3339),
+		"updated_at": time.Now().Format(time.RFC3339),
+		"deleted_at": author.DeletedAt.Format(time.RFC3339),
+	}, nil
+}
+
+// UnhashBook unhash the HMGet.Results interface into a book
+func UnhashBook(
+	book *Book,
+	fields []string,
+	results []interface{},
+) error {
 	for i, r := range results {
 		switch v := r.(type) {
 		case string:
@@ -499,19 +478,19 @@ func unvectorizeBook(fields []string, results []interface{}) (Book, error) {
 			case "page_count":
 				inty, err := strconv.Atoi(v)
 				if err != nil {
-					return Book{}, errors.Wrap(err, "could not convert page count to int")
+					return errors.Wrap(err, "could not convert page count to int")
 				}
 				book.PageCount = inty
 			case "id":
 				uid, err := uuid.FromString(v)
 				if err != nil {
-					return Book{}, errors.Wrap(err, "could not convert id to UUID")
+					return errors.Wrap(err, "could not convert id to UUID")
 				}
 				book.ID = uid
 			case "publication_year":
 				inty, err := strconv.Atoi(v)
 				if err != nil {
-					return Book{}, errors.Wrap(err, "could not convert page count to int")
+					return errors.Wrap(err, "could not convert page count to int")
 				}
 				book.PublicationYear = NewNullInt64(int64(inty))
 			case "file":
@@ -520,8 +499,182 @@ func unvectorizeBook(fields []string, results []interface{}) (Book, error) {
 				book.Source = NewNullString(v)
 			case "author_id":
 				book.AuthorID = NewNullUUID(v)
+			case "created_at":
+				t, err := time.Parse(time.RFC3339, v)
+				if err != nil {
+					return errors.Wrap(err, "could not parse timestamp onto time.Time")
+				}
+				book.CreatedAt = t
+			case "updated_at":
+				t, err := time.Parse(time.RFC3339, v)
+				if err != nil {
+					return errors.Wrap(err, "could not parse timestamp onto time.Time")
+				}
+				book.UpdatedAt = t
+			case "deleted_at":
+				t, err := time.Parse(time.RFC3339, v)
+				if err != nil {
+					return errors.Wrap(err, "could not parse timestamp onto time.Time")
+				}
+				book.DeletedAt = t
 			}
 		}
 	}
-	return book, nil
+	return nil
+}
+
+// UnhashPage unhash the HMGet.Results interface into a page
+func UnhashPage(
+	page *Page,
+	fields []string,
+	results []interface{},
+) error {
+	for i, r := range results {
+		switch v := r.(type) {
+		case string:
+			switch fields[i] {
+			case "id":
+				uid, err := uuid.FromString(v)
+				if err != nil {
+					return errors.Wrap(err, "could not convert id to UUID")
+				}
+				page.ID = uid
+			case "book_id":
+				uid, err := uuid.FromString(v)
+				if err != nil {
+					return errors.Wrap(err, "could not convert id to UUID")
+				}
+				page.BookID = &uid
+			case "page_number":
+				inty, err := strconv.Atoi(v)
+				if err != nil {
+					return errors.Wrap(err, "could not convert page count to int")
+				}
+				page.PageNumber = inty
+			case "body":
+				page.Body = v
+			case "created_at":
+				t, err := time.Parse(time.RFC3339, v)
+				if err != nil {
+					return errors.Wrap(err, "could not parse timestamp onto time.Time")
+				}
+				page.CreatedAt = t
+			case "updated_at":
+				t, err := time.Parse(time.RFC3339, v)
+				if err != nil {
+					return errors.Wrap(err, "could not parse timestamp onto time.Time")
+				}
+				page.UpdatedAt = t
+			case "deleted_at":
+				t, err := time.Parse(time.RFC3339, v)
+				if err != nil {
+					return errors.Wrap(err, "could not parse timestamp onto time.Time")
+				}
+				page.DeletedAt = t
+			}
+		}
+	}
+	return nil
+}
+
+// UnhashAuthor unhash the HMGet.Results interface into a author
+func UnhashAuthor(
+	author *Author,
+	fields []string,
+	results []interface{},
+) error {
+	for i, r := range results {
+		switch v := r.(type) {
+		case string:
+			switch fields[i] {
+			case "id":
+				uid, err := uuid.FromString(v)
+				if err != nil {
+					return errors.Wrap(err, "could not convert id to UUID")
+				}
+				author.ID = uid
+			case "slug":
+				author.Slug = v
+			case "name":
+				author.Name = v
+			case "created_at":
+				t, err := time.Parse(time.RFC3339, v)
+				if err != nil {
+					return errors.Wrap(err, "could not parse timestamp onto time.Time")
+				}
+				author.CreatedAt = t
+			case "updated_at":
+				t, err := time.Parse(time.RFC3339, v)
+				if err != nil {
+					return errors.Wrap(err, "could not parse timestamp onto time.Time")
+				}
+				author.UpdatedAt = t
+			case "deleted_at":
+				t, err := time.Parse(time.RFC3339, v)
+				if err != nil {
+					return errors.Wrap(err, "could not parse timestamp onto time.Time")
+				}
+				author.DeletedAt = t
+			}
+		}
+	}
+	return nil
+}
+
+func serializeBookID(book *Book) (string, error) {
+	if book.ID == uuid.Nil {
+		return "", errors.New(fmt.Sprintf("invalid book ID: %v", book.ID))
+	}
+	return fmt.Sprintf("book:%s:%s", book.Slug, book.ID.String()), nil
+}
+
+func parseBookID(bookCacheID string) (string, uuid.UUID, error) {
+	arr := strings.Split(bookCacheID, ":")
+	slug, idString := arr[1], arr[2]
+	uid, err := uuid.FromString(idString)
+	if err != nil {
+		return "", uuid.Nil, errors.Wrap(err, "could not parse uuid")
+	}
+	return slug, uid, nil
+}
+
+func serializeAuthorID(author *Author) (string, error) {
+	if author.ID == uuid.Nil {
+		return "", errors.New(fmt.Sprintf("invalid author ID: %v", author.ID))
+	}
+	return fmt.Sprintf("author:%s:%s", author.Slug, author.ID.String()), nil
+}
+
+func parseAuthorID(authorCacheID string) (string, uuid.UUID, error) {
+	arr := strings.Split(authorCacheID, ":")
+	slug, idString := arr[1], arr[2]
+	uid, err := uuid.FromString(idString)
+	if err != nil {
+		return "", uuid.Nil, errors.Wrap(err, "could not parse uuid")
+	}
+	return slug, uid, nil
+}
+
+func serializePageID(page *Page) (string, error) {
+	if page.ID == uuid.Nil ||
+		*page.BookID == uuid.Nil ||
+		page.PageNumber == 0 {
+		return "", errors.New(fmt.Sprintf("invalid page ID: %v", page.ID))
+	}
+	return fmt.Sprintf(
+		"page:%s:%s:%d",
+		page.ID.String(),
+		page.BookID.String(),
+		page.PageNumber,
+	), nil
+}
+
+func parsePageID(pageCacheID string) (uuid.UUID, error) {
+	arr := strings.Split(pageCacheID, ":")
+	idString := arr[1]
+	uid, err := uuid.FromString(idString)
+	if err != nil {
+		return uuid.Nil, errors.Wrap(err, "could not parse uuid")
+	}
+	return uid, nil
 }

@@ -2,6 +2,7 @@ package books_test
 
 import (
 	"github.com/djangulo/library/books"
+	"github.com/djangulo/library/books/testutils"
 	"reflect"
 	"testing"
 )
@@ -108,6 +109,27 @@ func TestGutenbergMeta(t *testing.T) {
 			}
 			if !reflect.DeepEqual(book, want) {
 				t.Errorf("\ngot:\n%v \nwant: \n%v", book, want)
+			}
+		})
+	}
+}
+
+func TestIsSubset(t *testing.T) {
+	cases := []struct {
+		name string
+		A, B []string
+		want error
+	}{
+		{"should pass", []string{"a", "b", "c", "d"}, []string{"b", "c"}, nil},
+		{"return err", []string{"a", "b", "c", "d"}, []string{"b", "h"}, books.ErrNotASubset},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := books.IsSubset(c.A, c.B)
+			if c.want == nil {
+				testutils.AssertNoError(t, got)
+			} else {
+				testutils.AssertError(t, got, c.want)
 			}
 		})
 	}

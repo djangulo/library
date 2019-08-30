@@ -123,6 +123,25 @@ func AssertStatus(t *testing.T, response *httptest.ResponseRecorder, want int) {
 	}
 }
 
+// AssertError noqa
+func AssertError(t *testing.T, got, want error) {
+	t.Helper()
+	if got == nil {
+		t.Error("didn't get an error but wanted one")
+	}
+	if got != want {
+		t.Errorf("got %v want %v", got, want)
+	}
+}
+
+// AssertNoError noqa
+func AssertNoError(t *testing.T, got error) {
+	t.Helper()
+	if got != nil {
+		t.Error("got an error but didn't want one")
+	}
+}
+
 func getVal(x interface{}) reflect.Value {
 	val := reflect.ValueOf(x)
 	if val.Kind() == reflect.Ptr {

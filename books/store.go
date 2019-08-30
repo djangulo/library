@@ -19,9 +19,11 @@ const (
 
 var (
 	// ErrSQLStoreUnavailable returned if SQL store is unavailable
-	ErrSQLStoreUnavailable = errors.New("Attempted to access unavailable SQL connection")
+	ErrSQLStoreUnavailable = errors.New("attempted to access unavailable SQL connection")
 	// ErrNoResults If a query returns empty
-	ErrNoResults = errors.New("No results from query")
+	ErrNoResults = errors.New("no results from query")
+	// ErrNilPointerPassed if a nil pointer is passed
+	ErrNilPointerPassed = errors.New("nil pointer passed in")
 )
 
 // SQLStore houses the PostgreSQL connection
@@ -91,21 +93,17 @@ func NewSQLStore(config config.DatabaseConfig) (*SQLStore, func()) {
 	return &SQLStore{db}, removeDatabase
 }
 
-// IsAvailable checks whether it's possible to connect to the DB or not
-func (s *SQLStore) IsAvailable() error {
-	return s.DB.Ping()
-}
-
 // Books fetches a list of books
 func (s *SQLStore) Books(
-	limit int,
-	offset int,
-	lastID uuid.UUID,
-	lastCreated time.Time,
+	books []*Book,
+	limit *int,
+	offset *int,
+	lastID *uuid.UUID,
+	lastCreated *time.Time,
 	fields []string,
-) ([]Book, error) {
-	if limit == -1 {
-		limit = 1000
+) error {
+	if *limit == -1 {
+		*limit = 1000
 	}
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -113,7 +111,7 @@ func (s *SQLStore) Books(
 
 	var stmt string
 	var seeking int
-	if lastID != uuid.Nil && !lastCreated.IsZero() {
+	if *lastID != uuid.Nil && !lastCreated.IsZero() {
 		seek := "WHERE (created_at, id) < ($1, $2) ORDER BY created_at DESC, id DESC"
 		lim := "LIMIT $3"
 		// no offset if seeking
@@ -137,6 +135,7 @@ func (s *SQLStore) Books(
 			off,
 		)
 	}
+	log.Println(stmt)
 	var err error
 	var rows *sqlx.Rows
 	if seeking == seekOFF {
@@ -146,28 +145,37 @@ func (s *SQLStore) Books(
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(
+		return errors.Wrap(
 			err,
 			fmt.Sprintf("Books: query failed - %s", stmt),
 		)
 	}
 
-	var books []Book
 	for rows.Next() {
 		var book Book
 		if err = rows.StructScan(&book); err != nil {
 			log.Printf("Books: error scanning row, %v\n", err)
 			continue
 		}
-		books = append(books, book)
+		log.Printf("%v\n", book)
+		books = append(books, &book)
+		for _, b := range books {
+			log.Printf("%v\n", b)
+		}
+	}
+	if err := rows.Close(); err != nil {
+		log.Printf("Books: error closing rows, %v\n", err)
 	}
 
-	return books, nil
+	return nil
 }
 
 // BookByID fetches a book by ID
-func (s *SQLStore) BookByID(ID uuid.UUID, fields []string) (Book, error) {
-	var book Book
+func (s *SQLStore) BookByID(
+	book *Book,
+	ID *uuid.UUID,
+	fields []string,
+) error {
 
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -178,15 +186,18 @@ func (s *SQLStore) BookByID(ID uuid.UUID, fields []string) (Book, error) {
 		strings.Join(fields, ","),
 	)
 	if err := s.DB.Get(&book, stmt, ID); err != nil {
-		return book, errors.Wrap(err, "BookByID: query failed")
+		return errors.Wrap(err, "BookByID: query failed")
 	}
-	return book, nil
+	return nil
 }
 
 // BookBySlug fetches a book by slug
-func (s *SQLStore) BookBySlug(slug string, fields []string) (Book, error) {
-	var book Book
-	slug = Slugify(slug, "-")
+func (s *SQLStore) BookBySlug(
+	book *Book,
+	slug *string,
+	fields []string,
+) error {
+	*slug = Slugify(*slug, "-")
 
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -197,21 +208,22 @@ func (s *SQLStore) BookBySlug(slug string, fields []string) (Book, error) {
 		strings.Join(fields, ","),
 	)
 	if err := s.DB.Get(&book, stmt, slug); err != nil {
-		return book, errors.Wrap(err, "BookBySlug: query failed")
+		return errors.Wrap(err, "BookBySlug: query failed")
 	}
-	return book, nil
+	return nil
 }
 
 // BooksByAuthor returns books by a given author
 func (s *SQLStore) BooksByAuthor(
-	author string,
-	limit int,
-	offset int,
-	lastID uuid.UUID,
-	lastCreated time.Time,
+	books []*Book,
+	author *string,
+	limit *int,
+	offset *int,
+	lastID *uuid.UUID,
+	lastCreated *time.Time,
 	fields []string,
-) ([]Book, error) {
-	author = strings.ToLower(author)
+) error {
+	*author = strings.ToLower(*author)
 
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -222,13 +234,13 @@ func (s *SQLStore) BooksByAuthor(
 		innerFields[i] = fmt.Sprintf("b.%s", fields[i])
 	}
 
-	if limit == -1 {
-		limit = 1000
+	if *limit == -1 {
+		*limit = 1000
 	}
 
 	var stmt string
 	var seeking int
-	if lastID != uuid.Nil && !lastCreated.IsZero() {
+	if *lastID != uuid.Nil && !lastCreated.IsZero() {
 		seek := "AND (created_at, id) < ($3, $4) ORDER BY created_at DESC, id DESC"
 		lim := "LIMIT $5"
 		// no offset if seeking
@@ -290,35 +302,38 @@ func (s *SQLStore) BooksByAuthor(
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(
+		return errors.Wrap(
 			err,
 			fmt.Sprintf("BooksByAuthor: query failed - %s", stmt),
 		)
 	}
 
-	var books []Book
 	for rows.Next() {
 		var book Book
 		if err = rows.StructScan(&book); err != nil {
 			log.Printf("BooksByAuthor: error scanning row, %v\n", err)
 			continue
 		}
-		books = append(books, book)
+		books = append(books, &book)
+	}
+	if err := rows.Close(); err != nil {
+		log.Printf("BooksByAuthor: error closing rows, %v\n", err)
 	}
 
-	return books, nil
+	return nil
 }
 
 // Pages fetches a list of pages
 func (s *SQLStore) Pages(
-	limit int,
-	offset int,
-	lastID uuid.UUID,
-	lastCreated time.Time,
+	pages []*Page,
+	limit *int,
+	offset *int,
+	lastID *uuid.UUID,
+	lastCreated *time.Time,
 	fields []string,
-) ([]Page, error) {
-	if limit == -1 {
-		limit = 1000
+) error {
+	if *limit == -1 {
+		*limit = 1000
 	}
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -326,7 +341,7 @@ func (s *SQLStore) Pages(
 
 	var stmt string
 	var seeking int
-	if lastID != uuid.Nil && !lastCreated.IsZero() {
+	if *lastID != uuid.Nil && !lastCreated.IsZero() {
 		seek := "WHERE (created_at, id) < ($1, $2) ORDER BY created_at DESC, id DESC"
 		lim := "LIMIT $3"
 		// no offset if seeking
@@ -359,28 +374,33 @@ func (s *SQLStore) Pages(
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(
+		return errors.Wrap(
 			err,
 			fmt.Sprintf("Pages: query failed - %s", stmt),
 		)
 	}
 
-	var pages []Page
 	for rows.Next() {
 		var page Page
 		if err = rows.StructScan(&page); err != nil {
 			log.Printf("Pages: error scanning row, %v\n", err)
 			continue
 		}
-		pages = append(pages, page)
+		pages = append(pages, &page)
+	}
+	if err := rows.Close(); err != nil {
+		log.Printf("Pages: error closing rows, %v\n", err)
 	}
 
-	return pages, nil
+	return nil
 }
 
 // PageByID fetches a page by ID
-func (s *SQLStore) PageByID(ID uuid.UUID, fields []string) (Page, error) {
-	var page Page
+func (s *SQLStore) PageByID(
+	page *Page,
+	ID *uuid.UUID,
+	fields []string,
+) error {
 
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -391,19 +411,18 @@ func (s *SQLStore) PageByID(ID uuid.UUID, fields []string) (Page, error) {
 		strings.Join(fields, ","),
 	)
 	if err := s.DB.Get(&page, stmt, ID); err != nil {
-		return page, errors.Wrap(err, "PageByID: query failed")
+		return errors.Wrap(err, "PageByID: query failed")
 	}
-	return page, nil
+	return nil
 }
 
 // PageByBookAndNumber returns a page by book id and number
 func (s *SQLStore) PageByBookAndNumber(
-	bookID uuid.UUID,
-	number int,
+	page *Page,
+	bookID *uuid.UUID,
+	number *int,
 	fields []string,
-) (Page, error) {
-	var page Page
-
+) error {
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
 	}
@@ -427,22 +446,23 @@ func (s *SQLStore) PageByBookAndNumber(
 	WHERE book_id = $1 AND page_number = $2 LIMIT 1;
 	`, strings.Join(fields, ","), strings.Join(innerFields, ","))
 	if err := s.DB.Get(&page, stmt, bookID, number); err != nil {
-		return page, errors.Wrap(err, "PageByBookAndNumber: query failed")
+		return errors.Wrap(err, "PageByBookAndNumber: query failed")
 	}
-	return page, nil
+	return nil
 }
 
 // Authors fetches a list of authors
 func (s *SQLStore) Authors(
-	limit int,
-	offset int,
-	lastID uuid.UUID,
-	lastCreated time.Time,
+	authors []*Author,
+	limit *int,
+	offset *int,
+	lastID *uuid.UUID,
+	lastCreated *time.Time,
 	fields []string,
-) ([]Author, error) {
+) error {
 
-	if limit == -1 {
-		limit = 1000
+	if *limit == -1 {
+		*limit = 1000
 	}
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -450,7 +470,7 @@ func (s *SQLStore) Authors(
 
 	var stmt string
 	var seeking int
-	if lastID != uuid.Nil && !lastCreated.IsZero() {
+	if *lastID != uuid.Nil && !lastCreated.IsZero() {
 		seek := "WHERE (created_at, id) < ($1, $2) ORDER BY created_at DESC, id DESC"
 		lim := "LIMIT $3"
 		// no offset if seeking
@@ -483,29 +503,33 @@ func (s *SQLStore) Authors(
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(
+		return errors.Wrap(
 			err,
 			fmt.Sprintf("Authors: query failed - %s", stmt),
 		)
 	}
 
-	var authors []Author
 	for rows.Next() {
 		var author Author
 		if err = rows.StructScan(&author); err != nil {
 			log.Printf("Authors: error scanning row, %v\n", err)
 			continue
 		}
-		authors = append(authors, author)
+		authors = append(authors, &author)
+	}
+	if err := rows.Close(); err != nil {
+		log.Printf("Authors: error closing rows, %v\n", err)
 	}
 
-	return authors, nil
+	return nil
 }
 
-// AuthorByID fetches an auhtor by ID
-func (s *SQLStore) AuthorByID(ID uuid.UUID, fields []string) (Author, error) {
-	var author Author
-
+// AuthorByID fetches an author by ID
+func (s *SQLStore) AuthorByID(
+	author *Author,
+	ID *uuid.UUID,
+	fields []string,
+) error {
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
 	}
@@ -515,15 +539,18 @@ func (s *SQLStore) AuthorByID(ID uuid.UUID, fields []string) (Author, error) {
 		strings.Join(fields, ","),
 	)
 	if err := s.DB.Get(&author, stmt, ID); err != nil {
-		return author, errors.Wrap(err, "AuthorByID: query failed")
+		return errors.Wrap(err, "AuthorByID: query failed")
 	}
-	return author, nil
+	return nil
 }
 
 // AuthorBySlug fetches an author by slug
-func (s *SQLStore) AuthorBySlug(slug string, fields []string) (Author, error) {
-	slug = Slugify(slug, "-")
-	var author Author
+func (s *SQLStore) AuthorBySlug(
+	author *Author,
+	slug *string,
+	fields []string,
+) error {
+	*slug = Slugify(*slug, "-")
 
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -534,13 +561,16 @@ func (s *SQLStore) AuthorBySlug(slug string, fields []string) (Author, error) {
 		strings.Join(fields, ","),
 	)
 	if err := s.DB.Get(&author, stmt, slug); err != nil {
-		return author, errors.Wrap(err, "AuthorBySlug: query failed")
+		return errors.Wrap(err, "AuthorBySlug: query failed")
 	}
-	return author, nil
+	return nil
 }
 
 // InsertBook noqa
-func (s *SQLStore) InsertBook(book Book) error {
+func (s *SQLStore) InsertBook(book *Book) error {
+	if book == nil {
+		return ErrNilPointerPassed
+	}
 
 	stmt := `
 	INSERT INTO books (
@@ -579,7 +609,7 @@ func (s *SQLStore) InsertBook(book Book) error {
 }
 
 // InsertPage noqa
-func (s *SQLStore) InsertPage(page Page) error {
+func (s *SQLStore) InsertPage(page *Page) error {
 
 	stmt := `
 	INSERT INTO pages (
@@ -610,7 +640,7 @@ func (s *SQLStore) InsertPage(page Page) error {
 }
 
 // InsertAuthor noqa
-func (s *SQLStore) InsertAuthor(author Author) error {
+func (s *SQLStore) InsertAuthor(author *Author) error {
 	stmt := `
 	INSERT INTO authors (
 		id,
@@ -638,7 +668,7 @@ func (s *SQLStore) InsertAuthor(author Author) error {
 }
 
 // BulkInsertBooks noqa
-func (s *SQLStore) BulkInsertBooks(books []Book) error {
+func (s *SQLStore) BulkInsertBooks(books []*Book) error {
 
 	valueStrings := make([]string, 0)
 	valueArgs := make([]interface{}, 0)
@@ -730,7 +760,7 @@ func (s *SQLStore) BulkInsertBooks(books []Book) error {
 }
 
 // BulkInsertPages noqa
-func (s *SQLStore) BulkInsertPages(pages []Page) error {
+func (s *SQLStore) BulkInsertPages(pages []*Page) error {
 
 	valueStrings := make([]string, 0)
 	valueArgs := make([]interface{}, 0)
@@ -815,7 +845,7 @@ func (s *SQLStore) BulkInsertPages(pages []Page) error {
 }
 
 // BulkInsertAuthors noqa
-func (s *SQLStore) BulkInsertAuthors(authors []Author) error {
+func (s *SQLStore) BulkInsertAuthors(authors []*Author) error {
 
 	valueStrings := make([]string, 0)
 	valueArgs := make([]interface{}, 0)
