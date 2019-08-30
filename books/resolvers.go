@@ -155,21 +155,24 @@ func (b *BookServer) AllBookResolver(p graphql.ResolveParams) (interface{}, erro
 	case authorOK:
 		var books []Book
 		var err error
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			if lastIDOK && lastCreatedOK {
-				books, err = b.Cache.BooksByAuthor(
-					author, lim, 0, uid, timestamp, fields)
-			} else {
-				books, err = b.Cache.BooksByAuthor(author,
-					lim, off, uuid.Nil, time.Time{}, fields)
-			}
-			if err != nil {
-				log.Println(err)
-			}
-			if books != nil {
-				return books, nil
-			}
-		}
+
+		// query cache disabled
+		// if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
+		// 	if lastIDOK && lastCreatedOK {
+		// 		books, err = b.Cache.BooksByAuthor(
+		// 			author, lim, 0, uid, timestamp, fields)
+		// 	} else {
+		// 		books, err = b.Cache.BooksByAuthor(author,
+		// 			lim, off, uuid.Nil, time.Time{}, fields)
+		// 	}
+		// 	if err != nil {
+		// 		log.Println(err)
+		// 	}
+		// 	// cache return only if it meets expectations
+		// 	if len(books) == lim {
+		// 		return books, nil
+		// 	}
+		// }
 		if lastIDOK && lastCreatedOK {
 			books, err = b.Store.BooksByAuthor(
 				author, lim, 0, uid, timestamp, fields)
@@ -342,19 +345,19 @@ func (b *BookServer) AllPageResolver(p graphql.ResolveParams) (interface{}, erro
 	default:
 		var pages []Page
 		var err error
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			if lastIDOK && lastCreatedOK {
-				pages, err = b.Cache.Pages(lim, 0, uid, timestamp, fields)
-			} else {
-				pages, err = b.Cache.Pages(lim, off, uuid.Nil, time.Time{}, fields)
-			}
-			if err != nil {
-				log.Println(err)
-			}
-			if pages != nil {
-				return pages, nil
-			}
-		}
+		// if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
+		// 	if lastIDOK && lastCreatedOK {
+		// 		pages, err = b.Cache.Pages(lim, 0, uid, timestamp, fields)
+		// 	} else {
+		// 		pages, err = b.Cache.Pages(lim, off, uuid.Nil, time.Time{}, fields)
+		// 	}
+		// 	if err != nil {
+		// 		log.Println(err)
+		// 	}
+		// 	if pages != nil {
+		// 		return pages, nil
+		// 	}
+		// }
 		if lastIDOK && lastCreatedOK {
 			pages, err = b.Store.Pages(lim, 0, uid, timestamp, fields)
 		} else {
@@ -490,19 +493,19 @@ func (b *BookServer) AllAuthorResolver(p graphql.ResolveParams) (interface{}, er
 	default:
 		var authors []Author
 		var err error
-		if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
-			if lastIDOK && lastCreatedOK {
-				authors, err = b.Cache.Authors(lim, 0, uid, timestamp, fields)
-			} else {
-				authors, err = b.Cache.Authors(lim, off, uuid.Nil, time.Time{}, fields)
-			}
-			if err != nil {
-				log.Println(err)
-			}
-			if authors != nil {
-				return authors, nil
-			}
-		}
+		// if cacheAvailableErr := b.Cache.IsAvailable(); cacheAvailableErr == nil {
+		// 	if lastIDOK && lastCreatedOK {
+		// 		authors, err = b.Cache.Authors(lim, 0, uid, timestamp, fields)
+		// 	} else {
+		// 		authors, err = b.Cache.Authors(lim, off, uuid.Nil, time.Time{}, fields)
+		// 	}
+		// 	if err != nil {
+		// 		log.Println(err)
+		// 	}
+		// 	if authors != nil {
+		// 		return authors, nil
+		// 	}
+		// }
 		if lastIDOK && lastCreatedOK {
 			authors, err = b.Store.Authors(lim, 0, uid, timestamp, fields)
 		} else {

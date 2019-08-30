@@ -1,13 +1,4 @@
-2019/08/29 00:47:32 No results from query
-2019/08/29 00:47:32 No results from query
-2019/08/29 00:47:32 No results from query
-2019/08/29 00:47:32 No results from query
-2019/08/29 00:47:32 No results from query
-2019/08/29 00:47:32 No results from query
-2019/08/29 00:47:32 No results from query
-2019/08/29 00:47:32 No results from query
-2019/08/29 00:47:32 No results from query
-2019/08/29 00:47:32 No results from query
+# bench5: in-memory sql cache (with sqlite)
 goos: linux
 goarch: amd64
 pkg: github.com/djangulo/library/books

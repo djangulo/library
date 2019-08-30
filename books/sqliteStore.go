@@ -22,7 +22,7 @@ func migrate(db *sqlx.DB) error {
 		name TEXT NOT NULL,
 		slug TEXT UNIQUE,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		deleted_at TEXT NULL
 	)
 	`)
@@ -36,10 +36,10 @@ func migrate(db *sqlx.DB) error {
 		publication_year INTEGER NULL,
 		page_count INTEGER,
 		file TEXT,
-		source TEXT CHECK( source IN ( 'nltk-gutenberg','open-library','manual-insert') )  DEFAULT 'nltk-gutenberg',
+		source TEXT 'nltk-gutenberg',
 		author_id TEXT REFERENCES authors (id) NULL,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		deleted_at TEXT NULL
 	);
 	`)
@@ -51,8 +51,8 @@ func migrate(db *sqlx.DB) error {
 		page_number INTEGER,
 		body TEXT,
 		book_id BLOB REFERENCES books(id),
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		deleted_at TEXT NULL
 	);
 	`)
@@ -64,6 +64,9 @@ func migrate(db *sqlx.DB) error {
 
 // NewInMemoryStore Returns a new SQLite in-memory database connection.
 func NewInMemoryStore(addressID string, available bool) (*SQLiteInMemoryStore, func()) {
+	if addressID == "" {
+		return &SQLiteInMemoryStore{Available: false}, func() {}
+	}
 	// cnf := config.Get()
 	connStr := fmt.Sprintf("file:%s?mode=memory&cache=shared", addressID)
 	// connStr := "file::memory:?cache=shared"
