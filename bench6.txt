@@ -1,0 +1,94 @@
+2019/09/02 01:27:39 key not found in cache
+2019/09/02 01:27:39 Invalid page
+2019/09/02 01:27:39 key not found in cache
+2019/09/02 01:27:39 Invalid author
+2019/09/02 01:27:39 key not found in cache
+2019/09/02 01:27:39 Invalid book
+2019/09/02 01:27:39 key not found in cache
+2019/09/02 01:27:39 Invalid book
+2019/09/02 01:27:39 key not found in cache
+2019/09/02 01:27:39 Invalid page
+2019/09/02 01:27:39 key not found in cache
+2019/09/02 01:27:39 Invalid page
+2019/09/02 01:27:39 key not found in cache
+2019/09/02 01:27:39 Invalid author
+2019/09/02 01:27:39 key not found in cache
+2019/09/02 01:27:39 Invalid author
+2019/09/02 01:27:39 key not found in cache
+2019/09/02 01:27:39 Invalid author
+2019/09/02 01:27:43 Redis connection unavailable: dial tcp :0: connect: connection refused
+goos: linux
+goarch: amd64
+pkg: github.com/djangulo/library/books
+BenchmarkServer/with_cache/book_by_id-8         	    2000	   1063903 ns/op
+BenchmarkServer/with_cache/book_by_slug-8       	    2000	   1136208 ns/op
+BenchmarkServer/with_cache/page_by_id-8         	    2000	   1120753 ns/op
+BenchmarkServer/with_cache/page_by_book+number-8         	    1000	   1174955 ns/op
+BenchmarkServer/with_cache/author_by_id-8                	    2000	    881425 ns/op
+BenchmarkServer/with_cache/author_by_name_w_name-8       	    2000	    921906 ns/op
+BenchmarkServer/with_cache/author_by_name_w_slug-8       	    2000	    848702 ns/op
+BenchmarkServer/with_cache/allBook-8                     	    2000	   1103672 ns/op
+BenchmarkServer/with_cache/allBook_w_limit-8             	    2000	    945799 ns/op
+BenchmarkServer/with_cache/allBook_w_offset-8            	    2000	   1114235 ns/op
+BenchmarkServer/with_cache/allBook_by_author-8           	    2000	   1131398 ns/op
+BenchmarkServer/with_cache/allPage_1-8                   	     100	  12611961 ns/op
+BenchmarkServer/with_cache/allPage_2-8                   	     100	  21405308 ns/op
+BenchmarkServer/with_cache/allPage_3-8                   	     100	  17498179 ns/op
+BenchmarkServer/with_cache/allPage_4-8                   	      50	  24032894 ns/op
+BenchmarkServer/with_cache/allPage_5-8                   	     200	  10045936 ns/op
+BenchmarkServer/with_cache/allPage_limit_override-8      	     100	  14341175 ns/op
+BenchmarkServer/with_cache/allPage_w_limit-8             	    2000	    970360 ns/op
+BenchmarkServer/with_cache/allPage_w_offset-8            	     100	  13621776 ns/op
+BenchmarkServer/with_cache/allAuthor-8                   	    2000	    701900 ns/op
+BenchmarkServer/with_cache/allAuthor_w_limit-8           	    2000	    751474 ns/op
+BenchmarkServer/with_cache/allAuthor_w_offset-8          	    3000	    798007 ns/op
+--- FAIL: BenchmarkServer/with_cache
+    integration_test.go:285: could not initialize cache, is the redis server running?
+BenchmarkServer/no_cache/book_by_id-8                    	    2000	    989939 ns/op
+BenchmarkServer/no_cache/book_by_slug-8                  	    2000	   1081832 ns/op
+BenchmarkServer/no_cache/page_by_id-8                    	    2000	   1011318 ns/op
+BenchmarkServer/no_cache/page_by_book+number-8           	    1000	   1264201 ns/op
+BenchmarkServer/no_cache/author_by_id-8                  	    2000	    805956 ns/op
+BenchmarkServer/no_cache/author_by_name_w_name-8         	    2000	    817754 ns/op
+BenchmarkServer/no_cache/author_by_name_w_slug-8         	    2000	    838526 ns/op
+BenchmarkServer/no_cache/allBook-8                       	    2000	   1022392 ns/op
+BenchmarkServer/no_cache/allBook_w_limit-8               	    2000	    897445 ns/op
+BenchmarkServer/no_cache/allBook_w_offset-8              	    2000	   1074769 ns/op
+BenchmarkServer/no_cache/allBook_by_author-8             	    2000	   1109878 ns/op
+BenchmarkServer/no_cache/allPage_1-8                     	     100	  13176893 ns/op
+BenchmarkServer/no_cache/allPage_2-8                     	     100	  20497019 ns/op
+BenchmarkServer/no_cache/allPage_3-8                     	     100	  18739536 ns/op
+BenchmarkServer/no_cache/allPage_4-8                     	      50	  24928168 ns/op
+BenchmarkServer/no_cache/allPage_5-8                     	     200	  10139855 ns/op
+BenchmarkServer/no_cache/allPage_limit_override-8        	     100	  15525727 ns/op
+BenchmarkServer/no_cache/allPage_w_limit-8               	    2000	    988814 ns/op
+BenchmarkServer/no_cache/allPage_w_offset-8              	     100	  13830025 ns/op
+BenchmarkServer/no_cache/allAuthor-8                     	    2000	    706818 ns/op
+BenchmarkServer/no_cache/allAuthor_w_limit-8             	    2000	    820432 ns/op
+BenchmarkServer/no_cache/allAuthor_w_offset-8            	    2000	    847662 ns/op
+--- FAIL: BenchmarkServer
+BenchmarkJSONUnmarshalling/single/author-8               	  300000	      5515 ns/op
+BenchmarkJSONUnmarshalling/single/book-8                 	  200000	     11411 ns/op
+BenchmarkJSONUnmarshalling/single/page-8                 	   30000	     41963 ns/op
+BenchmarkJSONUnmarshalling/100/author-8                  	   20000	     62768 ns/op
+BenchmarkJSONUnmarshalling/100/book-8                    	   10000	    205488 ns/op
+BenchmarkJSONUnmarshalling/100/page-8                    	     500	   2998468 ns/op
+BenchmarkJSONUnmarshalling/1000/page-8                   	      50	  29678446 ns/op
+BenchmarkJSONMarshalling/single/author-8                 	  500000	      3563 ns/op
+BenchmarkJSONMarshalling/single/book-8                   	  200000	      7062 ns/op
+BenchmarkJSONMarshalling/single/page-8                   	  200000	      9859 ns/op
+BenchmarkJSONMarshalling/100/author-8                    	   50000	     37817 ns/op
+BenchmarkJSONMarshalling/100/book-8                      	   10000	    119584 ns/op
+BenchmarkJSONMarshalling/100/page-8                      	    2000	    931600 ns/op
+BenchmarkJSONMarshalling/1000/page-8                     	     200	   9910931 ns/op
+BenchmarkSortMethods/books_slice_stable_(sort.SliceStable)-8         	   50000	     26146 ns/op
+BenchmarkSortMethods/books_ptr_slice_stable_(sort.SliceStable)-8     	   50000	     26368 ns/op
+BenchmarkSortMethods/books_slice_unstable_(sort.Slice)-8             	  200000	      7009 ns/op
+BenchmarkSortMethods/pages_all_slice_stable_(sort.SliceStable)-8     	     200	   7733227 ns/op
+BenchmarkSortMethods/pages_all_slice_unstable_(sort.Slice)-8         	     200	   8354792 ns/op
+BenchmarkSortMethods/pages_ptr_programmable_sort-8                   	     200	   8521478 ns/op
+BenchmarkSortMethods/pages_ptr_slice_stable_(sort.SliceStable)-8     	     300	   4405665 ns/op
+BenchmarkSortMethods/pages_ptr_slice_unstable_(sort.Slice)-8         	     200	   8371866 ns/op
+FAIL
+exit status 1
+FAIL	github.com/djangulo/library/books	138.293s

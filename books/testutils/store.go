@@ -3,7 +3,6 @@ package testutils
 import (
 	"github.com/djangulo/library/books"
 	"github.com/gofrs/uuid"
-	"sort"
 	"time"
 )
 
@@ -21,9 +20,9 @@ const (
 // NewStubStore noqa
 func NewStubStore(available bool, prepopulate bool) *StubStore {
 
-	var tAuthors []books.Author
-	var tBooks []books.Book
-	var tPages []books.Page
+	var tAuthors []*books.Author
+	var tBooks []*books.Book
+	var tPages []*books.Page
 	if prepopulate {
 		tAuthors = TestAuthorData()
 		tBooks = TestBookData()
@@ -47,9 +46,9 @@ func NewStubStore(available bool, prepopulate bool) *StubStore {
 // StubStore for testing
 type StubStore struct {
 	Available         bool
-	books             []books.Book
-	pages             []books.Page
-	authors           []books.Author
+	books             []*books.Book
+	pages             []*books.Page
+	authors           []*books.Author
 	BookCalls         map[string]int
 	PageCalls         map[string]int
 	AuthorCalls       map[string]int
@@ -68,88 +67,92 @@ func (s *StubStore) IsAvailable() error {
 
 // Books noqa
 func (s *StubStore) Books(
+	booksArr []*books.Book,
 	limit int,
 	offset int,
-	lastID uuid.UUID,
-	lastCreated time.Time,
+	lastID *uuid.UUID,
+	lastCreated *time.Time,
 	fields []string,
-) ([]books.Book, error) {
+) error {
 	if len(s.books) == 0 {
-		return nil, books.ErrNoResults
+		return books.ErrNoResults
 	}
-	sort.SliceStable(s.books, func(i, j int) bool {
-		return s.books[i].CreatedAt.After(s.books[j].CreatedAt)
-	})
-	sort.SliceStable(s.books, func(i, j int) bool {
-		return s.books[j].ID.String() < s.books[i].ID.String()
-	})
 	s.BookCalls["list"]++
-	if lastID != uuid.Nil && !lastCreated.IsZero() {
+	if *lastID != uuid.Nil && !lastCreated.IsZero() {
 		for i, b := range s.books {
-			if b.CreatedAt == lastCreated && b.ID == lastID {
+			if b.CreatedAt == *lastCreated && b.ID == *lastID {
 				if itemsLeft := len(s.books[(i + 1):]); limit > itemsLeft {
 					limit = itemsLeft - 1
 				}
-				return s.books[(i + 1):(i + 1 + limit)], nil
+				booksArr = s.books[(i + 1):(i + 1 + limit)]
+				return nil
 			}
 		}
 	}
 	length := len(s.books)
 	if offset > length {
-		return s.books[length:], nil
+		booksArr = s.books[length:]
+		return nil
 	} else if offset < 0 {
 		offset = 0
 	}
 	if limit+offset > length {
-		return s.books[offset:], nil
+		booksArr = s.books[offset:]
+		return nil
 	}
 	if limit > length {
 		limit = length
 	}
-	return s.books[(0 + offset):(offset + limit)], nil
+	booksArr = s.books[(0 + offset):(offset + limit)]
+	return nil
 }
 
 // BookByID noqa
-func (s *StubStore) BookByID(id uuid.UUID, fields []string) (books.Book, error) {
+func (s *StubStore) BookByID(
+	book *books.Book,
+	ID *uuid.UUID,
+	fields []string,
+) error {
 	for _, b := range s.books {
-		if id == b.ID {
+		if *ID == b.ID {
 			s.BookCalls[b.ID.String()]++
-			return b, nil
+			book = b
+			return nil
 		}
 	}
-	return books.Book{}, nil
+	return nil
 }
 
 // BookBySlug noqa
-func (s *StubStore) BookBySlug(slug string, fields []string) (books.Book, error) {
+func (s *StubStore) BookBySlug(
+	book *books.Book,
+	slug string,
+	fields []string,
+) error {
 	for _, b := range s.books {
-		if b.Slug == slug {
+		if slug == b.Slug {
 			s.BookCalls[b.ID.String()]++
-			return b, nil
+			book = b
+			return nil
 		}
 	}
-	return books.Book{}, nil
+	return nil
 }
 
 // BooksByAuthor noqa
 func (s *StubStore) BooksByAuthor(
+	booksArr []*books.Book,
 	name string,
 	limit int,
 	offset int,
-	lastID uuid.UUID,
-	lastCreated time.Time,
+	lastID *uuid.UUID,
+	lastCreated *time.Time,
 	fields []string,
-) ([]books.Book, error) {
+) error {
 	if len(s.books) == 0 {
-		return nil, books.ErrNoResults
+		return books.ErrNoResults
 	}
-	sort.SliceStable(s.books, func(i, j int) bool {
-		return s.books[i].CreatedAt.After(s.books[j].CreatedAt)
-	})
-	sort.SliceStable(s.books, func(i, j int) bool {
-		return s.books[j].ID.String() < s.books[i].ID.String()
-	})
-	s.BookCalls["list"]++
+	s.BookCalls["by author"]++
 	var id *uuid.UUID
 	for _, a := range s.authors {
 		if a.Name == name {
@@ -157,193 +160,223 @@ func (s *StubStore) BooksByAuthor(
 			break
 		}
 	}
-	books := make([]books.Book, 0)
 	for _, b := range s.books {
 		if b.AuthorID.Valid {
 			if b.AuthorID.UUID == *id {
-				books = append(books, b)
+				booksArr = append(booksArr, b)
 			}
 		}
 	}
-	if lastID != uuid.Nil && !lastCreated.IsZero() {
-		for i, b := range books {
-			if b.CreatedAt == lastCreated && b.ID == lastID {
-				if itemsLeft := len(books[(i + 1):]); limit > itemsLeft {
+	if *lastID != uuid.Nil && !lastCreated.IsZero() {
+		for i, b := range s.books {
+			if b.CreatedAt == *lastCreated && b.ID == *lastID {
+				if itemsLeft := len(booksArr[(i + 1):]); limit > itemsLeft {
 					limit = itemsLeft - 1
 				}
-				return books[(i + 1):(i + 1 + limit)], nil
+				booksArr = booksArr[(i + 1):(i + 1 + limit)]
+				return nil
 			}
 		}
 	}
-	length := len(books)
+	length := len(booksArr)
 	if offset > length {
-		return books[length:], nil
+		booksArr = booksArr[length:]
+		return nil
 	} else if offset < 0 {
 		offset = 0
 	}
 	if limit+offset > length {
-		return books[offset:], nil
+		booksArr = booksArr[offset:]
+		return nil
 	}
 	if limit > length {
 		limit = length
 	}
-	return books[(0 + offset):(offset + limit)], nil
+	booksArr = booksArr[(0 + offset):(offset + limit)]
+	return nil
 }
 
 // Pages noqa
 func (s *StubStore) Pages(
+	pages []*books.Page,
 	limit int,
 	offset int,
-	lastID uuid.UUID,
-	lastCreated time.Time,
+	lastID *uuid.UUID,
+	lastCreated *time.Time,
 	fields []string,
-) ([]books.Page, error) {
+) error {
 	if len(s.pages) == 0 {
-		return nil, books.ErrNoResults
+		return books.ErrNoResults
 	}
-	sort.SliceStable(s.pages, func(i, j int) bool {
-		return s.pages[i].CreatedAt.After(s.pages[j].CreatedAt)
-	})
-	sort.SliceStable(s.pages, func(i, j int) bool {
-		return s.pages[j].ID.String() < s.pages[i].ID.String()
-	})
 	s.PageCalls["list"]++
-	if lastID != uuid.Nil && !lastCreated.IsZero() {
+	if *lastID != uuid.Nil && !lastCreated.IsZero() {
 		for i, b := range s.pages {
-			if b.CreatedAt == lastCreated && b.ID == lastID {
+			if b.CreatedAt == *lastCreated && b.ID == *lastID {
 				if itemsLeft := len(s.pages[(i + 1):]); limit > itemsLeft {
 					limit = itemsLeft - 1
 				}
-				return s.pages[(i + 1):(i + 1 + limit)], nil
+				pages = s.pages[(i + 1):(i + 1 + limit)]
+				return nil
 			}
 		}
 	}
 	length := len(s.pages)
 	if offset > length {
-		return s.pages[length:], nil
+		pages = s.pages[length:]
+		return nil
 	} else if offset < 0 {
 		offset = 0
 	}
 	if limit+offset > length {
-		return s.pages[offset:], nil
+		pages = s.pages[offset:]
+		return nil
 	}
 	if limit > length {
 		limit = length
 	}
-	return s.pages[(0 + offset):(offset + limit)], nil
+	pages = s.pages[(0 + offset):(offset + limit)]
+	return nil
 }
 
 // PageByID noqa
-func (s *StubStore) PageByID(id uuid.UUID, fields []string) (books.Page, error) {
+func (s *StubStore) PageByID(
+	page *books.Page,
+	ID *uuid.UUID,
+	fields []string,
+) error {
 	for _, p := range s.pages {
-		if id == p.ID {
+		if *ID == p.ID {
 			s.PageCalls[p.ID.String()]++
-			return p, nil
+			page = p
+			return nil
 		}
 	}
-	return books.Page{}, nil
+	return nil
 }
 
 // PageByBookAndNumber noqa
-func (s *StubStore) PageByBookAndNumber(bookID uuid.UUID, number int, fields []string) (books.Page, error) {
+func (s *StubStore) PageByBookAndNumber(
+	page *books.Page,
+	bookID *uuid.UUID,
+	number int,
+	fields []string,
+) error {
 	for _, p := range s.pages {
-		if bookID == *p.BookID && p.PageNumber == number {
+		if *bookID == p.ID && number == p.PageNumber {
 			s.PageCalls[p.ID.String()]++
-			return p, nil
+			page = p
+			return nil
 		}
 	}
-	return books.Page{}, nil
+	return nil
 }
 
 // Authors noqa
 func (s *StubStore) Authors(
+	authors []*books.Author,
 	limit int,
 	offset int,
-	lastID uuid.UUID,
-	lastCreated time.Time,
+	lastID *uuid.UUID,
+	lastCreated *time.Time,
 	fields []string,
-) ([]books.Author, error) {
+) error {
 	if len(s.authors) == 0 {
-		return nil, books.ErrNoResults
+		return books.ErrNoResults
 	}
-	sort.SliceStable(s.authors, func(i, j int) bool {
-		return s.pages[i].CreatedAt.After(s.authors[j].CreatedAt)
-	})
-	sort.SliceStable(s.authors, func(i, j int) bool {
-		return s.pages[j].ID.String() < s.authors[i].ID.String()
-	})
-	s.PageCalls["list"]++
-	if lastID != uuid.Nil && !lastCreated.IsZero() {
+	s.AuthorCalls["list"]++
+	if *lastID != uuid.Nil && !lastCreated.IsZero() {
 		for i, b := range s.authors {
-			if b.CreatedAt == lastCreated && b.ID == lastID {
+			if b.CreatedAt == *lastCreated && b.ID == *lastID {
 				if itemsLeft := len(s.authors[(i + 1):]); limit > itemsLeft {
 					limit = itemsLeft - 1
 				}
-				return s.authors[(i + 1):(i + 1 + limit)], nil
+				authors = s.authors[(i + 1):(i + 1 + limit)]
+				return nil
 			}
 		}
 	}
 	length := len(s.authors)
 	if offset > length {
-		return s.authors[length:], nil
+		authors = s.authors[length:]
+		return nil
 	} else if offset < 0 {
 		offset = 0
 	}
 	if limit+offset > length {
-		return s.authors[offset:], nil
+		authors = s.authors[offset:]
+		return nil
 	}
 	if limit > length {
 		limit = length
 	}
-	return s.authors[(0 + offset):(offset + limit)], nil
+	authors = s.authors[(0 + offset):(offset + limit)]
+	return nil
 }
 
 // AuthorByID noqa
-func (s *StubStore) AuthorByID(id uuid.UUID, fields []string) (books.Author, error) {
-	for _, b := range s.authors {
-		if id == b.ID {
-			s.AuthorCalls[b.ID.String()]++
-			return b, nil
+func (s *StubStore) AuthorByID(
+	author *books.Author,
+	ID *uuid.UUID,
+	fields []string,
+) error {
+	for _, a := range s.authors {
+		if *ID == a.ID {
+			s.AuthorCalls[a.ID.String()]++
+			author = a
+			return nil
 		}
 	}
-	return books.Author{}, nil
+	return nil
 }
 
 // AuthorBySlug noqa
-func (s *StubStore) AuthorBySlug(slug string, fields []string) (books.Author, error) {
-	slug = books.Slugify(slug, "-")
+func (s *StubStore) AuthorBySlug(
+	author *books.Author,
+	slug string,
+	fields []string,
+) error {
 	for _, a := range s.authors {
-		if a.Slug == slug {
+		if slug == a.Slug {
 			s.AuthorCalls[a.ID.String()]++
-			return a, nil
+			author = a
+			return nil
 		}
 	}
-	return books.Author{}, nil
+	return nil
 }
 
 // InsertBook noqa
-func (s *StubStore) InsertBook(book books.Book) error {
+func (s *StubStore) InsertBook(book *books.Book) error {
+	if book == nil {
+		return books.ErrNilPointerPassed
+	}
 	s.InsertBookCalls[book.ID.String()]++
 	s.books = append(s.books, book)
 	return nil
 }
 
 // InsertPage noqa
-func (s *StubStore) InsertPage(page books.Page) error {
+func (s *StubStore) InsertPage(page *books.Page) error {
+	if page == nil {
+		return books.ErrNilPointerPassed
+	}
 	s.InsertPageCalls[page.ID.String()]++
 	s.pages = append(s.pages, page)
 	return nil
 }
 
 // InsertAuthor noqa
-func (s *StubStore) InsertAuthor(author books.Author) error {
+func (s *StubStore) InsertAuthor(author *books.Author) error {
+	if author == nil {
+		return books.ErrNilPointerPassed
+	}
 	s.InsertAuthorCalls[author.ID.String()]++
 	s.authors = append(s.authors, author)
 	return nil
 }
 
 // BulkInsertBooks noqa
-func (s *StubStore) BulkInsertBooks(books []books.Book) error {
+func (s *StubStore) BulkInsertBooks(books []*books.Book) error {
 	for range books {
 		s.InsertBookCalls["bulk"]++
 	}
@@ -352,7 +385,7 @@ func (s *StubStore) BulkInsertBooks(books []books.Book) error {
 }
 
 // BulkInsertPages noqa
-func (s *StubStore) BulkInsertPages(pages []books.Page) error {
+func (s *StubStore) BulkInsertPages(pages []*books.Page) error {
 	for range pages {
 		s.InsertPageCalls["bulk"]++
 	}
@@ -361,7 +394,7 @@ func (s *StubStore) BulkInsertPages(pages []books.Page) error {
 }
 
 // BulkInsertAuthors noqa
-func (s *StubStore) BulkInsertAuthors(authors []books.Author) error {
+func (s *StubStore) BulkInsertAuthors(authors []*books.Author) error {
 	for range authors {
 		s.InsertAuthorCalls["bulk"]++
 	}

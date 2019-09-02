@@ -13,10 +13,6 @@ import (
 	"testing"
 )
 
-var (
-	cnf = config.Get()
-)
-
 var middlewares = []func(http.Handler) http.Handler{
 	middleware.RequestID,
 	middleware.RealIP,
@@ -25,6 +21,7 @@ var middlewares = []func(http.Handler) http.Handler{
 }
 
 func TestDatabaseIntegration(t *testing.T) {
+	cnf := config.Get()
 
 	store, remove := testutils.NewTestSQLStore(cnf, "test")
 	defer remove("test")
@@ -72,12 +69,22 @@ func TestDatabaseIntegration(t *testing.T) {
 	}
 
 	t.Run("with cache", func(t *testing.T) {
-		cache, dropCache := books.NewInMemoryStore("integration_test", true)
-		defer dropCache()
-		err := books.SeedSQLite(cache, tAuthors, tBooks, tPages)
+		cache, err := books.NewRedisCache(cnf.Cache["test"])
 		if err != nil {
-			log.Fatalf("failed to seed sqlite cache: %v\n", err)
+			t.Errorf("could not initialize cache, is the redis server running?")
 		}
+
+		// prepopulate cache
+		for _, a := range tAuthors {
+			cache.InsertAuthor(a)
+		}
+		for _, b := range tBooks {
+			cache.InsertBook(b)
+		}
+		for _, p := range tPages {
+			cache.InsertPage(p)
+		}
+
 		server, _ := books.NewBookServer(store, cache, middlewares, true)
 
 		for _, c := range cases {
@@ -93,6 +100,10 @@ func TestDatabaseIntegration(t *testing.T) {
 				case books.Book:
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
+						if len(got) <= 0 {
+							t.Error("received empty array, wanted lenght 1")
+							t.FailNow()
+						}
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
 					} else {
 						got := testutils.GetBookFromGraphQLResponse(t, response.Body)
@@ -101,6 +112,10 @@ func TestDatabaseIntegration(t *testing.T) {
 				case books.Page:
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllPageFromGraphQLResponse(t, response.Body)
+						if len(got) <= 0 {
+							t.Error("received empty array, wanted lenght 1")
+							t.FailNow()
+						}
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
 					} else {
 						got := testutils.GetPageFromGraphQLResponse(t, response.Body)
@@ -109,6 +124,10 @@ func TestDatabaseIntegration(t *testing.T) {
 				case books.Author:
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllAuthorFromGraphQLResponse(t, response.Body)
+						if len(got) <= 0 {
+							t.Error("received empty array, wanted lenght 1")
+							t.FailNow()
+						}
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
 					} else {
 						got := testutils.GetAuthorFromGraphQLResponse(t, response.Body)
@@ -137,8 +156,7 @@ func TestDatabaseIntegration(t *testing.T) {
 	})
 
 	t.Run("no cache", func(t *testing.T) {
-		cache, dropCache := books.NewInMemoryStore("unused", false)
-		defer dropCache()
+		cache := &books.RedisCache{Available: false}
 		server, _ := books.NewBookServer(store, cache, middlewares, true)
 
 		for _, c := range cases {
@@ -154,6 +172,10 @@ func TestDatabaseIntegration(t *testing.T) {
 				case books.Book:
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllBookFromGraphQLResponse(t, response.Body)
+						if len(got) <= 0 {
+							t.Error("received empty array, wanted lenght 1")
+							t.FailNow()
+						}
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
 					} else {
 						got := testutils.GetBookFromGraphQLResponse(t, response.Body)
@@ -162,6 +184,10 @@ func TestDatabaseIntegration(t *testing.T) {
 				case books.Page:
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllPageFromGraphQLResponse(t, response.Body)
+						if len(got) <= 0 {
+							t.Error("received empty array, wanted lenght 1")
+							t.FailNow()
+						}
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
 					} else {
 						got := testutils.GetPageFromGraphQLResponse(t, response.Body)
@@ -170,6 +196,10 @@ func TestDatabaseIntegration(t *testing.T) {
 				case books.Author:
 					if strings.Contains(strings.ToLower(c.name), "offset") {
 						got := testutils.GetAllAuthorFromGraphQLResponse(t, response.Body)
+						if len(got) <= 0 {
+							t.Error("received empty array, wanted lenght 1")
+							t.FailNow()
+						}
 						testutils.AssertUUIDsEqual(t, got[0].ID, want.ID)
 					} else {
 						got := testutils.GetAuthorFromGraphQLResponse(t, response.Body)
@@ -199,6 +229,8 @@ func TestDatabaseIntegration(t *testing.T) {
 }
 
 func BenchmarkServer(b *testing.B) {
+
+	cnf := config.Get()
 
 	store, remove := testutils.NewTestSQLStore(cnf, "test")
 	defer remove("test")
@@ -248,13 +280,11 @@ func BenchmarkServer(b *testing.B) {
 	}
 
 	b.Run("with cache", func(b *testing.B) {
-		cache, dropCache := books.NewInMemoryStore("integration_benchmark", true)
-		defer dropCache()
-		// prepopulate cache queries
-		err := books.SeedSQLite(cache, tAuthors, tBooks, tPages)
+		cache, err := books.NewRedisCache(cnf.Cache["bench"])
 		if err != nil {
-			log.Fatalf("failed to seed sqlite cache: %v\n", err)
+			b.Error("could not initialize cache, is the redis server running?")
 		}
+		// prepopulate cache queries
 		server, _ := books.NewBookServer(store, cache, middlewares, true)
 
 		for _, c := range marks {
@@ -270,8 +300,7 @@ func BenchmarkServer(b *testing.B) {
 		}
 	})
 	b.Run("no cache", func(b *testing.B) {
-		cache, dropCache := books.NewInMemoryStore("unused", false)
-		defer dropCache()
+		cache := &books.RedisCache{Available: false}
 		server, _ := books.NewBookServer(store, cache, middlewares, true)
 
 		for _, c := range marks {

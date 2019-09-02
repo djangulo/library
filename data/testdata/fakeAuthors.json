@@ -1,21 +1,33 @@
 [
   {
-    "id": "f32ad0c4-0c2e-4f4d-b0b8-f5ace440bd9d",
+    "id": "e89283eb-a28b-494d-9b61-a5e9b6a43dc5",
+    "created_at": "2009-11-10T23:00:00Z",
+    "updated_at": "2009-11-10T23:00:00Z",
+    "deleted_at": "0001-01-01T00:00:00Z",
     "name": "Herman Melville",
     "slug": "herman-melville"
   },
   {
-    "id": "526efdde-c46e-4866-aadc-04d911deab94",
+    "id": "c4ec2ad6-68b0-4547-8360-0e2f6f47941f",
+    "created_at": "2009-11-10T23:00:00Z",
+    "updated_at": "2009-11-10T23:00:00Z",
+    "deleted_at": "0001-01-01T00:00:00Z",
     "name": "Ernest Hemingway",
     "slug": "ernest-hemingway"
   },
   {
-    "id": "43376818-e402-47c0-b4b5-7e3e43973b40",
+    "id": "d8d2d2bd-572f-42d4-864d-ef7d264a464f",
+    "created_at": "2009-11-10T23:00:00Z",
+    "updated_at": "2009-11-10T23:00:00Z",
+    "deleted_at": "0001-01-01T00:00:00Z",
     "name": "Stephen King",
     "slug": "stephen-king"
   },
   {
-    "id": "fc605a1e-6957-4a0d-b906-decc07b4b493",
+    "id": "cdb681a6-8601-4c9b-b9c8-327921b15138",
+    "created_at": "2009-11-10T23:00:00Z",
+    "updated_at": "2009-11-10T23:00:00Z",
+    "deleted_at": "0001-01-01T00:00:00Z",
     "name": "H.P. Lovecraft",
     "slug": "h-p-lovecraft"
   }

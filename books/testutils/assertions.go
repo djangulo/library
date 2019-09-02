@@ -51,8 +51,8 @@ func AssertAuthorStoreCalls(t *testing.T, store *StubStore, id string, want int)
 	}
 }
 
-// AssertBookInsertCalls noqa
-func AssertBookInsertCalls(t *testing.T, store *StubStore, key string, want int) {
+// AssertStoreBookInsertCalls noqa
+func AssertStoreBookInsertCalls(t *testing.T, store *StubStore, key string, want int) {
 	t.Helper()
 	got := store.InsertBookCalls[key]
 	if got != want {
@@ -60,8 +60,8 @@ func AssertBookInsertCalls(t *testing.T, store *StubStore, key string, want int)
 	}
 }
 
-// AssertPageInsertCalls noqa
-func AssertPageInsertCalls(t *testing.T, store *StubStore, key string, want int) {
+// AssertStorePageInsertCalls noqa
+func AssertStorePageInsertCalls(t *testing.T, store *StubStore, key string, want int) {
 	t.Helper()
 	got := store.InsertPageCalls[key]
 	if got != want {
@@ -69,8 +69,8 @@ func AssertPageInsertCalls(t *testing.T, store *StubStore, key string, want int)
 	}
 }
 
-// AssertAuthorInsertCalls noqa
-func AssertAuthorInsertCalls(t *testing.T, store *StubStore, key string, want int) {
+// AssertStoreAuthorInsertCalls noqa
+func AssertStoreAuthorInsertCalls(t *testing.T, store *StubStore, key string, want int) {
 	t.Helper()
 	got := store.InsertAuthorCalls[key]
 	if got != want {
@@ -102,6 +102,54 @@ func AssertAuthorCacheCalls(t *testing.T, store *StubCache, id string, want int)
 	got := store.AuthorCalls[id]
 	if got != want {
 		t.Errorf("got %d want %d calls", got, want)
+	}
+}
+
+// // AssertCacheBookInsertCalls noqa
+// func AssertCacheBookInsertCalls(t *testing.T, store *StubCache, key string, want int) {
+// 	t.Helper()
+// 	got := store.InsertBookCalls[key]
+// 	if got != want {
+// 		t.Errorf("got %d want %d calls", got, want)
+// 	}
+// }
+
+// // AssertCachePageInsertCalls noqa
+// func AssertCachePageInsertCalls(t *testing.T, store *StubCache, key string, want int) {
+// 	t.Helper()
+// 	got := store.InsertPageCalls[key]
+// 	if got != want {
+// 		t.Errorf("got %d want %d calls", got, want)
+// 	}
+// }
+
+// // AssertCacheAuthorInsertCalls noqa
+// func AssertCacheAuthorInsertCalls(t *testing.T, store *StubCache, key string, want int) {
+// 	t.Helper()
+// 	got := store.InsertAuthorCalls[key]
+// 	if got != want {
+// 		t.Errorf("got %d want %d calls", got, want)
+// 	}
+// }
+
+// AssertPointerNotNil ensure the pointer receiver is not nil
+func AssertPointerNotNil(t *testing.T, got interface{}) {
+	t.Helper()
+	switch v := got.(type) {
+	case *books.Book, *books.Page, *books.Author:
+		if v == nil {
+			t.Errorf("received nil pointer reference: %v", v)
+		}
+	default:
+		t.Errorf("did not receive a pointer: got %v", v)
+	}
+}
+
+// AssertHasLen assert arary received has a lenght
+func AssertHasLen(t *testing.T, got []interface{}) {
+	t.Helper()
+	if len(got) <= 0 {
+		t.Errorf("received empty array: %v", got)
 	}
 }
 

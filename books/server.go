@@ -29,36 +29,36 @@ type BookServer struct {
 // Storer noqa
 type Storer interface {
 	AuthorByID(*Author, *uuid.UUID, []string) error
-	AuthorBySlug(*Author, *string, []string) error
-	Authors([]*Author, *int, *int, *uuid.UUID, *time.Time, []string) error
+	AuthorBySlug(*Author, string, []string) error
+	Authors([]*Author, int, int, *uuid.UUID, *time.Time, []string) error
 	BookByID(*Book, *uuid.UUID, []string) error
-	BookBySlug(*Book, *string, []string) error
-	Books([]*Book, *int, *int, *uuid.UUID, *time.Time, []string) error
-	BooksByAuthor([]*Book, *string, *int, *int, *uuid.UUID, *time.Time, []string) error
+	BookBySlug(*Book, string, []string) error
+	Books([]*Book, int, int, *uuid.UUID, *time.Time, []string) error
+	BooksByAuthor([]*Book, string, int, int, *uuid.UUID, *time.Time, []string) error
 	BulkInsertAuthors([]*Author) error
 	BulkInsertBooks([]*Book) error
 	BulkInsertPages([]*Page) error
 	InsertAuthor(*Author) error
 	InsertBook(*Book) error
 	InsertPage(*Page) error
-	PageByBookAndNumber(*Page, *uuid.UUID, *int, []string) error
+	PageByBookAndNumber(*Page, *uuid.UUID, int, []string) error
 	PageByID(*Page, *uuid.UUID, []string) error
-	Pages([]*Page, *int, *int, *uuid.UUID, *time.Time, []string) error
+	Pages([]*Page, int, int, *uuid.UUID, *time.Time, []string) error
 }
 
 // Cacher noqa
 type Cacher interface {
 	AuthorByID(*Author, *uuid.UUID, []string) error
-	AuthorBySlug(*Author, *string, []string) error
+	AuthorBySlug(*Author, string, []string) error
 	AuthorQuery(*[]*Author, string) error
 	BookByID(*Book, *uuid.UUID, []string) error
-	BookBySlug(*Book, *string, []string) error
+	BookBySlug(*Book, string, []string) error
 	BookQuery(*[]*Book, string) error
 	InsertAuthor(*Author) error
 	InsertBook(*Book) error
 	InsertPage(*Page) error
 	IsAvailable() error
-	PageByBookAndNumber(*Page, *uuid.UUID, *int, []string) error
+	PageByBookAndNumber(*Page, *uuid.UUID, int, []string) error
 	PageByID(*Page, *uuid.UUID, []string) error
 	PageQuery(*[]*Page, string) error
 	SaveAuthorQuery(string, []*Author) error
@@ -139,33 +139,30 @@ func (b *BookServer) serveIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("problem opening %s %v", templatePath, err), 400)
 	}
 
-	var sampleBooks []*Book
-	var sampleAuthors []*Author
-	var samplePages []*Page
-	if err := b.Cache.IsAvailable(); err != nil {
-		b.Cache.AuthorQuery(&sampleAuthors, fmt.Sprintf(
-			"Authors(%d,%d,%v,%v,%v)",
-			1, 0, uuid.Nil, time.Time{}, []string{"id"},
-		))
-		b.Cache.BookQuery(&sampleBooks, fmt.Sprintf(
-			"Books(%d,%d,%v,%v,%v)",
-			1, 0, uuid.Nil, time.Time{}, []string{"id"},
-		))
-		b.Cache.PageQuery(&samplePages, fmt.Sprintf(
-			"Pages(%d,%d,%v,%v,%v)",
-			1, 0, uuid.Nil, time.Time{}, []string{"id"},
-		))
-	} else {
-		one, zero, nilUUID := new(int), new(int), uuid.Nil
-		b.Store.Authors(sampleAuthors, one, zero, &nilUUID, &time.Time{}, []string{"id"})
-		b.Store.Books(sampleBooks, one, zero, &nilUUID, &time.Time{}, []string{"id"})
-		b.Store.Pages(samplePages, one, zero, &nilUUID, &time.Time{}, []string{"id"})
+	var sampleBook Book
+	var sampleAuthor Author
+	var samplePage Page
+	herman := "herman-melville"
+	moby := "moby-dick"
+	if cacheOKErr := b.Cache.IsAvailable(); cacheOKErr == nil {
+		b.Cache.AuthorBySlug(&sampleAuthor, herman, []string{"id"})
+		b.Cache.BookBySlug(&sampleBook, moby, []string{"id"})
+		b.Cache.PageByBookAndNumber(&samplePage, &sampleBook.ID, 1, []string{"id"})
+	}
+	if sampleAuthor.ID == uuid.Nil {
+		b.Store.AuthorBySlug(&sampleAuthor, herman, []string{"id"})
+	}
+	if sampleBook.ID == uuid.Nil {
+		b.Store.BookBySlug(&sampleBook, moby, []string{"id"})
+	}
+	if samplePage.ID == uuid.Nil {
+		b.Store.PageByBookAndNumber(&samplePage, &sampleBook.ID, 1, []string{"id"})
 	}
 
 	data := IndexData(
-		sampleBooks[0].ID.String(),
-		samplePages[0].ID.String(),
-		sampleAuthors[0].ID.String(),
+		sampleBook.ID.String(),
+		"samplePage.ID.String()",
+		sampleAuthor.ID.String(),
 	)
 	tmpl.Execute(w, data[langCode])
 

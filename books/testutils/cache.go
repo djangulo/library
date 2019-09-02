@@ -7,11 +7,20 @@ import (
 )
 
 // NewStubCache noqa
-func NewStubCache(available error) *StubCache {
+func NewStubCache(available error, prepopulate bool) *StubCache {
 
-	testBooks := TestBookData()
-	testPages := TestPageData()
-	testAuthors := TestAuthorData()
+	if available != nil {
+		return &StubCache{Available: books.ErrCacheUnavailable}
+	}
+
+	testBooks := make([]*books.Book, 0)
+	testAuthors := make([]*books.Author, 0)
+	testPages := make([]*books.Page, 0)
+	if prepopulate {
+		testBooks = TestBookData()
+		testPages = TestPageData()
+		testAuthors = TestAuthorData()
+	}
 
 	return &StubCache{
 		Available:     available,
@@ -22,25 +31,25 @@ func NewStubCache(available error) *StubCache {
 		PageCalls:     map[string]int{},
 		AuthorCalls:   map[string]int{},
 		QueryCalls:    map[string]int{},
-		BookQueries:   map[string]([]books.Book){},
-		PageQueries:   map[string]([]books.Page){},
-		AuthorQueries: map[string]([]books.Author){},
+		BookQueries:   map[string]([]*books.Book){},
+		PageQueries:   map[string]([]*books.Page){},
+		AuthorQueries: map[string]([]*books.Author){},
 	}
 }
 
 // StubCache for testing
 type StubCache struct {
 	Available     error
-	books         []books.Book
-	pages         []books.Page
-	authors       []books.Author
+	books         []*books.Book
+	pages         []*books.Page
+	authors       []*books.Author
 	QueryCalls    map[string]int
 	BookCalls     map[string]int
 	PageCalls     map[string]int
 	AuthorCalls   map[string]int
-	BookQueries   map[string][]books.Book
-	PageQueries   map[string][]books.Page
-	AuthorQueries map[string][]books.Author
+	BookQueries   map[string][]*books.Book
+	PageQueries   map[string][]*books.Page
+	AuthorQueries map[string][]*books.Author
 }
 
 // IsAvailable noqa
@@ -48,193 +57,150 @@ func (s *StubCache) IsAvailable() error {
 	return s.Available
 }
 
-// Books noqa
-func (s *StubCache) Books(limit, offset int) ([]books.Book, error) {
-	s.BookCalls["list"]++
-	items := s.books
-	length := len(items)
-	if offset > length {
-		return items[length:], nil
-	} else if offset < 0 {
-		offset = 0
-	}
-	if limit+offset > length {
-		return items[offset:], nil
-	}
-	if limit > length {
-		limit = length
-	}
-	return items[(0 + offset):(offset + limit)], nil
-}
-
 // BookByID noqa
-func (s *StubCache) BookByID(id uuid.UUID) (books.Book, error) {
+func (s *StubCache) BookByID(
+	book *books.Book,
+	ID *uuid.UUID,
+	fields []string,
+) error {
 	for _, b := range s.books {
-		if id == b.ID {
+		if *ID == b.ID {
 			s.BookCalls[b.ID.String()]++
-			return b, nil
+			book = b
+			return nil
 		}
 	}
-	return books.Book{}, nil
+	return books.ErrNotFoundInCache
 }
 
 // BookBySlug noqa
-func (s *StubCache) BookBySlug(slug string) (books.Book, error) {
+func (s *StubCache) BookBySlug(
+	book *books.Book,
+	slug string,
+	fields []string,
+) error {
 	for _, b := range s.books {
-		if b.Slug == slug {
+		if slug == b.Slug {
 			s.BookCalls[b.ID.String()]++
-			return b, nil
+			book = b
+			return nil
 		}
 	}
-	return books.Book{}, nil
-}
-
-// BooksByAuthor noqa
-func (s *StubCache) BooksByAuthor(name string) ([]books.Book, error) {
-	s.BookCalls["list"]++
-	var id *uuid.UUID
-	for _, a := range s.authors {
-		if a.Name == name {
-			id = &a.ID
-			break
-		}
-	}
-	books := make([]books.Book, 0)
-	for _, b := range s.books {
-		if b.AuthorID.Valid {
-			if b.AuthorID.UUID.String() == id.String() {
-				books = append(books, b)
-			}
-
-		}
-	}
-	return books, nil
-}
-
-// Pages noqa
-func (s *StubCache) Pages(limit, offset int) ([]books.Page, error) {
-	s.PageCalls["list"]++
-	items := s.pages
-	length := len(items)
-	if offset > length {
-		return items[length:], nil
-	} else if offset < 0 {
-		offset = 0
-	}
-	if limit+offset > length {
-		return items[offset:], nil
-	}
-	if limit > length {
-		limit = length
-	}
-	return items[(0 + offset):(offset + limit)], nil
+	return books.ErrNotFoundInCache
 }
 
 // PageByID noqa
-func (s *StubCache) PageByID(id uuid.UUID) (books.Page, error) {
+func (s *StubCache) PageByID(
+	page *books.Page,
+	ID *uuid.UUID,
+	fields []string,
+) error {
 	for _, p := range s.pages {
-		if id.String() == p.ID.String() {
+		if *ID == p.ID {
 			s.PageCalls[p.ID.String()]++
-			return p, nil
+			page = p
+			return nil
 		}
 	}
-	return books.Page{}, nil
+	return books.ErrNotFoundInCache
 }
 
 // PageByBookAndNumber noqa
-func (s *StubCache) PageByBookAndNumber(bookID uuid.UUID, number int) (books.Page, error) {
+func (s *StubCache) PageByBookAndNumber(
+	page *books.Page,
+	bookID *uuid.UUID,
+	number int,
+	fields []string,
+) error {
 	for _, p := range s.pages {
-		if bookID.String() == p.BookID.String() && p.PageNumber == number {
+		if bookID == p.BookID && number == p.PageNumber {
 			s.PageCalls[p.ID.String()]++
-			return p, nil
+			page = p
+			return nil
 		}
 	}
-	return books.Page{}, nil
-}
-
-// Authors noqa
-func (s *StubCache) Authors(limit, offset int) ([]books.Author, error) {
-	s.AuthorCalls["list"]++
-	items := s.authors
-	length := len(items)
-	if offset > length {
-		return items[length:], nil
-	} else if offset < 0 {
-		offset = 0
-	}
-	if limit+offset > length {
-		return items[offset:], nil
-	}
-	if limit > length {
-		limit = length
-	}
-	return items[(0 + offset):(offset + limit)], nil
+	return books.ErrNotFoundInCache
 }
 
 // AuthorByID noqa
-func (s *StubCache) AuthorByID(id uuid.UUID) (books.Author, error) {
+func (s *StubCache) AuthorByID(
+	author *books.Author,
+	ID *uuid.UUID,
+	fields []string,
+) error {
 	for _, a := range s.authors {
-		if id.String() == a.ID.String() {
+		if *ID == a.ID {
 			s.AuthorCalls[a.ID.String()]++
-			return a, nil
+			author = a
+			return nil
 		}
 	}
-	return books.Author{}, nil
+	return books.ErrNotFoundInCache
 }
 
 // AuthorBySlug noqa
-func (s *StubCache) AuthorBySlug(slug string) (books.Author, error) {
-	slug = books.Slugify(slug, "-")
+func (s *StubCache) AuthorBySlug(
+	author *books.Author,
+	slug string,
+	fields []string,
+) error {
 	for _, a := range s.authors {
-		if a.Slug == slug {
+		if slug == a.Slug {
 			s.AuthorCalls[a.ID.String()]++
-			return a, nil
+			author = a
+			return nil
 		}
 	}
-	return books.Author{}, nil
+	return books.ErrNotFoundInCache
 }
 
 // SaveBookQuery saves a query onto the cache for easy retrieval
-func (s *StubCache) SaveBookQuery(key string, books []books.Book) error {
+func (s *StubCache) SaveBookQuery(key string, books []*books.Book) error {
 	s.QueryCalls[("SET:"+key)]++
 	s.BookQueries[key] = books
 	return nil
 }
 
-// GetBookQuery retrieves a saved  query from the cache
-func (s *StubCache) GetBookQuery(key string) ([]books.Book, error) {
+// BookQuery retrieves a saved  query from the cache
+func (s *StubCache) BookQuery(books *[]*books.Book, key string) error {
 	s.QueryCalls[("GET:"+key)]++
-	return s.BookQueries[key], nil
+	result := s.BookQueries[key]
+	books = &result
+	return nil
 }
 
 // SavePageQuery saves a query onto the cache for easy retrieval
-func (s *StubCache) SavePageQuery(key string, pages []books.Page) error {
+func (s *StubCache) SavePageQuery(key string, pages []*books.Page) error {
 	s.QueryCalls[("SET:"+key)]++
 	s.PageQueries[key] = pages
 	return nil
 }
 
-// GetPageQuery retrieves a saved  query from the cache
-func (s *StubCache) GetPageQuery(key string) ([]books.Page, error) {
+// PageQuery retrieves a saved  query from the cache
+func (s *StubCache) PageQuery(pages *[]*books.Page, key string) error {
 	s.QueryCalls[("GET:"+key)]++
-	return s.PageQueries[key], nil
+	result := s.PageQueries[key]
+	pages = &result
+	return nil
 }
 
 // SaveAuthorQuery saves a query onto the cache for easy retrieval
-func (s *StubCache) SaveAuthorQuery(key string, authors []books.Author) error {
+func (s *StubCache) SaveAuthorQuery(key string, authors []*books.Author) error {
 	s.QueryCalls[("SET:"+key)]++
 	s.AuthorQueries[key] = authors
 	return nil
 }
 
-// GetAuthorQuery retrieves a saved  query from the cache
-func (s *StubCache) GetAuthorQuery(key string) ([]books.Author, error) {
+// AuthorQuery retrieves a saved  query from the cache
+func (s *StubCache) AuthorQuery(authors *[]*books.Author, key string) error {
 	s.QueryCalls[("GET:"+key)]++
-	return s.AuthorQueries[key], nil
+	result := s.AuthorQueries[key]
+	authors = &result
+	return nil
 }
 
 // InsertBook noqa
-func (s *StubCache) InsertBook(book books.Book) error {
+func (s *StubCache) InsertBook(book *books.Book) error {
 	if book.ID != uuid.Nil {
 		s.books = append(s.books, book)
 		return nil
@@ -243,7 +209,7 @@ func (s *StubCache) InsertBook(book books.Book) error {
 }
 
 // InsertPage noqa
-func (s *StubCache) InsertPage(page books.Page) error {
+func (s *StubCache) InsertPage(page *books.Page) error {
 	if page.ID != uuid.Nil {
 		s.pages = append(s.pages, page)
 		return nil
@@ -252,7 +218,7 @@ func (s *StubCache) InsertPage(page books.Page) error {
 }
 
 // InsertAuthor noqa
-func (s *StubCache) InsertAuthor(author books.Author) error {
+func (s *StubCache) InsertAuthor(author *books.Author) error {
 	if author.ID != uuid.Nil {
 		s.authors = append(s.authors, author)
 		return nil

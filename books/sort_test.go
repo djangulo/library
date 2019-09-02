@@ -15,22 +15,22 @@ func BenchmarkSortMethods(b *testing.B) {
 
 	ptrPagesSlice := make([]*books.Page, len(pages), len(pages))
 	for i, p := range pages {
-		ptrPagesSlice[i] = &p
+		ptrPagesSlice[i] = p
 	}
 	ptrBooksSlice := make([]*books.Book, len(tBooks), len(tBooks))
 	for i, b := range tBooks {
-		ptrBooksSlice[i] = &b
+		ptrBooksSlice[i] = b
 	}
 
-	b.Run("books programmable sort", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			if i%2 == 0 {
-				books.BookBy(books.BookIDSortDesc).Sort(tBooks)
-			} else {
-				books.BookBy(books.BookIDSortAsc).Sort(tBooks)
-			}
-		}
-	})
+	// b.Run("books programmable sort", func(b *testing.B) {
+	// 	for i := 0; i < b.N; i++ {
+	// 		if i%2 == 0 {
+	// 			books.BookBy(books.BookIDSortDesc).Sort(tBooks)
+	// 		} else {
+	// 			books.BookBy(books.BookIDSortAsc).Sort(tBooks)
+	// 		}
+	// 	}
+	// })
 	b.Run("books slice stable (sort.SliceStable)", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			if i%2 == 0 {
@@ -58,15 +58,15 @@ func BenchmarkSortMethods(b *testing.B) {
 			}
 		}
 	})
-	b.Run("pages all programmable sort", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			if i%2 == 0 {
-				books.PageBy(books.PageIDSortDesc).Sort(pages)
-			} else {
-				books.PageBy(books.PageIDSortAsc).Sort(pages)
-			}
-		}
-	})
+	// b.Run("pages all programmable sort", func(b *testing.B) {
+	// 	for i := 0; i < b.N; i++ {
+	// 		if i%2 == 0 {
+	// 			books.PageBy(books.PageIDSortDesc).Sort(pages)
+	// 		} else {
+	// 			books.PageBy(books.PageIDSortAsc).Sort(pages)
+	// 		}
+	// 	}
+	// })
 	b.Run("pages all slice stable (sort.SliceStable)", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			if i%2 == 0 {

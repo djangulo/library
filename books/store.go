@@ -43,7 +43,7 @@ type Book struct {
 	ID              uuid.UUID  `json:"id" db:"id" redis:"id"`
 	CreatedAt       time.Time  `json:"created_at" db:"created_at" redis:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at" redis:"updated_at"`
-	DeletedAt       time.Time  `json:"deleted_at" db:"deleted_at" redis:"deleted_at"`
+	DeletedAt       *time.Time `json:"deleted_at" db:"deleted_at" redis:"deleted_at"`
 	Title           string     `json:"title" db:"title" redis:"title"`
 	Slug            string     `json:"slug" db:"slug" redis:"slug"`
 	PublicationYear NullInt64  `json:"publication_year" db:"publication_year" redis:"publication_year"`
@@ -55,12 +55,12 @@ type Book struct {
 
 // Author struct
 type Author struct {
-	ID        uuid.UUID `json:"id" db:"id" redis:"id"`
-	CreatedAt time.Time `json:"created_at" db:"created_at" redis:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at" redis:"updated_at"`
-	DeletedAt time.Time `json:"deleted_at" db:"deleted_at" redis:"deleted_at"`
-	Name      string    `json:"name" db:"name" redis:"name"`
-	Slug      string    `json:"slug" db:"slug" redis:"slug"`
+	ID        uuid.UUID  `json:"id" db:"id" redis:"id"`
+	CreatedAt time.Time  `json:"created_at" db:"created_at" redis:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at" db:"updated_at" redis:"updated_at"`
+	DeletedAt *time.Time `json:"deleted_at" db:"deleted_at" redis:"deleted_at"`
+	Name      string     `json:"name" db:"name" redis:"name"`
+	Slug      string     `json:"slug" db:"slug" redis:"slug"`
 }
 
 // Page struct
@@ -68,7 +68,7 @@ type Page struct {
 	ID         uuid.UUID  `json:"id" db:"id" redis:"id"`
 	CreatedAt  time.Time  `json:"created_at" db:"created_at" redis:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at" db:"updated_at" redis:"updated_at"`
-	DeletedAt  time.Time  `json:"deleted_at" db:"deleted_at" redis:"deleted_at"`
+	DeletedAt  *time.Time `json:"deleted_at" db:"deleted_at" redis:"deleted_at"`
 	PageNumber int        `json:"page_number" db:"page_number" redis:"page_number"`
 	Body       string     `json:"body" db:"body" redis:"body"`
 	BookID     *uuid.UUID `json:"book_id" db:"book_id" redis:"book_id"`
@@ -96,14 +96,14 @@ func NewSQLStore(config config.DatabaseConfig) (*SQLStore, func()) {
 // Books fetches a list of books
 func (s *SQLStore) Books(
 	books []*Book,
-	limit *int,
-	offset *int,
+	limit int,
+	offset int,
 	lastID *uuid.UUID,
 	lastCreated *time.Time,
 	fields []string,
 ) error {
-	if *limit == -1 {
-		*limit = 1000
+	if limit == -1 {
+		limit = 1000
 	}
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -135,7 +135,6 @@ func (s *SQLStore) Books(
 			off,
 		)
 	}
-	log.Println(stmt)
 	var err error
 	var rows *sqlx.Rows
 	if seeking == seekOFF {
@@ -157,11 +156,8 @@ func (s *SQLStore) Books(
 			log.Printf("Books: error scanning row, %v\n", err)
 			continue
 		}
-		log.Printf("%v\n", book)
+		// log.Printf("%v\n", book)
 		books = append(books, &book)
-		for _, b := range books {
-			log.Printf("%v\n", b)
-		}
 	}
 	if err := rows.Close(); err != nil {
 		log.Printf("Books: error closing rows, %v\n", err)
@@ -185,7 +181,7 @@ func (s *SQLStore) BookByID(
 		"SELECT %s FROM books WHERE id = $1 LIMIT 1;",
 		strings.Join(fields, ","),
 	)
-	if err := s.DB.Get(&book, stmt, ID); err != nil {
+	if err := s.DB.Get(book, stmt, ID); err != nil {
 		return errors.Wrap(err, "BookByID: query failed")
 	}
 	return nil
@@ -194,10 +190,10 @@ func (s *SQLStore) BookByID(
 // BookBySlug fetches a book by slug
 func (s *SQLStore) BookBySlug(
 	book *Book,
-	slug *string,
+	slug string,
 	fields []string,
 ) error {
-	*slug = Slugify(*slug, "-")
+	slug = Slugify(slug, "-")
 
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -207,7 +203,7 @@ func (s *SQLStore) BookBySlug(
 		"SELECT %s FROM books WHERE slug = $1 LIMIT 1;",
 		strings.Join(fields, ","),
 	)
-	if err := s.DB.Get(&book, stmt, slug); err != nil {
+	if err := s.DB.Get(book, stmt, slug); err != nil {
 		return errors.Wrap(err, "BookBySlug: query failed")
 	}
 	return nil
@@ -216,26 +212,30 @@ func (s *SQLStore) BookBySlug(
 // BooksByAuthor returns books by a given author
 func (s *SQLStore) BooksByAuthor(
 	books []*Book,
-	author *string,
-	limit *int,
-	offset *int,
+	author string,
+	limit int,
+	offset int,
 	lastID *uuid.UUID,
 	lastCreated *time.Time,
 	fields []string,
 ) error {
-	*author = strings.ToLower(*author)
+	author = strings.ToLower(author)
 
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
 	}
 
-	innerFields := make([]string, len(fields), len(fields))
+	innerFields := make([]string, 0)
 	for i := range fields {
-		innerFields[i] = fmt.Sprintf("b.%s", fields[i])
+		// they're included in the query
+		if fields[i] == "created_at" || fields[i] == "id" {
+			continue
+		}
+		innerFields = append(innerFields, fmt.Sprintf("b.%s", fields[i]))
 	}
 
-	if *limit == -1 {
-		*limit = 1000
+	if limit == -1 {
+		limit = 1000
 	}
 
 	var stmt string
@@ -251,7 +251,7 @@ func (s *SQLStore) BooksByAuthor(
 				%s
 			FROM (
 				SELECT
-					a.slug AS author_slug, a.name, %s	
+					a.slug AS author_slug, a.name, b.created_at, b.id, %s	
 				FROM books AS b
 				JOIN authors AS a
 				ON b.author_id = a.id
@@ -260,8 +260,8 @@ func (s *SQLStore) BooksByAuthor(
 				lower(name) = $1 OR author_slug = $2
 				%s %s;
 			`,
-			strings.Join(fields, ","),
-			strings.Join(innerFields, ","),
+			strings.Join(fields, ", "),
+			strings.Join(innerFields, ", "),
 			seek,
 			lim,
 		)
@@ -276,7 +276,7 @@ func (s *SQLStore) BooksByAuthor(
 				%s
 			FROM (
 				SELECT
-					a.slug AS author_slug, a.name, %s	
+					a.slug AS author_slug, a.name, b.created_at, b.id, %s	
 				FROM books AS b
 				JOIN authors AS a
 				ON b.author_id = a.id
@@ -326,14 +326,14 @@ func (s *SQLStore) BooksByAuthor(
 // Pages fetches a list of pages
 func (s *SQLStore) Pages(
 	pages []*Page,
-	limit *int,
-	offset *int,
+	limit int,
+	offset int,
 	lastID *uuid.UUID,
 	lastCreated *time.Time,
 	fields []string,
 ) error {
-	if *limit == -1 {
-		*limit = 1000
+	if limit == -1 {
+		limit = 1000
 	}
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -410,7 +410,7 @@ func (s *SQLStore) PageByID(
 		"SELECT %s FROM pages WHERE id = $1 LIMIT 1;",
 		strings.Join(fields, ","),
 	)
-	if err := s.DB.Get(&page, stmt, ID); err != nil {
+	if err := s.DB.Get(page, stmt, ID); err != nil {
 		return errors.Wrap(err, "PageByID: query failed")
 	}
 	return nil
@@ -420,16 +420,19 @@ func (s *SQLStore) PageByID(
 func (s *SQLStore) PageByBookAndNumber(
 	page *Page,
 	bookID *uuid.UUID,
-	number *int,
+	number int,
 	fields []string,
 ) error {
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
 	}
 
-	innerFields := make([]string, len(fields), len(fields))
+	innerFields := make([]string, 0)
 	for i := range fields {
-		innerFields[i] = fmt.Sprintf("p.%s", fields[i])
+		if fields[i] == "book_id" || fields[i] == "page_number" {
+			continue
+		}
+		innerFields = append(innerFields, fmt.Sprintf("p.%s", fields[i]))
 	}
 
 	stmt := fmt.Sprintf(`
@@ -437,15 +440,16 @@ func (s *SQLStore) PageByBookAndNumber(
 		%s
 	FROM (
 		SELECT
-			b.id AS books_book_id,
+			p.page_number, p.book_id,
 			%s
 		FROM pages AS p
 		JOIN books AS b
 		ON b.id = p.book_id
 	) AS pages_books
 	WHERE book_id = $1 AND page_number = $2 LIMIT 1;
-	`, strings.Join(fields, ","), strings.Join(innerFields, ","))
-	if err := s.DB.Get(&page, stmt, bookID, number); err != nil {
+	`, strings.Join(fields, ", "), strings.Join(innerFields, ", "))
+
+	if err := s.DB.Get(page, stmt, bookID, number); err != nil {
 		return errors.Wrap(err, "PageByBookAndNumber: query failed")
 	}
 	return nil
@@ -454,15 +458,15 @@ func (s *SQLStore) PageByBookAndNumber(
 // Authors fetches a list of authors
 func (s *SQLStore) Authors(
 	authors []*Author,
-	limit *int,
-	offset *int,
+	limit int,
+	offset int,
 	lastID *uuid.UUID,
 	lastCreated *time.Time,
 	fields []string,
 ) error {
 
-	if *limit == -1 {
-		*limit = 1000
+	if limit == -1 {
+		limit = 1000
 	}
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -538,7 +542,7 @@ func (s *SQLStore) AuthorByID(
 		"SELECT %s FROM authors WHERE id = $1 LIMIT 1;",
 		strings.Join(fields, ","),
 	)
-	if err := s.DB.Get(&author, stmt, ID); err != nil {
+	if err := s.DB.Get(author, stmt, ID); err != nil {
 		return errors.Wrap(err, "AuthorByID: query failed")
 	}
 	return nil
@@ -547,10 +551,10 @@ func (s *SQLStore) AuthorByID(
 // AuthorBySlug fetches an author by slug
 func (s *SQLStore) AuthorBySlug(
 	author *Author,
-	slug *string,
+	slug string,
 	fields []string,
 ) error {
-	*slug = Slugify(*slug, "-")
+	slug = Slugify(slug, "-")
 
 	if len(fields) == 0 || fields == nil {
 		fields = []string{"*"}
@@ -560,7 +564,7 @@ func (s *SQLStore) AuthorBySlug(
 		"SELECT %s FROM authors WHERE slug = $1 LIMIT 1;",
 		strings.Join(fields, ","),
 	)
-	if err := s.DB.Get(&author, stmt, slug); err != nil {
+	if err := s.DB.Get(author, stmt, slug); err != nil {
 		return errors.Wrap(err, "AuthorBySlug: query failed")
 	}
 	return nil

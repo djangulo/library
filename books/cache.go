@@ -70,7 +70,7 @@ func (r *RedisCache) BookByID(
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
 		}
-		if err := IsSubset(fields, availableFields); err != nil {
+		if !IsSubset(availableFields, fields) {
 			return errors.Wrap(
 				err,
 				fmt.Sprintf(
@@ -96,11 +96,11 @@ func (r *RedisCache) BookByID(
 // BookBySlug fetches a book by ID
 func (r *RedisCache) BookBySlug(
 	book *Book,
-	slug *string,
+	slug string,
 	fields []string,
 ) error {
-	*slug = Slugify(*slug, "-")
-	match := fmt.Sprintf("book:%s:*", *slug)
+	slug = Slugify(slug, "-")
+	match := fmt.Sprintf("book:%s:*", slug)
 	keys := r.Client.Scan(0, match, 0).Iterator()
 	for keys.Next() {
 		key := keys.Val()
@@ -108,7 +108,7 @@ func (r *RedisCache) BookBySlug(
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
 		}
-		if err := IsSubset(fields, availableFields); err != nil {
+		if !IsSubset(availableFields, fields) {
 			return errors.Wrap(
 				err,
 				fmt.Sprintf(
@@ -145,7 +145,7 @@ func (r *RedisCache) PageByID(
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
 		}
-		if err := IsSubset(fields, availableFields); err != nil {
+		if !IsSubset(availableFields, fields) {
 			return errors.Wrap(
 				err,
 				fmt.Sprintf(
@@ -172,10 +172,10 @@ func (r *RedisCache) PageByID(
 func (r *RedisCache) PageByBookAndNumber(
 	page *Page,
 	bookID *uuid.UUID,
-	number *int,
+	number int,
 	fields []string,
 ) error {
-	match := fmt.Sprintf("page:*:%s:%d", bookID.String(), *number)
+	match := fmt.Sprintf("page:*:%s:%d", bookID.String(), number)
 	keys := r.Client.Scan(0, match, 0).Iterator()
 	for keys.Next() {
 		key := keys.Val()
@@ -183,7 +183,7 @@ func (r *RedisCache) PageByBookAndNumber(
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
 		}
-		if err := IsSubset(fields, availableFields); err != nil {
+		if !IsSubset(availableFields, fields) {
 			return errors.Wrap(
 				err,
 				fmt.Sprintf(
@@ -220,7 +220,7 @@ func (r *RedisCache) AuthorByID(
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
 		}
-		if err := IsSubset(fields, availableFields); err != nil {
+		if !IsSubset(availableFields, fields) {
 			return errors.Wrap(
 				err,
 				fmt.Sprintf(
@@ -246,11 +246,11 @@ func (r *RedisCache) AuthorByID(
 // AuthorBySlug fetches a book by ID
 func (r *RedisCache) AuthorBySlug(
 	author *Author,
-	slug *string,
+	slug string,
 	fields []string,
 ) error {
-	*slug = Slugify(*slug, "-")
-	match := fmt.Sprintf("author:%s:*", *slug)
+	slug = Slugify(slug, "-")
+	match := fmt.Sprintf("author:%s:*", slug)
 	keys := r.Client.Scan(0, match, 0).Iterator()
 	for keys.Next() {
 		key := keys.Val()
@@ -258,7 +258,7 @@ func (r *RedisCache) AuthorBySlug(
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("could not HKeys key %v", key))
 		}
-		if err := IsSubset(fields, availableFields); err != nil {
+		if !IsSubset(availableFields, fields) {
 			return errors.Wrap(
 				err,
 				fmt.Sprintf(
@@ -516,7 +516,7 @@ func UnhashBook(
 				if err != nil {
 					return errors.Wrap(err, "could not parse timestamp onto time.Time")
 				}
-				book.DeletedAt = t
+				book.DeletedAt = &t
 			}
 		}
 	}
@@ -570,7 +570,7 @@ func UnhashPage(
 				if err != nil {
 					return errors.Wrap(err, "could not parse timestamp onto time.Time")
 				}
-				page.DeletedAt = t
+				page.DeletedAt = &t
 			}
 		}
 	}
@@ -614,7 +614,7 @@ func UnhashAuthor(
 				if err != nil {
 					return errors.Wrap(err, "could not parse timestamp onto time.Time")
 				}
-				author.DeletedAt = t
+				author.DeletedAt = &t
 			}
 		}
 	}
@@ -633,7 +633,7 @@ func parseBookID(bookCacheID string) (string, uuid.UUID, error) {
 	slug, idString := arr[1], arr[2]
 	uid, err := uuid.FromString(idString)
 	if err != nil {
-		return "", uuid.Nil, errors.Wrap(err, "could not parse uuid")
+		return "", uuid.Nil, errors.Wrap(err, "could not parse uuiad")
 	}
 	return slug, uid, nil
 }

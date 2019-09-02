@@ -17,6 +17,7 @@ import (
 	"os"
 	fp "path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -44,20 +45,35 @@ func Slugify(str string, slugChar string) string {
 	return string(result)
 }
 
-// IsSubset determines if B is a subset of A
-func IsSubset(A, B []string) error {
+// IsSubset returns true if B is a subset of A
+func IsSubset(A, B []string) bool {
 	set := make(map[string]struct{})
-	for _, value := range A {
-		set[value] = struct{}{}
+	for _, a := range A {
+		set[a] = struct{}{}
 	}
 
-	for _, value := range B {
-		if _, ok := set[value]; !ok {
-			return ErrNotASubset
+	for _, b := range B {
+		if _, ok := set[b]; !ok {
+			return false
 		}
 	}
 
-	return nil
+	return true
+}
+
+// SetDifference removes B elements from A
+func SetDifference(A []string, B []string) []string {
+	set := make(map[string]struct{})
+	for _, b := range B {
+		set[b] = struct{}{}
+	}
+	x := A[:0]
+	for _, a := range A {
+		if _, ok := set[a]; !ok {
+			x = append(x, a)
+		}
+	}
+	return x
 }
 
 // GutenbergMeta extract metadata from the gutenberg format
@@ -492,7 +508,7 @@ func TxError(tx *sql.Tx, err error, wrapMsg string) error {
 }
 
 // AuthorSeedData noqa
-func AuthorSeedData(config *config.Config) ([]Author, error) {
+func AuthorSeedData(config *config.Config) ([]*Author, error) {
 	path := fp.Join(
 		config.Project.Dirs.Seed,
 		"gutenberg",
@@ -513,16 +529,24 @@ func AuthorSeedData(config *config.Config) ([]Author, error) {
 		)
 	}
 
-	var authors []Author
+	var authors []*Author
 	err = json.Unmarshal(byteData, &authors)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal into array of %T", authors))
 	}
+
+	sort.SliceStable(authors, func(i, j int) bool {
+		return authors[i].CreatedAt.After(authors[j].CreatedAt)
+	})
+	sort.SliceStable(authors, func(i, j int) bool {
+		return authors[j].ID.String() < authors[i].ID.String()
+	})
+
 	return authors, nil
 }
 
 // BookSeedData noqa
-func BookSeedData(config *config.Config) ([]Book, error) {
+func BookSeedData(config *config.Config) ([]*Book, error) {
 	path := fp.Join(
 		config.Project.Dirs.Seed,
 		"gutenberg",
@@ -543,16 +567,24 @@ func BookSeedData(config *config.Config) ([]Book, error) {
 		)
 	}
 
-	var books []Book
+	var books []*Book
 	err = json.Unmarshal(byteData, &books)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal into array of %T", books))
 	}
+
+	sort.SliceStable(books, func(i, j int) bool {
+		return books[i].CreatedAt.After(books[j].CreatedAt)
+	})
+	sort.SliceStable(books, func(i, j int) bool {
+		return books[j].ID.String() < books[i].ID.String()
+	})
+
 	return books, nil
 }
 
 // PageSeedData noqa
-func PageSeedData(config *config.Config) ([]Page, error) {
+func PageSeedData(config *config.Config) ([]*Page, error) {
 	path := fp.Join(
 		config.Project.Dirs.Seed,
 		"gutenberg",
@@ -573,15 +605,23 @@ func PageSeedData(config *config.Config) ([]Page, error) {
 		)
 	}
 
-	var pages []Page
+	var pages []*Page
 	err = json.Unmarshal(byteData, &pages)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal into array of %T", pages))
 	}
+
+	sort.SliceStable(pages, func(i, j int) bool {
+		return pages[i].CreatedAt.After(pages[j].CreatedAt)
+	})
+	sort.SliceStable(pages, func(i, j int) bool {
+		return pages[j].ID.String() < pages[i].ID.String()
+	})
+
 	return pages, nil
 }
 
-func seedAuthors(tx *sql.Tx, authors []Author) error {
+func seedAuthors(tx *sql.Tx, authors []*Author) error {
 	_, err := tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -630,7 +670,7 @@ func seedAuthors(tx *sql.Tx, authors []Author) error {
 	return nil
 }
 
-func seedBooks(tx *sql.Tx, books []Book) error {
+func seedBooks(tx *sql.Tx, books []*Book) error {
 	_, err := tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -694,7 +734,7 @@ func seedBooks(tx *sql.Tx, books []Book) error {
 	return nil
 }
 
-func seedPages(tx *sql.Tx, pages []Page) error {
+func seedPages(tx *sql.Tx, pages []*Page) error {
 	_, err := tx.Exec(`SET CLIENT_ENCODING TO 'LATIN2';`)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
