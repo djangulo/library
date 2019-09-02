@@ -15,9 +15,9 @@ const store = configureStore();
 
 ReactDOM.render(
   <Provider store={store}>
-    <BrowserRouter>
+    <BrowserRouter basename="/books">
       <Switch>
-        <Route path={['/books', '/']} component={props => <App {...props} />} />
+        <Route path='/' component={props => <App {...props} />} />
       </Switch>
     </BrowserRouter>
   </Provider>,

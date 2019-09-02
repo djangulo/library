@@ -43,6 +43,10 @@ data/*
 # production .env files
 .envs/.production
 
+static/
+# un-ignore the books static files (these are permanet)
+!static/books 
+
 
 # go compiled files
 

@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -73,6 +74,9 @@ func NewBookServer(
 	middlewares []func(http.Handler) http.Handler,
 	developmentMode bool,
 ) (*BookServer, error) {
+
+	cnf := config.Get()
+
 	b := new(BookServer)
 
 	b.templatesDir = htmlDirPath
@@ -99,6 +103,8 @@ func NewBookServer(
 		r.Use(LanguageCtx)
 		r.Get("/", b.serveIndex)
 	})
+	filesDir := filepath.Join(cnf.Project.Dirs.Static, "client")
+	FileServer(r, "/books", http.Dir(filesDir))
 	r.Get("/", b.redirectRoot)
 
 	r.Mount("/graphql", b.GraphQLRouter())
@@ -111,6 +117,26 @@ func NewBookServer(
 type languageKey int
 
 var langKey languageKey = 100000001
+
+// FileServer conveniently sets up a http.FileServer handler to serve
+// static files from a http.FileSystem.
+func FileServer(r chi.Router, path string, root http.FileSystem) {
+	if strings.ContainsAny(path, "{}*") {
+		panic("FileServer does not permit URL parameters.")
+	}
+
+	fs := http.StripPrefix(path, http.FileServer(root))
+
+	if path != "/" && path[len(path)-1] != '/' {
+		r.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
+		path += "/"
+	}
+	path += "*"
+
+	r.Get(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fs.ServeHTTP(w, r)
+	}))
+}
 
 // LanguageCtx reads language code from url (/en/) and assigns a system language
 func LanguageCtx(next http.Handler) http.Handler {

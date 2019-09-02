@@ -1,4 +1,21 @@
-FROM golang:1.12.8 as builder
+FROM node:12.6-alpine as client_builder
+WORKDIR /client
+COPY client/package.json .
+COPY client/yarn.lock .
+RUN yarn install && yarn global add serve
+# add `/app/node_modules/.bin` to $PATH
+ENV PATH /client/node_modules/.bin:$PATH
+# install and cache app dependencies
+COPY ./client .
+RUN yarn build
+# RUN addgroup -S client \
+#     && adduser -S -G client client
+# RUN chown -R client:client /client
+
+USER client
+
+
+FROM golang:1.12.8 as server_builder
 LABEL maintainer="Denis Angulo <djal@tuta.io>"
 ENV GO111MODULE=on
 
@@ -73,15 +90,16 @@ RUN apk update \
 
 WORKDIR /app
 
-COPY --from=builder /go/bin/books /books
-COPY --from=builder /go/bin/books.test /test
-COPY --from=builder /go/bin/migrate /migrate
-COPY --from=builder /wait-for/wait-for /wait-for
-COPY --from=builder /go/src/github.com/djangulo/library/compose/local/books/entrypoint /entrypoint
-COPY --from=builder /go/src/github.com/djangulo/library/compose/local/books/start /start
-COPY --from=builder /go/src/github.com/djangulo/library/data/ /appdata/
-COPY --from=builder /go/src/github.com/djangulo/library/migrations/ /migrations/
-COPY --from=builder /go/src/github.com/djangulo/library/static/ /static/
+COPY --from=server_builder /go/bin/books /books
+COPY --from=server_builder /go/bin/books.test /test
+COPY --from=server_builder /go/bin/migrate /migrate
+COPY --from=server_builder /wait-for/wait-for /wait-for
+COPY --from=server_builder /go/src/github.com/djangulo/library/compose/local/books/entrypoint /entrypoint
+COPY --from=server_builder /go/src/github.com/djangulo/library/compose/local/books/start /start
+COPY --from=server_builder /go/src/github.com/djangulo/library/data/ /appdata/
+COPY --from=server_builder /go/src/github.com/djangulo/library/migrations/ /migrations/
+COPY --from=server_builder /go/src/github.com/djangulo/library/static/ /static/
+COPY --from=client_builder /client/build/* /static/client/
 # RUN sed -i 's/\r//g' /wait-for
 RUN chmod +x /test /books /wait-for /start /entrypoint /migrate
 RUN chown -R golang:golang \
